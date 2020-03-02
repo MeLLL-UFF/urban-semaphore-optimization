@@ -1,0 +1,5 @@
+# jetbeains configuration
+.idea
+
+/output
+/scenario

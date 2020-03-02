@@ -1,0 +1,5 @@
+scikit-optimize==0.7.3
+tensorflow==2.1.0
+Keras==2.3.1
+lxml==4.4.1
+tqdm==4.43.0

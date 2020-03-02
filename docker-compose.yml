@@ -1,0 +1,9 @@
+version: '3'
+services:
+  traffic-light-optimization:
+    image: traffic-light-optimization:latest
+    build: .
+    volumes:
+      - '../.regions:/.regions'
+      - './scenario:/app/scenario'
+      - './output:/app/output'
