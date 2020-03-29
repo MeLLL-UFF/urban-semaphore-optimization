@@ -1,5 +1,5 @@
 
-FROM ubuntu:bionic
+FROM tensorflow/tensorflow:latest-gpu
 
 ENV SUMO_HOME=/usr/share/sumo
 
