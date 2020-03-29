@@ -1,3 +1,4 @@
+python-dotenv==0.10.3
 scikit-optimize==0.7.3
 tensorflow==2.1.0
 Keras==2.3.1

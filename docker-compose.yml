@@ -7,3 +7,5 @@ services:
       - '../.regions:/.regions'
       - './scenario:/app/scenario'
       - './output:/app/output'
+    env_file:
+      - .env

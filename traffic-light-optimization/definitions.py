@@ -1,9 +1,11 @@
 from os import path
 
+from config import Config as config
+
 
 ROOT_DIR = path.dirname(path.dirname(path.abspath(__file__)))
-SCENARIO_DIR = ROOT_DIR + '/scenario'
-OUTPUT_DIR = ROOT_DIR + '/output'
+SCENARIO_DIR = ROOT_DIR + config.SCENARIO_PATH
+OUTPUT_DIR = ROOT_DIR + config.OUTPUT_PATH
 
 
 def get_tripinfo_dir(experiment):

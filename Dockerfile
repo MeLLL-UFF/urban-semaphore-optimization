@@ -25,6 +25,12 @@ ENV OUTPUT_PATH=/app/output
 
 COPY --chown=root . /app
 
+RUN groupadd -r traffic-light-group && useradd --no-log-init -r -g traffic-light-group traffic-light
+
+RUN chmod -R a=rwx /app
+
+USER traffic-light
+
 VOLUME ${REGIONS_PATH}
 VOLUME ${SCENARIO_PATH}
 VOLUME ${OUTPUT_PATH}

@@ -12,6 +12,7 @@ from city.scenario.scenario_factory import get_scenario
 from city.scenario.inga_small.inga_small_scenario import INGA_SMALL
 from experiment.objective import TIME_LOSS
 from experiment.strategy import OFF
+from config import Config as config
 
 def copy_scenario_files(experiment):
 
@@ -19,7 +20,15 @@ def copy_scenario_files(experiment):
 
     if not os.path.isdir(get_scenario_dir(scenario)):
         os.makedirs(get_scenario_dir(scenario))
-        copy_tree(ROOT_DIR + '/../.regions/' + scenario.name , get_scenario_dir(scenario))
+
+        copy_tree(config.REGIONS_PATH + '/' + scenario.name, get_scenario_dir(scenario))
+
+        for root, dirs, files in os.walk(get_scenario_dir(scenario)):
+            for d in dirs:
+                os.chmod(os.path.join(root, d), 0o777)
+            for f in files:
+                os.chmod(os.path.join(root, f), 0o777)
+
 
         fix_flow_route_association(scenario)
 
@@ -28,6 +37,14 @@ def copy_scenario_files(experiment):
 def prepare_output_folder(experiment):
     if not os.path.isdir(get_tripinfo_dir(experiment)):
         os.makedirs(get_tripinfo_dir(experiment))
+
+        for root, dirs, files in os.walk(get_tripinfo_dir(experiment)):
+            for d in dirs:
+                os.chmod(os.path.join(root, d), 0o777)
+            for f in files:
+                os.chmod(os.path.join(root, f), 0o777)
+
+
 
 def remove_sumocfg_output_configuration(experiment):
 
