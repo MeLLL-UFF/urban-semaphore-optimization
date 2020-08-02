@@ -44,16 +44,16 @@ class IngaSmallScenario(Scenario):
         _direction_traffic_parametrization = {
             ICARAI_CENTRO_DIRECTION: {
                 'cars_total_range': {
-                    'start': 10,
-                    'step': 10,
-                    'stop': 10
+                    'start': 0,
+                    'step': 500,
+                    'stop': 3000
                 }
             },
             CENTRO_ICARAI_DIRECTION: {
                 'cars_total_range': {
-                    'start': 10,
-                    'step': 10,
-                    'stop': 10
+                    'start': 0,
+                    'step': 500,
+                    'stop': 3000
                 }
             },
         }
