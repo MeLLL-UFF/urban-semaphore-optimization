@@ -5,10 +5,10 @@ import random
 import numpy as np
 import pickle
 from math import isnan
-from config import DIC_AGENTS, DIC_ENVS
-from script import  *
+from algorithm.frap.internal.frap_pub.config import DIC_AGENTS, DIC_ENVS
+from algorithm.frap.internal.frap_pub.script import  *
 
-from frap_definitions import ROOT_DIR
+from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
 
 validation_set = [
     "synthetic-over-WE254-EW221-NS671-SN747-1893.xml",

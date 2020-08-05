@@ -1,8 +1,8 @@
 import os
 import copy
-from config import DIC_AGENTS, DIC_ENVS
+from algorithm.frap.internal.frap_pub.config import DIC_AGENTS, DIC_ENVS
 
-from frap_definitions import ROOT_DIR
+from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
 
 
 class Generator:

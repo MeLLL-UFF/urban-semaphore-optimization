@@ -11,10 +11,10 @@ import os
 from keras.callbacks import EarlyStopping, TensorBoard
 import pickle as pkl
 
-from agent import Agent
+from algorithm.frap.internal.frap_pub.agent import Agent
 import copy
 
-from frap_definitions import ROOT_DIR
+from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
 
 rotation_matrix_2_p = np.zeros((4, 4))
 j = 2

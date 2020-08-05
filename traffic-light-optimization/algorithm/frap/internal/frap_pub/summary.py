@@ -6,12 +6,12 @@ import json
 import copy
 from math import isnan
 import matplotlib as mlp
-from script import  *
+from algorithm.frap.internal.frap_pub.script import  *
 
 mlp.use("agg")
 import matplotlib.pyplot as plt
 
-from frap_definitions import ROOT_DIR
+from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
 
 font = {'size': 24}
 mlp.rc('font', **font)

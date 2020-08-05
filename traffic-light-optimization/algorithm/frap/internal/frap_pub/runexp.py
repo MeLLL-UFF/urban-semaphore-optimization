@@ -1,11 +1,11 @@
-import config
+import algorithm.frap.internal.frap_pub.config as config
 import copy
-from pipeline import Pipeline
+from algorithm.frap.internal.frap_pub.pipeline import Pipeline
 import os
 import time
 from multiprocessing import Process
 import sys
-from script import get_traffic_volume
+from algorithm.frap.internal.frap_pub.script import get_traffic_volume
 
 
 def memo_rename(traffic_file_list):

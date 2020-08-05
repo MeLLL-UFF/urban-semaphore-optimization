@@ -1,5 +1,8 @@
 import os
 import copy
+import sys
+
+sys.path.append('traffic-light-optimization')
 
 import lxml.etree as etree
 

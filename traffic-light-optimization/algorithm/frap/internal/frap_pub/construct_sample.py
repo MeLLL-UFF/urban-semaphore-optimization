@@ -2,7 +2,7 @@ import numpy as np
 import pickle
 import os
 
-from frap_definitions import ROOT_DIR
+from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
 
 class ConstructSample:
 

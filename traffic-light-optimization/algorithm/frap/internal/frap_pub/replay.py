@@ -3,10 +3,10 @@ import os
 import time
 from multiprocessing import Process
 import pickle
-from config import DIC_AGENTS, DIC_ENVS
+from algorithm.frap.internal.frap_pub.config import DIC_AGENTS, DIC_ENVS
 import sys
 
-from frap_definitions import ROOT_DIR
+from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
 
 
 def parse_args():

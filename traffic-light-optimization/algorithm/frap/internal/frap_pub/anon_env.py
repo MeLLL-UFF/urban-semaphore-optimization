@@ -5,9 +5,9 @@ import sys
 import pandas as pd
 import os
 #import engine
-from script import get_traffic_volume, get_total_traffic_volume
+from algorithm.frap.internal.frap_pub.script import get_traffic_volume, get_total_traffic_volume
 
-from frap_definitions import ROOT_DIR
+from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
 
 class Intersection:
     DIC_PHASE_MAP = {

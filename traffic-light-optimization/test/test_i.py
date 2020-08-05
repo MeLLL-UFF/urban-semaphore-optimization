@@ -2,6 +2,8 @@ import os
 import sys
 import time
 
+sys.path.append('traffic-light-optimization')
+
 import traci
 import lxml.etree as etree
 

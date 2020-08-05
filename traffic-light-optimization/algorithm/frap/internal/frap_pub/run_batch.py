@@ -1,11 +1,11 @@
-import runexp
-import testexp
-import summary
+import algorithm.frap.internal.frap_pub.runexp as runexp
+import algorithm.frap.internal.frap_pub.testexp as testexp
+import algorithm.frap.internal.frap_pub.summary as summary
 import argparse
 import os
 import time
 
-from frap_definitions import ROOT_DIR
+from definitions import ROOT_DIR
 
 def parse_args():
     parser = argparse.ArgumentParser()

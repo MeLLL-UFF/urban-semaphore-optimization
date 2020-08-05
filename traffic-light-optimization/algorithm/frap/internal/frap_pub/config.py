@@ -1,8 +1,8 @@
 # parameters and paths
 
-from transfer_dqn_agent import TransferDQNAgent
-from sumo_env import SumoEnv
-from anon_env import AnonEnv
+from algorithm.frap.internal.frap_pub.transfer_dqn_agent import TransferDQNAgent
+from algorithm.frap.internal.frap_pub.sumo_env import SumoEnv
+from algorithm.frap.internal.frap_pub.anon_env import AnonEnv
 
 DIC_EXP_CONF = {
     "RUN_COUNTS": 3600,

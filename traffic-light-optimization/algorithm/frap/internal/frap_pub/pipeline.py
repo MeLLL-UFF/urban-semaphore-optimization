@@ -2,21 +2,21 @@ import json
 import os
 import shutil
 import xml.etree.ElementTree as ET
-from generator import Generator
-from construct_sample import ConstructSample
-from updater import Updater
+from algorithm.frap.internal.frap_pub.generator import Generator
+from algorithm.frap.internal.frap_pub.construct_sample import ConstructSample
+from algorithm.frap.internal.frap_pub.updater import Updater
 from multiprocessing import Process
-from model_pool import ModelPool
+from algorithm.frap.internal.frap_pub.model_pool import ModelPool
 import random
 import pickle
-import model_test
+import algorithm.frap.internal.frap_pub.model_test as model_test
 import pandas as pd
 import numpy as np
 from math import isnan
 import sys
 import time
 
-from frap_definitions import ROOT_DIR
+from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
 
 class Pipeline:
     _LIST_SUMO_FILES = [

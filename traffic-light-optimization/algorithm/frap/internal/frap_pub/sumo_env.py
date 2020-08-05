@@ -13,7 +13,7 @@ from sympy.functions.elementary.trigonometric import atan2
 from sympy.core.numbers import pi
 from sumolib import checkBinary
 
-from frap_definitions import ROOT_DIR
+from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
 
 # ================
 # initialization checed
