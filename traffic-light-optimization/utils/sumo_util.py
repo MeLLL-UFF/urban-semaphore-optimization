@@ -5,6 +5,9 @@ import optparse
 
 from sumolib import checkBinary
 import lxml.etree as etree
+from sympy.geometry.line import Point
+from sympy.functions.elementary.trigonometric import atan2
+from sympy.core.numbers import pi
 
 from city.flow.configurer.flow_configurer import FlowConfigurer
 from city.traffic_light_system.traffic_light.configurer.traffic_light_configurer_factory import traffic_light_configurer_instances
@@ -124,3 +127,142 @@ def reset_sumo_flow_parameters(scenario):
     route_filename = os.path.abspath(get_route_file_path(scenario))
 
     route_xml_copy.write(route_filename, pretty_print=True)
+
+
+def get_connections(net_xml, from_edge='ALL', to_edge='ALL'):
+
+    from_attribute = ''
+    to_attribute = ''
+    if from_edge != 'ALL':
+        from_attribute = "[@from='" + from_edge + "']"
+    if to_edge != 'ALL':
+        to_attribute = "[@to='" + to_edge + "']"
+
+    connections = net_xml.findall(".//connection" + from_attribute + to_attribute)
+
+    edges = net_xml.findall(".//edge[@priority]")
+    edge_ids = [edge.attrib['id'] for edge in edges]
+
+    actual_connections = []
+    for connection in connections:
+        connection_from = connection.attrib['from']
+        connection_to = connection.attrib['to']
+
+        if connection_from in edge_ids and connection_to in edge_ids:
+            actual_connections.append(connection)
+
+    return actual_connections
+
+def sort_edges_by_angle(net_xml, edge_ids, incoming=True, clockwise=True):
+
+    all_edges = net_xml.findall(".//edge[@priority]")
+
+    ids_and_angles = []
+    for edge in all_edges:
+
+        edge_id = edge.attrib['id']
+        if edge_id in edge_ids:
+            lane = edge[0]
+            polyline = lane.attrib['shape']
+            polyline_points = polyline.split()
+
+            first_point = Point(polyline_points[0].split(','))
+            last_point = Point(polyline_points[-1].split(','))
+
+            if incoming:
+                first_point, last_point = last_point, first_point
+
+            normalized_point = last_point - first_point
+
+            angle = atan2(normalized_point.x, normalized_point.y)
+
+            if angle < 0:
+                angle += 2*pi
+
+            ids_and_angles.append([edge_id, angle])
+
+    reverse = not clockwise
+
+    ids_and_angles.sort(key=lambda x: x[1], reverse=reverse)
+
+    angle_sorted_ids = [id for id, angle in ids_and_angles]
+
+    return angle_sorted_ids
+
+def get_intersection_edge_ids(net_xml, from_edge='ALL', to_edge='ALL', sorted=True):
+
+    connections = get_connections(net_xml, from_edge=from_edge, to_edge=to_edge)
+
+    incoming_edges = set()
+    outgoing_edges = set()
+
+    for connection in connections:
+        connection_from = connection.attrib['from']
+        connection_to = connection.attrib['to']
+
+        incoming_edges.add(connection_from)
+        outgoing_edges.add(connection_to)
+
+    if sorted:
+        incoming_edges = sort_edges_by_angle(net_xml, incoming_edges)
+        outgoing_edges = sort_edges_by_angle(net_xml, outgoing_edges, incoming=False)
+    else:
+        incoming_edges = list(incoming_edges)
+        outgoing_edges = list(outgoing_edges)
+
+    return incoming_edges, outgoing_edges
+
+def get_lane_traffic_light_controller(net_xml, lanes_ids):
+
+    connections = get_connections(net_xml)
+
+    lane_to_traffic_light_index_mapping = {}
+    for connection in connections:
+        from_edge = connection.attrib['from']
+        from_lane = connection.attrib['fromLane']
+
+        lane_id = from_edge + '_' + from_lane
+        if lane_id in lanes_ids:
+            traffic_light_index = connection.attrib['linkIndex']
+            lane_to_traffic_light_index_mapping[lane_id] = traffic_light_index
+
+    return lane_to_traffic_light_index_mapping
+
+def translate_polyline(polyline, x=0, y=0):
+
+    polyline_points = polyline.split()
+
+    translated_polyline = []
+    for point in polyline_points:
+        coordinates = point.split(',')
+        coordinates[0] = str(float(coordinates[0]) + x)
+        coordinates[1] = str(float(coordinates[1]) + y)
+        translated_polyline.append(coordinates[0] + ',' + coordinates[1])
+
+    return ' '.join(translated_polyline)
+
+
+def adjusts_intersection_position(junctions, edges, x_spacing=0, y_spacing=0):
+    for junction in junctions:
+        junction.attrib['x'] = str(float(junction.attrib['x']) + x_spacing)
+        junction.attrib['y'] = str(float(junction.attrib['y']) + y_spacing)
+
+        if 'shape' in junction.attrib:
+            junction.attrib['shape'] = translate_polyline(junction.attrib['shape'], x=x_spacing, y=y_spacing)
+
+    for edge in edges:
+        for lane in edge:
+            lane.attrib['shape'] = translate_polyline(lane.attrib['shape'], x=x_spacing, y=y_spacing)
+
+
+def map_connection_direction(connection):
+    direction = connection.attrib['dir'].lower()
+
+    if direction == 'l':
+        direction = 'left_turn'
+    elif direction == 's':
+        direction = 'straight'
+    elif direction == 'r':
+        direction = 'right_turn'
+
+    return direction
