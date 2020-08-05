@@ -139,7 +139,7 @@ dmypy.json
 
 /output
 /scenario
-/traffic-light-optimization/algorithm/frap/internal/frap-pub/data
-/traffic-light-optimization/algorithm/frap/internal/frap-pub/model
-/traffic-light-optimization/algorithm/frap/internal/frap-pub/records
-/traffic-light-optimization/algorithm/frap/internal/frap-pub/summary
+/traffic-light-optimization/algorithm/frap/internal/frap_pub/data
+/traffic-light-optimization/algorithm/frap/internal/frap_pub/model
+/traffic-light-optimization/algorithm/frap/internal/frap_pub/records
+/traffic-light-optimization/algorithm/frap/internal/frap_pub/summary
