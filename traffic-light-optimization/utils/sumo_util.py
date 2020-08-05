@@ -5,7 +5,7 @@ import optparse
 
 from sumolib import checkBinary
 import lxml.etree as etree
-from sympy.geometry.line import Line, Point
+from sympy.geometry.line import Point
 from sympy.functions.elementary.trigonometric import atan2
 from sympy.core.numbers import pi
 
@@ -153,22 +153,6 @@ def get_connections(net_xml, from_edge='ALL', to_edge='ALL'):
 
     return actual_connections
 
-def get_intersection_edge_ids(net_xml, from_edge='ALL', to_edge='ALL'):
-
-    connections = get_connections(net_xml, from_edge=from_edge, to_edge=to_edge)
-
-    incoming_edges = set()
-    outgoing_edges = set()
-
-    for connection in connections:
-        connection_from = connection.attrib['from']
-        connection_to = connection.attrib['to']
-
-        incoming_edges.add(connection_from)
-        outgoing_edges.add(connection_to)
-
-    return incoming_edges, outgoing_edges
-
 def sort_edges_by_angle(net_xml, edge_ids, incoming=True, clockwise=True):
 
     all_edges = net_xml.findall(".//edge[@priority]")
@@ -204,6 +188,45 @@ def sort_edges_by_angle(net_xml, edge_ids, incoming=True, clockwise=True):
     angle_sorted_ids = [id for id, angle in ids_and_angles]
 
     return angle_sorted_ids
+
+def get_intersection_edge_ids(net_xml, from_edge='ALL', to_edge='ALL', sorted=True):
+
+    connections = get_connections(net_xml, from_edge=from_edge, to_edge=to_edge)
+
+    incoming_edges = set()
+    outgoing_edges = set()
+
+    for connection in connections:
+        connection_from = connection.attrib['from']
+        connection_to = connection.attrib['to']
+
+        incoming_edges.add(connection_from)
+        outgoing_edges.add(connection_to)
+
+    if sorted:
+        incoming_edges = sort_edges_by_angle(net_xml, incoming_edges)
+        outgoing_edges = sort_edges_by_angle(net_xml, outgoing_edges, incoming=False)
+    else:
+        incoming_edges = list(incoming_edges)
+        outgoing_edges = list(outgoing_edges)
+
+    return incoming_edges, outgoing_edges
+
+def get_lane_traffic_light_controller(net_xml, lanes_ids):
+
+    connections = get_connections(net_xml)
+
+    lane_to_traffic_light_index_mapping = {}
+    for connection in connections:
+        from_edge = connection.attrib['from']
+        from_lane = connection.attrib['fromLane']
+
+        lane_id = from_edge + '_' + from_lane
+        if lane_id in lanes_ids:
+            traffic_light_index = connection.attrib['linkIndex']
+            lane_to_traffic_light_index_mapping[lane_id] = traffic_light_index
+
+    return lane_to_traffic_light_index_mapping
 
 def translate_polyline(polyline, x=0, y=0):
 

@@ -1,9 +1,11 @@
 import os
 import sys
+import time
 
 import traci
 import lxml.etree as etree
 
+from algorithm.frap.frap import Frap
 import definitions
 from utils.traffic_util import generate_unique_traffic_level_configurations
 from utils.sumo_util import get_intersection_edge_ids, get_connections, map_connection_direction, get_sumo_binary, \
@@ -189,7 +191,7 @@ def _start_traci(net_file, route_file, output_file):
     while traci.simulation.getMinExpectedNumber() > 0:
         traci.simulationStep()
 
-def _run(type='regular'):
+def _run(type='regular', algorithm=None):
     # type : regular, right_on_red, unregulated
 
     parser = etree.XMLParser(remove_blank_text=True)
@@ -221,14 +223,37 @@ def _run(type='regular'):
             output_file = output_folder + name + '__' + type + '_' + '_'.join(traffic_level_configuration) + \
                           '_' + 'tripinfo' + '.out.xml'
 
-            _start_traci(net_file, route_file, output_file)
+            if algorithm:
 
-            traci.close()
+                begin = time.time()
+
+                frap = Frap()
+                frap.run(net_file, route_file, output_file)
+
+                end = time.time()
+                timing = end - begin
+
+                with open(scenario_folder + '/' + 'frap_timing.txt', 'a') as handle:
+                    handle.write(str(timing))
+            else:
+                _start_traci(net_file, route_file, output_file)
+                traci.close()
+
             sys.stdout.flush()
 
             os.remove(route_file)
 
 
-_build_experiment_i_routes()
-_run(type='right_on_red')
-#_run(type='unregulated')
+def run():
+    #'OFF', STATIC, and FRAP
+    #_run(type='unregulated')
+    #_run(type='right_on_red')
+    _run(type='right_on_red', algorithm='FRAP')
+
+
+if __name__ == "__main__":
+    _build_experiment_i_routes()
+    run()
+
+    #_run(type='right_on_red')
+    #_run(type='unregulated')
