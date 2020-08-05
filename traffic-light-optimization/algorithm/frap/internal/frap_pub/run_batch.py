@@ -5,7 +5,7 @@ import argparse
 import os
 import time
 
-from definitions import ROOT_DIR
+from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
 
 def parse_args():
     parser = argparse.ArgumentParser()
