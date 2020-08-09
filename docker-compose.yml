@@ -16,3 +16,5 @@ services:
       - './traffic-light-optimization/algorithm/frap/internal/frap_pub/summary:/app/traffic-light-optimization/algorithm/frap/internal/frap_pub/summary'
     env_file:
       - .env
+    # CURRENT_UID=$(id -u):$(id -g) before docker-compose command
+    #user: ${CURRENT_UID}

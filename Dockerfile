@@ -47,5 +47,6 @@ VOLUME ${FRAP_MODEL_PATH}
 VOLUME ${FRAP_RECORDS_PATH}
 VOLUME ${FRAP_SUMMARY_PATH}
 
+
 ENTRYPOINT ["python3"]
 CMD ["./traffic-light-optimization/sumo_main.py"]
