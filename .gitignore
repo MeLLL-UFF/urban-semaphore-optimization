@@ -137,6 +137,9 @@ dmypy.json
 # jetbeains configuration
 .idea
 
+# vscode configuration
+.vscode
+
 /output
 /scenario
 /traffic-light-optimization/algorithm/frap/internal/frap_pub/data

@@ -29,7 +29,7 @@ def get_metrics(duration_list, queue_length_list, min_duration, min_duration_id,
     # min_duration, min_duration_id = np.min(duration_list), np.argmin(duration_list)
     # min_queue_length, min_queue_length_id = np.min(queue_length_list), np.argmin(queue_length_list)
 
-    nan_count = len(np.where(duration_list == NAN_LABhEL)[0])
+    nan_count = len(np.where(duration_list == NAN_LABEL)[0])
     validation_duration = duration_list[-validation_duration_length:]
     final_duration = np.round(np.mean(validation_duration[validation_duration > 0]), decimals=2)
     final_duration_std = np.round(np.std(validation_duration[validation_duration > 0]), decimals=2)

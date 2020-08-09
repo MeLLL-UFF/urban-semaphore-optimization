@@ -1,8 +1,21 @@
+print('Enabling attach')
+import ptvsd
+ptvsd.enable_attach(address=('0.0.0.0', 5678))
+print('Waiting for attach')
+ptvsd.wait_for_attach()
+
 import os
 import sys
 import time
 
 sys.path.append('traffic-light-optimization')
+
+# we need to import python modules from the $SUMO_HOME/tools directory
+if 'SUMO_HOME' in os.environ:
+    tools = os.path.join(os.environ['SUMO_HOME'], 'tools')
+    sys.path.append(tools)
+else:
+    sys.exit("please declare environment variable 'SUMO_HOME'")
 
 import traci
 import lxml.etree as etree

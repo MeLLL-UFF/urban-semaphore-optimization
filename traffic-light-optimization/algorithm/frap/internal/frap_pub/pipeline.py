@@ -214,7 +214,7 @@ class Pipeline:
         pickle.dump(subset_data, f_subset)
         f_subset.close()
 
-    def run(self, multi_process=False):
+    def run(self, multi_process=True):
 
         best_round, bar_round = None, None
         # pretrain for acceleration

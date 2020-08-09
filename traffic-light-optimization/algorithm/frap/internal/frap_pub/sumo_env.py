@@ -780,7 +780,8 @@ class SumoEnv:
             try:
                 traci.start(self.sumo_cmd_str)
                 break
-            except:
+            except Exception as e:
+                traci.close()
                 continue
         print ("succeed in start sumo")
 

@@ -3,9 +3,16 @@ services:
   traffic-light-optimization:
     image: traffic-light-optimization:latest
     build: .
+    command: traffic-light-optimization/test/test_i.py
+    ports:
+      - 5678:5678
     volumes:
       - '../.regions:/.regions'
       - './scenario:/app/scenario'
       - './output:/app/output'
+      - './traffic-light-optimization/algorithm/frap/internal/frap_pub/data:/app/traffic-light-optimization/algorithm/frap/internal/frap_pub/data'
+      - './traffic-light-optimization/algorithm/frap/internal/frap_pub/model:/app/traffic-light-optimization/algorithm/frap/internal/frap_pub/model'
+      - './traffic-light-optimization/algorithm/frap/internal/frap_pub/records:/app/traffic-light-optimization/algorithm/frap/internal/frap_pub/records'
+      - './traffic-light-optimization/algorithm/frap/internal/frap_pub/summary:/app/traffic-light-optimization/algorithm/frap/internal/frap_pub/summary'
     env_file:
       - .env

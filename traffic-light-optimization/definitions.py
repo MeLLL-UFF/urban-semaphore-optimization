@@ -4,12 +4,9 @@ from config import Config as config
 
 
 ROOT_DIR = path.dirname(path.dirname(path.abspath(__file__)))
-SCENARIO_DIR = ROOT_DIR + config.SCENARIO_PATH
-OUTPUT_DIR = ROOT_DIR + config.OUTPUT_PATH
-
 
 def get_tripinfo_dir(experiment):
-    return OUTPUT_DIR + '/' + experiment.path + '/tripinfo'
+    return config.OUTPUT_PATH + '/' + experiment.path + '/tripinfo'
 
 def get_tripinfo_filename(experiment, execution):
     return 'tripinfo' + '_' + experiment.name + '_' + str(execution) + '.xml'
@@ -20,7 +17,7 @@ def get_tripinfo_file_path(experiment, execution):
 
 
 def get_scenario_dir(scenario):
-    return SCENARIO_DIR + '/' + scenario.name
+    return config.SCENARIO_PATH + '/' + scenario.name
 
 
 def get_route_filename(scenario):
