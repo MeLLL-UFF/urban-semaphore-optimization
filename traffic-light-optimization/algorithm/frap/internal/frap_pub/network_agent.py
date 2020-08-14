@@ -97,10 +97,9 @@ class NetworkAgent(Agent):
         import tensorflow as tf
         #import keras.backend.tensorflow_backend as KTF
 
-        tf_config = tf.compat.v1.ConfigProto(
-            device_count={'GPU': 0}
-        )
+        tf_config = tf.compat.v1.ConfigProto()
         tf_config.gpu_options.allow_growth = True
+        tf_config.gpu_options.per_process_gpu_memory_fraction = 0.2
         session = tf.compat.v1.Session(config=tf_config)
         tf.compat.v1.keras.backend.set_session(session)
         #KTF.set_session(session)

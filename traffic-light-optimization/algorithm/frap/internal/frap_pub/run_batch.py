@@ -49,7 +49,7 @@ def run():
     args = parse_args()
     # memo = "multi_phase/optimal_search_new/new_headway_anon"
     memo = args.memo
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.visible_gpu
+    #os.environ["CUDA_VISIBLE_DEVICES"] = args.visible_gpu
 
     t1 = time.time()
     runexp.main(args, memo)

@@ -776,13 +776,16 @@ class SumoEnv:
         self.list_lanes = np.unique(self.list_lanes).tolist()
 
         print ("start sumo")
-        while True:
+        try:
+            traci.start(self.sumo_cmd_str)
+        except Exception as e:
+            traci.close()
             try:
                 traci.start(self.sumo_cmd_str)
-                break
             except Exception as e:
-                traci.close()
-                continue
+                print('TRACI TERMINATED')
+                print(str(e))
+                
         print ("succeed in start sumo")
 
         # start subscription
