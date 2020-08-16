@@ -364,7 +364,7 @@ class AnonEnv:
         "intersection_1_1"
     ]
 
-    def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf):
+    def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf, external_configurations={}):
         self.path_to_log = path_to_log
         self.path_to_work_directory = path_to_work_directory
         self.dic_traffic_env_conf = dic_traffic_env_conf
@@ -396,7 +396,7 @@ class AnonEnv:
             f = open(ROOT_DIR + '/' + path_to_log_file, "wb")
             f.close()
 
-    def reset(self, dic_path):
+    def reset(self, dic_path, external_configurations={}):
 
         # self.eng.reset() to be implemented
         self.eng = engine.Engine(self.dic_traffic_env_conf["INTERVAL"],

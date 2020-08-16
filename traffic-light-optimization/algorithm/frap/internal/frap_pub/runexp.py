@@ -39,11 +39,12 @@ def check_all_workers_working(list_cur_p):
     return -1
 
 
-def pipeline_wrapper(dic_exp_conf, dic_agent_conf, dic_traffic_env_conf, dic_path):
+def pipeline_wrapper(dic_exp_conf, dic_agent_conf, dic_traffic_env_conf, dic_path, external_configurations={}):
     ppl = Pipeline(dic_exp_conf=dic_exp_conf,
                    dic_agent_conf=dic_agent_conf,
                    dic_traffic_env_conf=dic_traffic_env_conf,
-                   dic_path=dic_path
+                   dic_path=dic_path,
+                   external_configurations=external_configurations
                    )
     ppl.run(multi_process=True)
 
@@ -51,13 +52,16 @@ def pipeline_wrapper(dic_exp_conf, dic_agent_conf, dic_traffic_env_conf, dic_pat
     return
 
 
-def main(args=None, memo=None):
+def main(args=None, memo=None, external_configurations={}):
 
-    traffic_file_list = [
-        "0_regular-intersection.rou.xml"
-        #"inter_0_1786.json",
+    #traffic_file_list = [
+    #    "0_regular-intersection.rou.xml"
+    #    #"inter_0_1786.json",
+    #]
 
-    ]
+    traffic_file_list = external_configurations['TRAFFIC_FILE_LIST']
+    roadnet_file = external_configurations['ROADNET_FILE']
+    number_of_legs = external_configurations['N_LEG']
 
     process_list = []
     n_workers = args.workers #len(traffic_file_list)
@@ -80,7 +84,7 @@ def main(args=None, memo=None):
             "MODEL_NAME": model_name,
             "TRAFFIC_FILE": [traffic_file], # here: change to multi_traffic
             #"ROADNET_FILE": "roadnet_1_1.json",
-            "ROADNET_FILE": "0_regular-intersection__right_on_red.net.xml",
+            "ROADNET_FILE": roadnet_file,
 
             "NUM_ROUNDS": args.run_round,
             "NUM_GENERATORS": 3,
@@ -143,7 +147,7 @@ def main(args=None, memo=None):
 
             "TRAFFIC_FILE": traffic_file,
             #"ROADNET_FILE": "roadnet_1_1.json",
-            "ROADNET_FILE": "0_regular-intersection__right_on_red.net.xml",
+            "ROADNET_FILE": roadnet_file,
 
             "LIST_STATE_FEATURE": [
                 "cur_phase",
@@ -204,7 +208,7 @@ def main(args=None, memo=None):
 
             "LOG_DEBUG": args.debug,
 
-            "N_LEG": 4,
+            "N_LEG": number_of_legs,
         }
 
         if ".json" in traffic_file:
@@ -301,6 +305,52 @@ def main(args=None, memo=None):
                         ],
                     }
                 )
+                
+        elif dic_traffic_env_conf_extra["N_LEG"] == 3:
+
+            dic_traffic_env_conf_extra.update(
+                {
+                    "LANE_NUM": {
+                        "LEFT": 1,
+                        "RIGHT": 0,
+                        "STRAIGHT": 1
+                    },
+
+                    "PHASE": [
+                        '0T_0L',
+                        '0T_1L',
+                        '0T_2T',
+                        '0L_1L',
+                        '0L_2T',
+                        '1L_2T',
+                    ],
+
+                    "list_lane_order": ["0T", "0L", "1L", "2T"],
+                }
+            )
+
+        elif dic_traffic_env_conf_extra["N_LEG"] == 2:
+
+            dic_traffic_env_conf_extra.update(
+                {
+                    "LANE_NUM": {
+                        "LEFT": 1,
+                        "RIGHT": 0,
+                        "STRAIGHT": 1
+                    },
+
+                    "PHASE": [
+                        'WT_ET',
+                        'NT_ST',
+                        'WL_EL',
+                        'NL_SL',
+                        'WL_WT',
+                        'EL_ET',
+                        'SL_ST',
+                        'NL_NT',
+                    ],
+                }
+            )
         else:
             print("n leg error")
             sys.exit()
@@ -353,13 +403,15 @@ def main(args=None, memo=None):
                           args=(deploy_dic_exp_conf,
                                 deploy_dic_agent_conf,
                                 deploy_dic_traffic_env_conf,
-                                deploy_dic_path))
+                                deploy_dic_path,
+                                external_configurations))
             process_list.append(ppl)
         else:
             pipeline_wrapper(dic_exp_conf=deploy_dic_exp_conf,
                              dic_agent_conf=deploy_dic_agent_conf,
                              dic_traffic_env_conf=deploy_dic_traffic_env_conf,
-                             dic_path=deploy_dic_path)
+                             dic_path=deploy_dic_path,
+                             external_configurations=external_configurations)
 
     if multi_process:
         i = 0

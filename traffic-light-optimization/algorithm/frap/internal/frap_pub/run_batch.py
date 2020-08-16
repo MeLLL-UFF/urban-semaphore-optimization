@@ -44,7 +44,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def run():
+def run(external_configurations={}):
     # python run_batch.py - -num_phase = 8 - -algorithm = TransferDQN - -workers = 12 - -memo = TransferDQN
     args = parse_args()
     # memo = "multi_phase/optimal_search_new/new_headway_anon"
@@ -52,7 +52,7 @@ def run():
     #os.environ["CUDA_VISIBLE_DEVICES"] = args.visible_gpu
 
     t1 = time.time()
-    runexp.main(args, memo)
+    runexp.main(args, memo, external_configurations)
     print("****************************** runexp ends (generate, train, test)!! ******************************")
     t2 = time.time()
     f_timing = open(os.path.join(ROOT_DIR, "records", memo, "timing.txt"), "a+")

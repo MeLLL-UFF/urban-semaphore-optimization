@@ -209,20 +209,22 @@ def get_intersection_edge_ids(net_xml, from_edge='ALL', to_edge='ALL', sorted=Tr
 
 class Intersection:
 
-    def __init__(self, light_id, list_vehicle_variables_to_sub, dic_sumo_env_conf, dic_path):
+    def __init__(self, light_id, list_vehicle_variables_to_sub, dic_sumo_env_conf, dic_path, external_configurations={}):
 
         '''
         still need to automate generation
         '''
 
-        net_file = os.path.join(ROOT_DIR, dic_path["PATH_TO_WORK_DIRECTORY"],
-                                "0_regular-intersection__right_on_red.net.xml")
+        roadnet_file = external_configurations['ROADNET_FILE']
+
+        net_file = os.path.join(ROOT_DIR, dic_path["PATH_TO_WORK_DIRECTORY"], roadnet_file)
 
         parser = etree.XMLParser(remove_blank_text=True)
 
         self.net_file_xml = etree.parse(net_file, parser)
 
-        self.node_light = 'gneJ0'
+        self.node_light = external_configurations['NODE_LIGHT']
+        #self.node_light = 'gneJ0'
         #self.node_light = "inter{0}".format(light_id)
         self.list_vehicle_variables_to_sub = list_vehicle_variables_to_sub
 
@@ -686,7 +688,7 @@ class SumoEnv:
         "VAR_LANEPOSITION",
     ]
 
-    def _get_sumo_cmd(self):
+    def _get_sumo_cmd(self, external_configurations={}):
 
         if platform == "linux" or platform == "linux2":
             if os.environ['SUMO_HOME'] == '/usr/share/sumo':
@@ -711,36 +713,37 @@ class SumoEnv:
         else:
             sys.exit("platform error")
 
+        sumocfg_file = external_configurations['SUMOCFG_FILE']
+
         real_path_to_sumo_files = os.path.join(os.path.split(os.path.realpath(__file__))[0],
-                                               self.path_to_work_directory,
-                                               "0_regular-intersection__right_on_red.sumocfg")
+                                               self.path_to_work_directory, sumocfg_file)
 
-        sumo_cmd = [sumo_binary,
-                   '-c',
-                   r'{0}'.format(real_path_to_sumo_files),
-                   "--step-length",
-                   str(self.dic_traffic_env_conf["INTERVAL"])
-                    ]
+        sumocfg_parameters = external_configurations['SUMOCFG_PARAMETERS']
 
-        sumo_cmd_nogui = [sumo_binary_nogui,
-                         '-c',
-                         r'{0}'.format(real_path_to_sumo_files),
-                         "--step-length",
-                         str(self.dic_traffic_env_conf["INTERVAL"])
-                          ]
+        if not sumocfg_parameters:
+            sumocfg_parameters = {
+                '-c': r'{0}'.format(real_path_to_sumo_files),
+                '--step-length': str(self.dic_traffic_env_conf["INTERVAL"])
+            }
+
+        sumocfg_parameters_list = [str(item) for key_value_pair in sumocfg_parameters.items() for item in key_value_pair]
+
+        sumo_cmd = [sumo_binary, *sumocfg_parameters_list]
+
+        sumo_cmd_nogui = [sumo_binary_nogui, *sumocfg_parameters_list]
 
         if self.dic_traffic_env_conf["IF_GUI"]:
             return sumo_cmd
         else:
             return sumo_cmd_nogui
 
-    def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf):
+    def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf, external_configurations={}):
 
         self.path_to_log = path_to_log
         self.path_to_work_directory = path_to_work_directory
         self.dic_traffic_env_conf = dic_traffic_env_conf
 
-        self.sumo_cmd_str = self._get_sumo_cmd()
+        self.sumo_cmd_str = self._get_sumo_cmd(external_configurations=external_configurations)
 
         self.list_intersection = None
         self.list_inter_log = None
@@ -758,7 +761,7 @@ class SumoEnv:
             f = open(ROOT_DIR + '/' + path_to_log_file, "wb")
             f.close()
 
-    def reset(self, dic_path):
+    def reset(self, dic_path, external_configurations={}):
 
         # initialize intersections
         # self.list_intersection = [Intersection(i, self.LIST_VEHICLE_VARIABLES_TO_SUB) for i in range(self.dic_sumo_env_conf["NUM_INTERSECTIONS"])]
@@ -766,7 +769,9 @@ class SumoEnv:
         self.list_intersection = []
         for i in range(self.dic_traffic_env_conf["NUM_INTERSECTIONS"]):
             for j in range(self.dic_traffic_env_conf["NUM_INTERSECTIONS"]):
-                self.list_intersection.append(Intersection("{0}_{1}".format(i, j), self.LIST_VEHICLE_VARIABLES_TO_SUB, self.dic_traffic_env_conf, dic_path))
+                self.list_intersection.append(Intersection("{0}_{1}".format(i, j), self.LIST_VEHICLE_VARIABLES_TO_SUB,
+                                                           self.dic_traffic_env_conf, dic_path,
+                                                           external_configurations=external_configurations))
 
         self.list_inter_log = [[] for i in range(len(self.list_intersection))]
         # get lanes list
@@ -785,7 +790,7 @@ class SumoEnv:
             except Exception as e:
                 print('TRACI TERMINATED')
                 print(str(e))
-                
+                raise e
         print ("succeed in start sumo")
 
         # start subscription

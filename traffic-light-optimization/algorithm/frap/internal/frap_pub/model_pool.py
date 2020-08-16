@@ -61,7 +61,7 @@ class ModelPool():
         else:
             self.best_model_pool = []
 
-    def single_test(self, cnt_round):
+    def single_test(self, cnt_round, external_configurations={}):
         print("Start testing model pool")
 
         records_dir = self.dic_path["PATH_TO_WORK_DIRECTORY"]
@@ -104,10 +104,11 @@ class ModelPool():
             env = DIC_ENVS[dic_traffic_env_conf["SIMULATOR_TYPE"]](
                              path_to_log=path_to_log,
                              path_to_work_directory=self.dic_path["PATH_TO_WORK_DIRECTORY"],
-                             dic_traffic_env_conf=dic_traffic_env_conf)
+                             dic_traffic_env_conf=dic_traffic_env_conf,
+                             external_configurations=external_configurations)
 
             done = False
-            state = env.reset({})
+            state = env.reset({}, external_configurations=external_configurations)
             step_num = 0
 
             while not done and step_num < int(dic_exp_conf["RUN_COUNTS"] / dic_traffic_env_conf["MIN_ACTION_TIME"]):

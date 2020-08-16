@@ -87,7 +87,7 @@ def write_summary(dic_path, run_counts, cnt_round):
         round_summary.to_csv(ROOT_DIR + '/' + path_to_seg_log, mode="a", index=False, header=False)
 
 
-def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui):
+def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_configurations={}):
     records_dir = model_dir.replace("model", "records")
     model_round = "round_%d"%cnt_round
     dic_path = {}
@@ -132,10 +132,11 @@ def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui):
         env = DIC_ENVS[dic_traffic_env_conf["SIMULATOR_TYPE"]](path_to_log=path_to_log,
                                                                path_to_work_directory=dic_path[
                                                                    "PATH_TO_WORK_DIRECTORY"],
-                                                               dic_traffic_env_conf=dic_traffic_env_conf)
+                                                               dic_traffic_env_conf=dic_traffic_env_conf,
+                                                               external_configurations=external_configurations)
 
         done = False
-        state = env.reset(dic_path)
+        state = env.reset(dic_path, external_configurations=external_configurations)
         step_num = 0
         stop_cnt = 0
         while step_num < int(dic_exp_conf["TEST_RUN_COUNTS"] / dic_traffic_env_conf["MIN_ACTION_TIME"]):

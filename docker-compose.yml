@@ -17,4 +17,4 @@ services:
     env_file:
       - .env
     # CURRENT_UID=$(id -u):$(id -g) before docker-compose command
-    #user: ${CURRENT_UID}
+    # user: ${CURRENT_UID}

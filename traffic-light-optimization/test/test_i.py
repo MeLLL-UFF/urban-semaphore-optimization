@@ -197,11 +197,11 @@ def _start_traci(net_file, route_file, output_file):
         '-n', net_file,
         '-r', route_file,
         '--tripinfo-output', output_file,
-        'time-to-teleport', -1,
-        'collision.stoptime', 10,
-        'collision.mingap-factor', 0,
-        'collision.action', 'warn',
-        'collision.check-junctions', True
+        '--time-to-teleport', str(-1),
+        '--collision.stoptime', str(10),
+        '--collision.mingap-factor', str(0),
+        '--collision.action', 'warn',
+        '--collision.check-junctions', str(True)
     ])
 
     while traci.simulation.getMinExpectedNumber() > 0:
@@ -231,13 +231,15 @@ def create_experiment_generator(type='regular', algorithm=None):
         traffic_level_configurations = [next(traffic_level_configurations) for _ in range(4)]
 
         net_file = scenario_folder + '/' + name + '__' + type + '.net.xml'
+        sumocfg_file = scenario_folder + '/' + name + '__' + type + '.sumocfg'
         output_folder = scenario_folder + '/' + 'output' + '/'
 
         if not os.path.isdir(output_folder):
             os.makedirs(output_folder)
 
         for traffic_level_configuration in traffic_level_configurations:
-            yield scenario, traffic_level_configuration, type, algorithm, net_file, scenario_folder, output_folder
+            yield scenario, traffic_level_configuration, type, algorithm, net_file, scenario_folder, sumocfg_file, \
+                  output_folder
 
 def _run(type='regular', algorithm=None):
     
@@ -249,7 +251,8 @@ def _run(type='regular', algorithm=None):
 
 def run_experiment(arguments):
 
-    scenario, traffic_level_configuration, type, algorithm, net_file, scenario_folder, output_folder = arguments
+    scenario, traffic_level_configuration, type, algorithm, net_file, scenario_folder, sumocfg_file, output_folder = \
+        arguments
 
     name = scenario
 
@@ -262,7 +265,7 @@ def run_experiment(arguments):
         begin = time.time()
 
         frap = Frap()
-        frap.run(net_file, route_file, output_file)
+        frap.run(net_file, route_file, sumocfg_file, output_file)
 
         end = time.time()
         timing = end - begin

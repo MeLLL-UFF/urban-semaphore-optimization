@@ -27,7 +27,7 @@ def downsample(path_to_log):
         pickle.dump(subset_data, f_subset)
 
 
-def run_wrapper(dir, one_round, run_cnt, if_gui):
+def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
     model_dir = "model/" + dir
     records_dir = "records/" + dir
     model_round = one_round
@@ -68,10 +68,11 @@ def run_wrapper(dir, one_round, run_cnt, if_gui):
             os.makedirs(ROOT_DIR + '/' + path_to_log)
         env = DIC_ENVS[dic_traffic_env_conf["SIMULATOR_TYPE"]](path_to_log=path_to_log,
                          path_to_work_directory=dic_path["PATH_TO_WORK_DIRECTORY"],
-                         dic_traffic_env_conf=dic_traffic_env_conf)
+                         dic_traffic_env_conf=dic_traffic_env_conf,
+                         external_configurations=external_configurations)
 
         done = False
-        state = env.reset(dic_path)
+        state = env.reset(dic_path, external_configurations)
         step_num = 0
 
         while not done and step_num < int(dic_exp_conf["RUN_COUNTS"] / dic_traffic_env_conf["MIN_ACTION_TIME"]):
@@ -102,7 +103,7 @@ def run_wrapper(dir, one_round, run_cnt, if_gui):
 
     return
 
-def main(memo=None):
+def main(memo=None, external_configurations={}):
     # run name
     if not memo:
         memo = "multi_phase/multi_phase_12_11_400"
@@ -152,10 +153,10 @@ def main(memo=None):
             for one_round in given_round_list:
                 _round = "round_" + str(one_round)
                 if multi_process:
-                    p = Process(target=run_wrapper, args=(work_dir, _round, run_cnt, if_gui))
+                    p = Process(target=run_wrapper, args=(work_dir, _round, run_cnt, if_gui, external_configurations))
                     process_list.append(p)
                 else:
-                    run_wrapper(work_dir, _round, run_cnt, if_gui)
+                    run_wrapper(work_dir, _round, run_cnt, if_gui, external_configurations=external_configurations)
         else:
             train_round_dir = os.path.join("records", memo, traffic, "train_round")
             for one_round in os.listdir(ROOT_DIR + '/' + train_round_dir):
@@ -163,10 +164,10 @@ def main(memo=None):
                     continue
 
                 if multi_process:
-                    p = Process(target=run_wrapper, args=(work_dir, one_round, run_cnt, if_gui))
+                    p = Process(target=run_wrapper, args=(work_dir, one_round, run_cnt, if_gui, external_configurations))
                     process_list.append(p)
                 else:
-                    run_wrapper(work_dir, one_round, run_cnt, if_gui)
+                    run_wrapper(work_dir, one_round, run_cnt, if_gui, external_configurations=external_configurations)
 
     if multi_process:
         i = 0

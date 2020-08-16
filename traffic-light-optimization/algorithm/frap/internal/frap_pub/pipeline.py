@@ -19,19 +19,19 @@ import time
 from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
 
 class Pipeline:
-    _LIST_SUMO_FILES = [
-        "0_regular-intersection__right_on_red.sumocfg",
-        "0_regular-intersection__right_on_red.net.xml"
-        #"cross.car.type.xml",
-        #"cross.con.xml",
-        #"cross.edg.xml",
-        #"cross.net.xml",
-        #"cross.netccfg",
-        #"cross.nod.xml",
-        #"cross.sumocfg",
-        #"cross.tll.xml",
-        #"cross.typ.xml"
-    ]
+    #_LIST_SUMO_FILES = [
+    #    "0_regular-intersection__right_on_red.sumocfg",
+    #    "0_regular-intersection__right_on_red.net.xml"
+    #    #"cross.car.type.xml",
+    #    #"cross.con.xml",
+    #    #"cross.edg.xml",
+    #    #"cross.net.xml",
+    #    #"cross.netccfg",
+    #    #"cross.nod.xml",
+    #    #"cross.sumocfg",
+    #    #"cross.tll.xml",
+    #    #"cross.typ.xml"
+    #]
 
     @staticmethod
     def _set_traffic_file(sumo_config_file_tmp_name, sumo_config_file_output_name, list_traffic_file_name):
@@ -86,11 +86,11 @@ class Pipeline:
         json.dump(self.dic_traffic_env_conf,
                   open(os.path.join(ROOT_DIR, path, "traffic_env.conf"), "w"), indent=4)
 
-    def _copy_sumo_file(self, path=None):
+    def _copy_sumo_file(self, path=None, _list_sumo_files=[]):
         if path == None:
             path = self.dic_path["PATH_TO_WORK_DIRECTORY"]
         # copy sumo files
-        for file_name in self._LIST_SUMO_FILES:
+        for file_name in _list_sumo_files:
             shutil.copy(os.path.join(ROOT_DIR, self.dic_path["PATH_TO_DATA"], file_name),
                         os.path.join(ROOT_DIR, path, file_name))
         for file_name in self.dic_exp_conf["TRAFFIC_FILE"]:
@@ -108,29 +108,32 @@ class Pipeline:
         shutil.copy(os.path.join(ROOT_DIR, self.dic_path["PATH_TO_DATA"], self.dic_exp_conf["ROADNET_FILE"]),
                     os.path.join(ROOT_DIR, path, self.dic_exp_conf["ROADNET_FILE"]))
 
-    def _modify_sumo_file(self, path=None):
+    def _modify_sumo_file(self, path=None, sumocfg_file=''):
         if path == None:
             path = self.dic_path["PATH_TO_WORK_DIRECTORY"]
         # modify sumo files
         self._set_traffic_file(os.path.join(self.dic_path["PATH_TO_WORK_DIRECTORY"],
-                                            "0_regular-intersection__right_on_red.sumocfg"),
-                               os.path.join(path, "0_regular-intersection__right_on_red.sumocfg"),
+                                            sumocfg_file),
+                               os.path.join(path, sumocfg_file),
                                self.dic_exp_conf["TRAFFIC_FILE"])
 
-    def __init__(self, dic_exp_conf, dic_agent_conf, dic_traffic_env_conf, dic_path):
+    def __init__(self, dic_exp_conf, dic_agent_conf, dic_traffic_env_conf, dic_path, external_configurations={}):
 
         # load configurations
         self.dic_exp_conf = dic_exp_conf
         self.dic_agent_conf = dic_agent_conf
         self.dic_traffic_env_conf = dic_traffic_env_conf
         self.dic_path = dic_path
+        self.external_configurations = external_configurations
 
         # do file operations
         self._path_check()
         self._copy_conf_file()
         if self.dic_traffic_env_conf["SIMULATOR_TYPE"] == 'sumo':
-            self._copy_sumo_file()
-            self._modify_sumo_file()
+            _list_sumo_files = self.external_configurations['_LIST_SUMO_FILES']
+            sumocfg_file = self.external_configurations['SUMOCFG_FILE']
+            self._copy_sumo_file(_list_sumo_files=_list_sumo_files)
+            self._modify_sumo_file(sumocfg_file=sumocfg_file)
         elif self.dic_traffic_env_conf["SIMULATOR_TYPE"] == 'anon':
             self._copy_anon_file()
         # test_duration
@@ -169,7 +172,8 @@ class Pipeline:
                               dic_exp_conf=dic_exp_conf,
                               dic_agent_conf=dic_agent_conf,
                               dic_traffic_env_conf=dic_traffic_env_conf,
-                              best_round=best_round
+                              best_round=best_round,
+                              external_configurations=self.external_configurations
                               )
         print("make generator")
         generator.generate()
@@ -384,12 +388,16 @@ class Pipeline:
             # ==============  test evaluation =============
             if multi_process:
                 p = Process(target=model_test.test,
-                            args=(self.dic_path["PATH_TO_MODEL"], cnt_round, self.dic_exp_conf["TEST_RUN_COUNTS"], self.dic_traffic_env_conf, False))
+                            args=(self.dic_path["PATH_TO_MODEL"], cnt_round, self.dic_exp_conf["TEST_RUN_COUNTS"],
+                                  self.dic_traffic_env_conf, False,
+                                  self.external_configurations))
                 p.start()
                 if self.dic_exp_conf["EARLY_STOP"] or self.dic_exp_conf["MODEL_POOL"]:
                     p.join()
             else:
-                model_test.test(self.dic_path["PATH_TO_MODEL"], cnt_round, self.dic_exp_conf["RUN_COUNTS"], self.dic_traffic_env_conf, if_gui=False)
+                model_test.test(self.dic_path["PATH_TO_MODEL"], cnt_round, self.dic_exp_conf["RUN_COUNTS"],
+                                self.dic_traffic_env_conf, if_gui=False,
+                                external_configurations=self.external_configurations)
 
             # ==============  early stopping =============
             if self.dic_exp_conf["EARLY_STOP"]:
