@@ -38,6 +38,8 @@ traffic_level_mapping = {
 
 test_i_folder = definitions.ROOT_DIR + '/scenario/test_i'
 
+NUMBER_OF_PROCESSES = 8
+
 def _build_experiment_i_routes():
 
     parser = etree.XMLParser(remove_blank_text=True)
@@ -214,8 +216,6 @@ def create_experiment_generator(type='regular', algorithm=None):
 
     test_i_scenarios = sorted(os.listdir(test_i_folder))
 
-    test_i_scenarios = test_i_scenarios[0:1]
-
     for scenario in test_i_scenarios:
 
         name = scenario
@@ -227,8 +227,6 @@ def create_experiment_generator(type='regular', algorithm=None):
         incoming_edge_ids, _ = get_intersection_edge_ids(net_xml)
         traffic_level_configurations = generate_unique_traffic_level_configurations(
             len(incoming_edge_ids))
-
-        traffic_level_configurations = [next(traffic_level_configurations) for _ in range(4)]
 
         net_file = scenario_folder + '/' + name + '__' + type + '.net.xml'
         sumocfg_file = scenario_folder + '/' + name + '__' + type + '.sumocfg'
@@ -245,7 +243,7 @@ def _run(type='regular', algorithm=None):
     
     experiment_generator = create_experiment_generator(type=type, algorithm=algorithm)
 
-    with NoDaemonPool(processes=4) as pool:
+    with NoDaemonPool(processes=NUMBER_OF_PROCESSES) as pool:
         pool.map(run_experiment, experiment_generator)
 
 

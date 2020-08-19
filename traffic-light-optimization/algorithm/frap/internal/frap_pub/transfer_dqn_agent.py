@@ -82,19 +82,22 @@ def competing_network(p, dic_agent_conf, num_actions):
 
 def relation(x, dic_traffic_env_conf):
     relations = []
-    for p1 in dic_traffic_env_conf["PHASE"]:
-        zeros = [0, 0, 0, 0, 0, 0, 0]
+    phases = dic_traffic_env_conf["PHASE"]
+    for phase_1 in phases:
+        #zeros = [0, 0, 0, 0, 0, 0, 0]
+        zeros = [0]*(len(phases) - 1)
         count = 0
-        for p2 in dic_traffic_env_conf["PHASE"]:
-            if p1 == p2:
+        for phase_2 in phases:
+            if phase_1 == phase_2:
                 continue
-            m1 = p1.split("_")
-            m2 = p2.split("_")
-            if len(list(set(m1 + m2))) == 3:
-                zeros[count] = 1
+            movements_1 = phase_1.split("_")
+            movements_2 = phase_2.split("_")
+            all_movements = movements_1 + movements_2
+            unique_movements = list(set(all_movements))
+            zeros[count] = len(all_movements) - len(unique_movements)
             count += 1
         relations.append(zeros)
-    relations = np.array(relations).reshape(1, 8, 7)
+    relations = np.array(relations).reshape(1, len(phases), len(phases) - 1)
     batch_size = K.shape(x)[0]
     constant = K.constant(relations)
     constant = K.tile(constant, (batch_size, 1, 1))
@@ -104,19 +107,28 @@ def relation(x, dic_traffic_env_conf):
 class TransferDQNAgent(NetworkAgent):
 
     def build_network(self):
+
+        phases = self.dic_traffic_env_conf["PHASE"]
+        number_of_movements_per_phase = len(phases[0].split('_'))
+        number_of_phases = len(self.dic_traffic_env_conf["PHASE"])
+        number_of_movements = len(self.dic_traffic_env_conf['list_lane_order'])
+
         dic_input_node = {}
         feature_shape = {}
         for feature_name in self.dic_traffic_env_conf["LIST_STATE_FEATURE"]:
             if "phase" in feature_name and self.dic_traffic_env_conf["BINARY_PHASE_EXPANSION"]:
-                _shape = (self.dic_traffic_env_conf["DIC_FEATURE_DIM"]["D_" + feature_name.upper()][0] * self.num_lanes * 4,)
+                #_shape = (self.dic_traffic_env_conf["DIC_FEATURE_DIM"]["D_" + feature_name.upper()][0] * self.num_lanes * 4,)
+                _shape = (self.dic_traffic_env_conf["DIC_FEATURE_DIM"]["D_" + feature_name.upper()][0] * number_of_movements,)
             elif "phase" in feature_name and not self.dic_traffic_env_conf["BINARY_PHASE_EXPANSION"]:
                 _shape = self.dic_traffic_env_conf["DIC_FEATURE_DIM"]["D_" + feature_name.upper()]
             else:
-                _shape = (self.dic_traffic_env_conf["DIC_FEATURE_DIM"]["D_" + feature_name.upper()][0] * self.num_lanes,)
+                #_shape = (self.dic_traffic_env_conf["DIC_FEATURE_DIM"]["D_" + feature_name.upper()][0] * self.num_lanes,)
+                _shape = (self.dic_traffic_env_conf["DIC_FEATURE_DIM"]["D_" + feature_name.upper()][0] * number_of_movements,)
             dic_input_node[feature_name] = Input(shape=_shape, name="input_" + feature_name)
             feature_shape[feature_name] = _shape[0]
 
-        p = Activation('sigmoid')(Embedding(2, 4, input_length=8)(dic_input_node["cur_phase"]))
+        #p = Activation('sigmoid')(Embedding(2, 4, input_length=8)(dic_input_node["cur_phase"]))
+        p = Activation('sigmoid')(Embedding(2, 4, input_length=number_of_movements)(dic_input_node["cur_phase"]))
         d = Dense(4, activation="sigmoid", name="num_vec_mapping")
         dic_lane = {}
         for i, m in enumerate(self.dic_traffic_env_conf["list_lane_order"]):
@@ -124,21 +136,23 @@ class TransferDQNAgent(NetworkAgent):
                 Lambda(slice_tensor, arguments={"index": i}, name="vec_%d" % i)(dic_input_node["lane_num_vehicle"]))
             tmp_phase = Lambda(slice_tensor, arguments={"index": i}, name="phase_%d" % i)(p)
             dic_lane[m] = concatenate([tmp_vec, tmp_phase], name="lane_%d" % i)
-        if self.num_actions == 8:
-            list_phase_pressure = []
-            lane_embedding = Dense(16, activation="relu", name="lane_embedding")
-            for phase in self.dic_traffic_env_conf["PHASE"]:
-                m1, m2 = phase.split("_")
-                list_phase_pressure.append(add([lane_embedding(dic_lane[m1]), lane_embedding(dic_lane[m2])], name=phase))
-        elif self.num_actions == 4:
-            list_phase_pressure = []
-            for phase in self.dic_traffic_env_conf["PHASE"]:
-                m1, m2 = phase.split("_")
-                list_phase_pressure.append(concatenate([dic_lane[m1], dic_lane[m2]], name=phase))
+        #if self.num_actions > 4:
+        list_phase_pressure = []
+        #lane_embedding = Dense(16, activation="relu", name="lane_embedding")
+        lane_embedding = Dense(self.num_actions*2, activation="relu", name="lane_embedding")
+        for phase in self.dic_traffic_env_conf["PHASE"]:
+            movements = phase.split("_")
+            list_phase_pressure.append(add([lane_embedding(dic_lane[m]) for m in movements], name=phase))
+        #elif self.num_actions == 4:
+        #    list_phase_pressure = []
+        #    for phase in self.dic_traffic_env_conf["PHASE"]:
+        #        m1, m2 = phase.split("_")
+        #        list_phase_pressure.append(concatenate([dic_lane[m1], dic_lane[m2]], name=phase))
 
         constant = Lambda(relation, arguments={"dic_traffic_env_conf": self.dic_traffic_env_conf},
                         name="constant")(dic_input_node["lane_num_vehicle"])
-        relation_embedding = Embedding(2, 4, name="relation_embedding")(constant)
+        #relation_embedding = Embedding(2, 4, name="relation_embedding")(constant)
+        relation_embedding = Embedding(number_of_movements_per_phase, 4, name="relation_embedding")(constant)
 
         # rotate the phase pressure
         if self.dic_agent_conf["ROTATION"]:
@@ -153,7 +167,8 @@ class TransferDQNAgent(NetworkAgent):
                                         name="concat_compete_phase_%d_%d" % (i, j)))
 
             list_phase_pressure_recomb = concatenate(list_phase_pressure_recomb, name="concat_all")
-            feature_map = Reshape((8, 7, 32))(list_phase_pressure_recomb)
+            #feature_map = Reshape((8, 7, 32))(list_phase_pressure_recomb
+            feature_map = Reshape((number_of_phases, number_of_phases - 1, self.num_actions*2*2))(list_phase_pressure_recomb)
             lane_conv = Conv2D(self.dic_agent_conf["D_DENSE"], kernel_size=(1, 1), activation="relu", name="lane_conv")(feature_map)
             if self.dic_agent_conf["MERGE"] == "multiply":
                 relation_conv = Conv2D(self.dic_agent_conf["D_DENSE"], kernel_size=(1, 1), activation="relu",
@@ -171,7 +186,7 @@ class TransferDQNAgent(NetworkAgent):
             hidden_layer = Conv2D(self.dic_agent_conf["D_DENSE"], kernel_size=(1, 1), activation="relu",
                                   name="combine_conv")(combine_feature)
             before_merge = Conv2D(1, kernel_size=(1, 1), activation="linear", name="befor_merge")(hidden_layer)
-            q_values = Lambda(lambda x: K.sum(x, axis=2), name="q_values")(Reshape((8, 7))(before_merge))
+            q_values = Lambda(lambda x: K.sum(x, axis=2), name="q_values")(Reshape((number_of_phases, number_of_phases - 1))(before_merge))
             # conv2 = Conv2D(self.dic_agent_conf["D_DENSE"], kernel_size=(1, 1), activation="relu", name="conv2")(conv1)
             # conv3 = Conv2D(1, kernel_size=(1, 1), activation="linear", name="conv3")(conv2)
             # conv3 = Reshape((8, 7))(conv3)

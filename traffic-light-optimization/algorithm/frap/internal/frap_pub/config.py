@@ -53,7 +53,8 @@ dic_traffic_env_conf = {
 
     "DIC_FEATURE_DIM": dict(
         D_LANE_QUEUE_LENGTH=(4,),
-        D_LANE_NUM_VEHICLE=(4,),
+        #D_LANE_NUM_VEHICLE=(4,),
+        D_LANE_NUM_VEHICLE=(1,),
         D_LANE_NUM_VEHICLE_BEEN_STOPPED_THRES1=(4,),
         D_CUR_PHASE=(1,),
         D_NEXT_PHASE=(1,),

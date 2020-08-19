@@ -114,40 +114,15 @@ def get_lane_traffic_light_controller(net_xml, lanes_ids):
 
     lane_to_traffic_light_index_mapping = {}
     for connection in connections:
-        from_edge = connection.attrib['from']
-        from_lane = connection.attrib['fromLane']
+        from_edge = connection.get('from')
+        from_lane = connection.get('fromLane')
 
         lane_id = from_edge + '_' + from_lane
         if lane_id in lanes_ids:
-            traffic_light_index = connection.attrib['linkIndex']
+            traffic_light_index = connection.get('linkIndex')
             lane_to_traffic_light_index_mapping[lane_id] = traffic_light_index
 
     return lane_to_traffic_light_index_mapping
-
-
-def get_connections(net_xml, from_edge='ALL', to_edge='ALL'):
-    from_attribute = ''
-    to_attribute = ''
-    if from_edge != 'ALL':
-        from_attribute = "[@from='" + from_edge + "']"
-    if to_edge != 'ALL':
-        to_attribute = "[@to='" + to_edge + "']"
-
-    connections = net_xml.findall(".//connection" + from_attribute + to_attribute)
-
-    edges = net_xml.findall(".//edge[@priority]")
-    edge_ids = [edge.attrib['id'] for edge in edges]
-
-    actual_connections = []
-    for connection in connections:
-        connection_from = connection.attrib['from']
-        connection_to = connection.attrib['to']
-
-        if connection_from in edge_ids and connection_to in edge_ids:
-            actual_connections.append(connection)
-
-    return actual_connections
-
 
 def sort_edges_by_angle(net_xml, edge_ids, incoming=True, clockwise=True):
     all_edges = net_xml.findall(".//edge[@priority]")
@@ -228,6 +203,9 @@ class Intersection:
         #self.node_light = "inter{0}".format(light_id)
         self.list_vehicle_variables_to_sub = list_vehicle_variables_to_sub
 
+        self.phases = dic_sumo_env_conf["PHASE"]
+        self.movements = dic_sumo_env_conf['list_lane_order']
+
         # ===== sumo intersection settings =====
 
         self.dic_path = dic_path
@@ -242,16 +220,16 @@ class Intersection:
         #self.dic_entering_approach_to_edge = {approach: "edge-{0}-{1}".format(self.dic_approach_to_node[approach], self.node_light) for approach in self.list_approachs}
         #self.dic_exiting_approach_to_edge = {approach: "edge-{0}-{1}".format(self.node_light, self.dic_approach_to_node[approach]) for approach in self.list_approachs}
 
-        self.lane_direc = []
-        self.lane_direc += ["r" for i in range(dic_sumo_env_conf["LANE_NUM"]["RIGHT"])]
-        self.lane_direc += ["t" for i in range(dic_sumo_env_conf["LANE_NUM"]["STRAIGHT"])]
-        self.lane_direc += ["l" for i in range(dic_sumo_env_conf["LANE_NUM"]["LEFT"])]
-        self.num_lane = len(self.lane_direc)
-        self.l_lane_ind = [i for i in range(self.num_lane)]
+        #self.lane_direc = []
+        #self.lane_direc += ["r" for i in range(dic_sumo_env_conf["LANE_NUM"]["RIGHT"])]
+        #self.lane_direc += ["t" for i in range(dic_sumo_env_conf["LANE_NUM"]["STRAIGHT"])]
+        #self.lane_direc += ["l" for i in range(dic_sumo_env_conf["LANE_NUM"]["LEFT"])]
+        #self.num_lane = len(self.lane_direc)
+        #self.l_lane_ind = [i for i in range(self.num_lane)]
 
 
-        self.dic_entering_approach_lanes = {str(i): self.l_lane_ind for i in self.list_approachs}
-        self.dic_exiting_approach_lanes = {str(i): self.l_lane_ind for i in self.list_approachs}
+        #self.dic_entering_approach_lanes = {str(i): self.l_lane_ind for i in self.list_approachs}
+        #self.dic_exiting_approach_lanes = {str(i): self.l_lane_ind for i in self.list_approachs}
 
         # grid settings
         self.length_lane = 300
@@ -259,55 +237,50 @@ class Intersection:
         self.length_grid = 5
         self.num_grid = int(self.length_lane//self.length_grid)
 
+        connections = get_connections(self.net_file_xml)
+
         # generate all lanes
-        self.list_entering_lanes = []
-        for approach in self.list_approachs:
-            self.list_entering_lanes += [self.dic_entering_approach_to_edge[approach]+'_'+str(i) for i in self.dic_entering_approach_lanes[approach]]
-        self.list_exiting_lanes = []
-        for approach in self.list_approachs:
-            self.list_exiting_lanes += [self.dic_exiting_approach_to_edge[approach] + '_' + str(i) for i in self.dic_exiting_approach_lanes[approach]]
+        #self.list_entering_lanes = []
+        #for approach in self.list_approachs:
+        #    self.list_entering_lanes += [self.dic_entering_approach_to_edge[approach]+'_'+str(i) for i in self.dic_entering_approach_lanes[approach]]
+        #self.list_exiting_lanes = []
+        #for approach in self.list_approachs:
+        #    self.list_exiting_lanes += [self.dic_exiting_approach_to_edge[approach] + '_' + str(i) for i in self.dic_exiting_approach_lanes[approach]]
+        self.list_entering_lanes = [connection.get('from') + '_' + connection.get('fromLane')
+                                    for connection in connections if connection.get('dir') != 'r']
+        self.list_exiting_lanes = [connection.get('to') + '_' + connection.get('toLane')
+                                    for connection in connections if connection.get('dir') != 'r']
         self.list_lanes = self.list_entering_lanes + self.list_exiting_lanes
 
         self.lane_to_traffic_light_index_mapping = get_lane_traffic_light_controller(
             self.net_file_xml,
             self.list_entering_lanes)
 
-        # generate signals
-        self.list_phases = dic_sumo_env_conf["PHASE"]
-        self.dic_app_offset = {str(i): int(i) for i in self.list_approachs}
-
         self.dic_phase_strs = {}
 
-        for p in self.list_phases:
-            list_default_str = ["r" for i in range(self.num_lane*len(self.list_approachs))]
+        for phase in self.phases:
+            list_default_str = ["r"]*len(self.movements)
+
+            for i, m in enumerate(self.movements):
+                if 'r' in m.lower():
+                    list_default_str[i] = 'g'
+
+            for movement in phase.split('_'):
+                list_default_str[self.movements.index(movement)] = 'G'
 
             # set green for right turn
-            for any_app in self.list_approachs:
-                for ind_this_direc in np.where(np.array(self.lane_direc) == "r")[0].tolist():
-                    list_default_str[self.dic_app_offset[any_app] * self.num_lane + ind_this_direc] = 'g'
+            #for any_app in self.list_approachs:
+            #    for ind_this_direc in np.where(np.array(self.lane_direc) == "r")[0].tolist():
+            #        list_default_str[int(any_app) * self.num_lane + ind_this_direc] = 'g'
 
-            app1 = p[0]
-            direc1 = p[1]
-            app2 = p[3]
-            direc2 = p[4]
+            #for ind_this_direc in np.where(np.array(self.lane_direc) == direc1.lower())[0].tolist():
+            #    # list_default_str[self.dic_app_offset[app1] * self.num_lane + ind_this_direc] = 'G'
+            #for ind_this_direc in np.where(np.array(self.lane_direc) == direc2.lower())[0].tolist():
+            #    # list_default_str[self.dic_app_offset[app2] * self.num_lane + ind_this_direc] = 'G'
+            self.dic_phase_strs[phase] = "".join(list_default_str)
 
-            app_to_number = {
-                'N': '0',
-                'E': '1',
-                'S': '2',
-                'W': '3'
-            }
-
-            for ind_this_direc in np.where(np.array(self.lane_direc) == direc1.lower())[0].tolist():
-                list_default_str[self.dic_app_offset[app_to_number[app1]] * self.num_lane + ind_this_direc] = 'G'
-                #list_default_str[self.dic_app_offset[app1] * self.num_lane + ind_this_direc] = 'G'
-            for ind_this_direc in np.where(np.array(self.lane_direc) == direc2.lower())[0].tolist():
-                list_default_str[self.dic_app_offset[app_to_number[app2]] * self.num_lane + ind_this_direc] = 'G'
-                #list_default_str[self.dic_app_offset[app2] * self.num_lane + ind_this_direc] = 'G'
-            self.dic_phase_strs[p] = "".join(list_default_str)
-
-        self.all_yellow_phase_str = "".join(["y" for i in range(self.num_lane*len(self.list_approachs))])
-        self.all_red_phase_str = "".join(["r" for i in range(self.num_lane*len(self.list_approachs))])
+        self.all_yellow_phase_str = "y"*len(self.movements)
+        self.all_red_phase_str = "r"*len(self.movements)
 
         self.all_yellow_phase_index = -1
         self.all_red_phase_index = -2
@@ -347,7 +320,7 @@ class Intersection:
                 for lane_index, lane_id in enumerate(self.list_entering_lanes):
                     self.current_phase_index = self.next_phase_to_set_index
                     traffic_light_index = int(self.lane_to_traffic_light_index_mapping[lane_id])
-                    new_traffic_light = self.dic_phase_strs[self.list_phases[self.current_phase_index - 1]][lane_index]
+                    new_traffic_light = self.dic_phase_strs[self.phases[self.current_phase_index - 1]][lane_index]
                     current_traffic_light = current_traffic_light[:traffic_light_index] + \
                                             new_traffic_light + \
                                             current_traffic_light[traffic_light_index + 1:]
@@ -355,7 +328,7 @@ class Intersection:
                 traci.trafficlight.setRedYellowGreenState(
                     self.node_light, current_traffic_light)
                 #traci.trafficlights.setRedYellowGreenState(
-                    #self.node_light, self.dic_phase_strs[self.list_phases[self.current_phase_index]])
+                    #self.node_light, self.dic_phase_strs[self.phases[self.current_phase_index]])
                 self.all_yellow_flag = False
             else:
                 pass
@@ -365,7 +338,7 @@ class Intersection:
                 if action == 0: # keep the phase
                     self.next_phase_to_set_index = self.current_phase_index
                 elif action == 1: # change to the next phase
-                    self.next_phase_to_set_index = (self.current_phase_index + 1) % len(self.list_phases) + 1
+                    self.next_phase_to_set_index = (self.current_phase_index + 1) % len(self.phases) + 1
                 else:
                     sys.exit("action not recognized\n action must be 0 or 1")
 

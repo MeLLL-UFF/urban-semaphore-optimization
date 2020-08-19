@@ -359,10 +359,7 @@ class NetworkAgent(Agent):
         
         if self.dic_traffic_env_conf["BINARY_PHASE_EXPANSION"]:
             inputs = []
-            if self.num_phases == 2:
-                dic_phase_expansion = self.dic_traffic_env_conf["phase_expansion_4_lane"]
-            else:
-                dic_phase_expansion = self.dic_traffic_env_conf["phase_expansion"]
+            dic_phase_expansion = self.dic_traffic_env_conf["phase_expansion"]
             for feature in self.dic_traffic_env_conf["LIST_STATE_FEATURE"]:
                 if feature == "cur_phase":
                     inputs.append(np.array([dic_phase_expansion[s[feature][0]]]))

@@ -176,36 +176,6 @@ def main(args=None, memo=None, external_configurations={}):
                 "sum_num_vehicle_been_stopped_thres1": -0.25
             },
 
-            "LANE_NUM": {
-                "LEFT": 1,
-                "RIGHT": 0,
-                "STRAIGHT": 1
-            },
-
-            "PHASE": [
-                'WT_ET',
-                'NT_ST',
-                'WL_EL',
-                'NL_SL',
-                # 'WL_WT',
-                # 'EL_ET',
-                # 'SL_ST',
-                # 'NL_NT',
-            ],
-
-            "list_lane_order": ["WL", "WT", "EL", "ET", "NL", "NT", "SL", "ST"],
-
-            "phase_expansion": {
-                1: [0, 1, 0, 1, 0, 0, 0, 0],
-                2: [0, 0, 0, 0, 0, 1, 0, 1],
-                3: [1, 0, 1, 0, 0, 0, 0, 0],
-                4: [0, 0, 0, 0, 1, 0, 1, 0],
-                5: [1, 1, 0, 0, 0, 0, 0, 0],
-                6: [0, 0, 1, 1, 0, 0, 0, 0],
-                7: [0, 0, 0, 0, 0, 0, 1, 1],
-                8: [0, 0, 0, 0, 1, 1, 0, 0]
-            },
-
             "LOG_DEBUG": args.debug,
 
             "N_LEG": number_of_legs,
@@ -219,148 +189,17 @@ def main(args=None, memo=None, external_configurations={}):
         # if "Lit" == model_name:
         #     dic_traffic_env_conf_extra["BINARY_PHASE_EXPANSION"] = False
 
-        if dic_traffic_env_conf_extra["N_LEG"] == 5 or dic_traffic_env_conf_extra["N_LEG"] == 6:
-
-            dic_traffic_env_conf_extra.update(
-                {
-                    "LANE_NUM": {
-                        "LEFT": 1,
-                        "RIGHT": 0,
-                        "STRAIGHT": 1
-                    },
-
-                    "PHASE": [
-                        '0L_0T',
-                        '1T_3T',
-                        '2T_4T',
-                        '1L_3L',
-                        '2L_4L',
-                        '1L_1T',
-                        '2L_2T',
-                        '3L_3T',
-                        '4L_4T',
-
-                    ],
-
-                    "list_lane_order": ["0L", "0T", "1L", "1T", "2L", "2T", "3L", "3T", "4L", "4T"],
-                }
-            )
-
-        elif dic_traffic_env_conf_extra["N_LEG"] == 4:
-
-            if args.num_phase == 2:
-                dic_traffic_env_conf_extra.update(
-                    {
-                        "LANE_NUM": {
-                            "LEFT": 0,
-                            "RIGHT": 0,
-                            "STRAIGHT": 1
-                        },
-
-                        "PHASE": [
-                            'WT_ET',
-                            'NT_ST',
-                            # 'WL_EL',
-                            # 'NL_SL',
-
-                        ]
-                    }
-                )
-            elif args.num_phase == 4:
-                dic_traffic_env_conf_extra.update(
-                    {
-                        "LANE_NUM": {
-                            "LEFT": 1,
-                            "RIGHT": 0,
-                            "STRAIGHT": 1
-                        },
-
-                        "PHASE": [
-                            'WT_ET',
-                            'NT_ST',
-                            'WL_EL',
-                            'NL_SL',
-
-                        ]
-                    }
-                )
-            elif args.num_phase == 8:
-                dic_traffic_env_conf_extra.update(
-                    {
-                        "LANE_NUM": {
-                            "LEFT": 1,
-                            "RIGHT": 0,
-                            "STRAIGHT": 1
-                        },
-
-                        "PHASE": [
-                            'WT_ET',
-                            'NT_ST',
-                            'WL_EL',
-                            'NL_SL',
-                            'WL_WT',
-                            'EL_ET',
-                            'SL_ST',
-                            'NL_NT',
-                        ],
-                    }
-                )
-                
-        elif dic_traffic_env_conf_extra["N_LEG"] == 3:
-
-            dic_traffic_env_conf_extra.update(
-                {
-                    "LANE_NUM": {
-                        "LEFT": 1,
-                        "RIGHT": 0,
-                        "STRAIGHT": 1
-                    },
-
-                    "PHASE": [
-                        '0T_0L',
-                        '0T_1L',
-                        '0T_2T',
-                        '0L_1L',
-                        '0L_2T',
-                        '1L_2T',
-                    ],
-
-                    "list_lane_order": ["0T", "0L", "1L", "2T"],
-                }
-            )
-
-        elif dic_traffic_env_conf_extra["N_LEG"] == 2:
-
-            dic_traffic_env_conf_extra.update(
-                {
-                    "LANE_NUM": {
-                        "LEFT": 1,
-                        "RIGHT": 0,
-                        "STRAIGHT": 1
-                    },
-
-                    "PHASE": [
-                        'WT_ET',
-                        'NT_ST',
-                        'WL_EL',
-                        'NL_SL',
-                        'WL_WT',
-                        'EL_ET',
-                        'SL_ST',
-                        'NL_NT',
-                    ],
-                }
-            )
-        else:
-            print("n leg error")
-            sys.exit()
+        dic_traffic_env_conf_extra_update = _configure_intersection(number_of_legs, args.num_phase)
+        dic_traffic_env_conf_extra.update(dic_traffic_env_conf_extra_update)
 
         dic_phase_expansion = {}
-        for i, p in enumerate(dic_traffic_env_conf_extra["PHASE"]):
-            m1, m2 = p.split("_")
-            zeros = [0, 0, 0, 0, 0, 0, 0, 0]
-            zeros[dic_traffic_env_conf_extra["list_lane_order"].index(m1)] = 1
-            zeros[dic_traffic_env_conf_extra["list_lane_order"].index(m2)] = 1
+        for i, phase in enumerate(dic_traffic_env_conf_extra["PHASE"]):
+            movements = phase.split("_")
+            zeros = [0]*len(dic_traffic_env_conf_extra['list_lane_order'])
+
+            for movement in movements:
+                zeros[dic_traffic_env_conf_extra["list_lane_order"].index(movement)] = 1
+
             dic_phase_expansion[i + 1] = zeros
         dic_traffic_env_conf_extra.update(
             {
@@ -370,16 +209,18 @@ def main(args=None, memo=None, external_configurations={}):
 
         postfix = "_" + str(args.min_action_time)
 
-        if dic_traffic_env_conf_extra["N_LEG"] == 5 or dic_traffic_env_conf_extra["N_LEG"] == 6:
-            template = "template_{0}_leg".format(dic_traffic_env_conf_extra["N_LEG"])
-        else:
-            ## ==================== multi_phase ====================
-            if dic_traffic_env_conf_extra["LANE_NUM"] == config._LS:
-                template = "template_ls"
-            elif dic_traffic_env_conf_extra["LANE_NUM"] == config._S:
-                template = "template_s"
-            else:
-                raise ValueError
+        template = "template_ls"
+
+        #if dic_traffic_env_conf_extra["N_LEG"] == 5 or dic_traffic_env_conf_extra["N_LEG"] == 6:
+        #    template = "template_{0}_leg".format(dic_traffic_env_conf_extra["N_LEG"])
+        #else:
+        #    ## ==================== multi_phase ====================
+        #    if dic_traffic_env_conf_extra["LANE_NUM"] == config._LS:
+        #        template = "template_ls"
+        #    elif dic_traffic_env_conf_extra["LANE_NUM"] == config._S:
+        #        template = "template_s"
+        #    else:
+        #        raise ValueError
 
         print(traffic_file)
         dic_path_extra = {
@@ -438,6 +279,180 @@ def main(args=None, memo=None, external_configurations={}):
             p.join()
 
     return memo
+
+
+def _configure_intersection(number_of_legs, number_of_phases):
+
+    if number_of_legs == 5:
+
+        dict_update = \
+            {
+                "LANE_NUM": {
+                    "LEFT": 1,
+                    "RIGHT": 0,
+                    "STRAIGHT": 1
+                },
+
+                # "PHASE": [
+                #    '0L_0T',
+                #    '1T_3T',
+                #    '2T_4T',
+                #    '1L_3L',
+                #    '2L_4L',
+                #    '1L_1T',
+                #    '2L_2T',
+                #    '3L_3T',
+                #    '4L_4T',
+                # ],
+
+                # "list_lane_order": ["0L", "0T", "1L", "1T", "2L", "2T", "3L", "3T", "4L", "4T"],
+                "list_lane_order": ["0L1", "0L2", "0T", "1L1", "1L2", "1T", "2L1", "2L2", "2T", "3L1", "3L2", "3T",
+                                    "4L1", "4L2", "4T"],
+            }
+
+        conflicts = {
+            '0L1': ['1L1', '1L2', '1T', '2T', '3L2', '4L1'],
+            '0L2': ['1L2', '1T', '2L1', '2L2', '3L2', '3T', '4L1', '4L2'],
+            '0T': ['1L2', '1T', '2L1', '2L2', '3L1', '4L1', '4L2', '4T'],
+            '1L1': ['2L1', '2L2', '2T', '3T', '4L2', '0L1'],
+            '1L2': ['2L2', '2T', '3L1', '3L2', '4L2', '4T', '0L1', '0L2'],
+            '1T': ['2L2', '2T', '3L1', '3L2', '4L1', '0L1', '0L2', '0T'],
+            '2L1': ['3L1', '3L2', '3T', '4T', '0L2', '1L1'],
+            '2L2': ['3L2', '3T', '4L1', '4L2', '0L2', '0T', '1L1', '1L2'],
+            '2T': ['3L2', '3T', '4L1', '4L2', '0L1', '1L1', '1L2', '1T'],
+            '3L1': ['4L1', '4L2', '4T', '0T', '1L2', '2L1'],
+            '3L2': ['4L2', '4T', '0L1', '0L2', '1L2', '1T', '2L1', '2L2'],
+            '3T': ['4L2', '4T', '0L1', '0L2', '1L1', '2L1', '2L2', '2T'],
+            '4L1': ['0L1', '0L2', '0T', '1T', '2L2', '3L1'],
+            '4L2': ['0L2', '0T', '1L1', '1L2', '2L2', '2T', '3L1', '3L2'],
+            '4T': ['0L2', '0T', '1L1', '1L2', '2L1', '3L1', '3L2', '3T']
+        }
+
+        movements = dict_update['list_lane_order']
+        phases = []
+        for i1 in range(0, len(movements)):
+            a1 = movements[i1]
+            a1_movements_left = [movement for movement in movements if
+                                 movement not in conflicts[a1] and movement != a1]
+            for i2 in range(i1 + 1, len(movements)):
+                a2 = movements[i2]
+                if a2 not in a1_movements_left:
+                    continue
+                a2_movements_left = [movement for movement in a1_movements_left if
+                                     movement not in conflicts[a2] and movement != a2]
+                for i3 in range(i2 + 1, len(movements)):
+                    a3 = movements[i3]
+                    if a3 not in a2_movements_left:
+                        continue
+                    phases.append(a1 + '_' + a2 + '_' + a3)
+
+        dict_update['PHASE'] = phases
+
+    elif number_of_legs == 4:
+
+        dict_update = \
+            {
+                "list_lane_order": ["3L", "3T", "1L", "1T", "0L", "0T", "2L", "2T"]
+            }
+
+        if number_of_phases == 2:
+            dict_update.update(
+                {
+                    "LANE_NUM": {
+                        "LEFT": 0,
+                        "RIGHT": 0,
+                        "STRAIGHT": 1
+                    },
+
+                    "PHASE": [
+                        '3T_1T',
+                        '0T_2T',
+                        # '3L_1L',
+                        # '0L_2L',
+
+                    ]
+                }
+            )
+        elif number_of_phases == 4:
+            dict_update.update(
+                {
+                    "LANE_NUM": {
+                        "LEFT": 1,
+                        "RIGHT": 0,
+                        "STRAIGHT": 1
+                    },
+
+                    "PHASE": [
+                        '3T_1T',
+                        '0T_2T',
+                        '3L_1L',
+                        '0L_2L',
+
+                    ]
+                }
+            )
+        elif number_of_phases == 8:
+            dict_update.update(
+                {
+                    "LANE_NUM": {
+                        "LEFT": 1,
+                        "RIGHT": 0,
+                        "STRAIGHT": 1
+                    },
+
+                    "PHASE": [
+                        '3T_1T',
+                        '0T_2T',
+                        '3L_1L',
+                        '0L_2L',
+                        '3L_3T',
+                        '1L_1T',
+                        '2L_2T',
+                        '0L_0T',
+                    ],
+                }
+            )
+    elif number_of_legs == 3:
+
+        dict_update = \
+            {
+                "LANE_NUM": {
+                    "LEFT": 1,
+                    "RIGHT": 0,
+                    "STRAIGHT": 1
+                },
+
+                "PHASE": [
+                    '0L_0T',
+                    '0T_1L',
+                    '0L_2T'
+                ],
+
+                "list_lane_order": ["0L", "0T", "1L", "2T"],
+            }
+
+    elif number_of_legs == 2:
+
+        dict_update = \
+            {
+                "LANE_NUM": {
+                    "LEFT": 1,
+                    "RIGHT": 0,
+                    "STRAIGHT": 1
+                },
+
+                "PHASE": [
+                    '0T_1L',
+                    '1L_1T'
+                ],
+
+                "list_lane_order": ["0T", "1L", "1T"]
+            }
+    else:
+        print(number_of_legs, " leg error")
+        sys.exit()
+
+    return dict_update
 
 
 if __name__ == "__main__":
