@@ -5,7 +5,13 @@ import os
 import time
 from multiprocessing import Process
 import sys
-from algorithm.frap.internal.frap_pub.script import get_traffic_volume
+
+from sympy import Point2D, Segment2D
+from lxml import etree
+
+from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
+from algorithm.frap.internal.utils.bidict import bidict
+from algorithm.frap.internal.frap_pub.sumo_env import get_intersection_edge_ids, get_connections, get_intersections_ids
 
 
 def memo_rename(traffic_file_list):
@@ -62,6 +68,9 @@ def main(args=None, memo=None, external_configurations={}):
     traffic_file_list = external_configurations['TRAFFIC_FILE_LIST']
     roadnet_file = external_configurations['ROADNET_FILE']
     number_of_legs = external_configurations['N_LEG']
+    number_of_legs_network_compatibility = external_configurations.get('NUMBER_OF_LEGS_NETWORK_COMPATIBILITY', 'same')
+    use_sumo_directions_in_movement_detection = external_configurations.get('USE_SUMO_DIRECTIONS_IN_MOVEMENT_DETECTION',
+                                                                          False)
 
     process_list = []
     n_workers = args.workers #len(traffic_file_list)
@@ -75,6 +84,38 @@ def main(args=None, memo=None, external_configurations={}):
         memo = "headway_test"
 
     for traffic_file in traffic_file_list:
+
+        postfix = "_" + str(args.min_action_time)
+
+        template = "template_ls"
+
+        # if dic_traffic_env_conf_extra["N_LEG"] == 5 or dic_traffic_env_conf_extra["N_LEG"] == 6:
+        #    template = "template_{0}_leg".format(dic_traffic_env_conf_extra["N_LEG"])
+        # else:
+        #    ## ==================== multi_phase ====================
+        #    if dic_traffic_env_conf_extra["LANE_NUM"] == config._LS:
+        #        template = "template_ls"
+        #    elif dic_traffic_env_conf_extra["LANE_NUM"] == config._S:
+        #        template = "template_s"
+        #    else:
+        #        raise ValueError
+
+        print(traffic_file)
+        dic_path_extra = {
+            "PATH_TO_MODEL": os.path.join("model", memo, traffic_file + "_" + time.strftime('%m_%d_%H_%M_%S',
+                                                                                            time.localtime(
+                                                                                                time.time())) + postfix),
+            "PATH_TO_WORK_DIRECTORY": os.path.join("records", memo, traffic_file + "_" + time.strftime('%m_%d_%H_%M_%S',
+                                                                                                       time.localtime(
+                                                                                                           time.time())) + postfix),
+            "PATH_TO_DATA": os.path.join("data", template),
+            "PATH_TO_PRETRAIN_MODEL": os.path.join("model", "initial", traffic_file),
+            "PATH_TO_PRETRAIN_WORK_DIRECTORY": os.path.join("records", "initial", traffic_file),
+            "PATH_TO_ERROR": os.path.join("errors", memo)
+
+        }
+
+
         #model_name = "SimpleDQN"
         model_name = args.algorithm
         ratio = 1
@@ -189,49 +230,38 @@ def main(args=None, memo=None, external_configurations={}):
         # if "Lit" == model_name:
         #     dic_traffic_env_conf_extra["BINARY_PHASE_EXPANSION"] = False
 
-        dic_traffic_env_conf_extra_update = _configure_intersection(number_of_legs, args.num_phase)
-        dic_traffic_env_conf_extra.update(dic_traffic_env_conf_extra_update)
+        '''
+        if number_of_legs_network_compatibility == 'same':
+            dic_traffic_env_conf_extra.update(
+                {
+                    "list_lane_order_compatibility": dic_traffic_env_conf_extra['list_lane_order']
+                }
+            )
+        else:
 
-        dic_phase_expansion = {}
-        for i, phase in enumerate(dic_traffic_env_conf_extra["PHASE"]):
-            movements = phase.split("_")
-            zeros = [0]*len(dic_traffic_env_conf_extra['list_lane_order'])
+            compatibility_dict = _configure_intersection(number_of_legs_network_compatibility, args.num_phase)
 
-            for movement in movements:
-                zeros[dic_traffic_env_conf_extra["list_lane_order"].index(movement)] = 1
+            dic_traffic_env_conf_extra.update(
+                {
+                    "list_lane_order_compatibility": compatibility_dict['list_lane_order']
+                }
+            )
+        '''
 
-            dic_phase_expansion[i + 1] = zeros
-        dic_traffic_env_conf_extra.update(
-            {
-                "phase_expansion": dic_phase_expansion,
-            }
-        )
+        net_file = os.path.join(ROOT_DIR, dic_path_extra["PATH_TO_DATA"], roadnet_file)
+        parser = etree.XMLParser(remove_blank_text=True)
+        net_xml = etree.parse(net_file, parser)
 
-        postfix = "_" + str(args.min_action_time)
+        movements, movement_to_connection = \
+            _detect_movements(net_xml, use_sumo_directions_in_movement_detection)
+        dic_traffic_env_conf_extra['list_lane_order'] = movements
 
-        template = "template_ls"
+        conflicts = _detect_movement_conflicts(net_xml, movement_to_connection)
+        phases = _detect_phases(movements, conflicts)
+        dic_traffic_env_conf_extra['PHASE'] = phases
 
-        #if dic_traffic_env_conf_extra["N_LEG"] == 5 or dic_traffic_env_conf_extra["N_LEG"] == 6:
-        #    template = "template_{0}_leg".format(dic_traffic_env_conf_extra["N_LEG"])
-        #else:
-        #    ## ==================== multi_phase ====================
-        #    if dic_traffic_env_conf_extra["LANE_NUM"] == config._LS:
-        #        template = "template_ls"
-        #    elif dic_traffic_env_conf_extra["LANE_NUM"] == config._S:
-        #        template = "template_s"
-        #    else:
-        #        raise ValueError
-
-        print(traffic_file)
-        dic_path_extra = {
-            "PATH_TO_MODEL": os.path.join("model", memo, traffic_file + "_" + time.strftime('%m_%d_%H_%M_%S', time.localtime(time.time())) + postfix),
-            "PATH_TO_WORK_DIRECTORY": os.path.join("records", memo, traffic_file + "_" + time.strftime('%m_%d_%H_%M_%S', time.localtime(time.time())) + postfix),
-            "PATH_TO_DATA": os.path.join("data", template),
-            "PATH_TO_PRETRAIN_MODEL": os.path.join("model", "initial", traffic_file),
-            "PATH_TO_PRETRAIN_WORK_DIRECTORY": os.path.join("records", "initial", traffic_file),
-            "PATH_TO_ERROR": os.path.join("errors", memo)
-
-        }
+        phase_expansion = _build_phase_expansions(movements, phases)
+        dic_traffic_env_conf_extra["phase_expansion"] = phase_expansion
 
         deploy_dic_exp_conf = merge(config.DIC_EXP_CONF, dic_exp_conf_extra)
         deploy_dic_agent_conf = merge(getattr(config, "DIC_{0}_AGENT_CONF".format(model_name.upper())),
@@ -281,178 +311,222 @@ def main(args=None, memo=None, external_configurations={}):
     return memo
 
 
-def _configure_intersection(number_of_legs, number_of_phases):
+def _detect_movements(net_xml, use_sumo_directions=False, is_right_on_red=True):
 
-    if number_of_legs == 5:
+    incoming_edges, _ = get_intersection_edge_ids(net_xml)
 
-        dict_update = \
-            {
-                "LANE_NUM": {
-                    "LEFT": 1,
-                    "RIGHT": 0,
-                    "STRAIGHT": 1
-                },
+    movement_to_connection = bidict()
 
-                # "PHASE": [
-                #    '0L_0T',
-                #    '1T_3T',
-                #    '2T_4T',
-                #    '1L_3L',
-                #    '2L_4L',
-                #    '1L_1T',
-                #    '2L_2T',
-                #    '3L_3T',
-                #    '4L_4T',
-                # ],
+    movements = []
+    for edge_index, edge in enumerate(incoming_edges):
 
-                # "list_lane_order": ["0L", "0T", "1L", "1T", "2L", "2T", "3L", "3T", "4L", "4T"],
-                "list_lane_order": ["0L1", "0L2", "0T", "1L1", "1L2", "1T", "2L1", "2L2", "2T", "3L1", "3L2", "3T",
-                                    "4L1", "4L2", "4T"],
-            }
+        connections = get_connections(net_xml, from_edge=edge)
 
-        conflicts = {
-            '0L1': ['1L1', '1L2', '1T', '2T', '3L2', '4L1'],
-            '0L2': ['1L2', '1T', '2L1', '2L2', '3L2', '3T', '4L1', '4L2'],
-            '0T': ['1L2', '1T', '2L1', '2L2', '3L1', '4L1', '4L2', '4T'],
-            '1L1': ['2L1', '2L2', '2T', '3T', '4L2', '0L1'],
-            '1L2': ['2L2', '2T', '3L1', '3L2', '4L2', '4T', '0L1', '0L2'],
-            '1T': ['2L2', '2T', '3L1', '3L2', '4L1', '0L1', '0L2', '0T'],
-            '2L1': ['3L1', '3L2', '3T', '4T', '0L2', '1L1'],
-            '2L2': ['3L2', '3T', '4L1', '4L2', '0L2', '0T', '1L1', '1L2'],
-            '2T': ['3L2', '3T', '4L1', '4L2', '0L1', '1L1', '1L2', '1T'],
-            '3L1': ['4L1', '4L2', '4T', '0T', '1L2', '2L1'],
-            '3L2': ['4L2', '4T', '0L1', '0L2', '1L2', '1T', '2L1', '2L2'],
-            '3T': ['4L2', '4T', '0L1', '0L2', '1L1', '2L1', '2L2', '2T'],
-            '4L1': ['0L1', '0L2', '0T', '1T', '2L2', '3L1'],
-            '4L2': ['0L2', '0T', '1L1', '1L2', '2L2', '2T', '3L1', '3L2'],
-            '4T': ['0L2', '0T', '1L1', '1L2', '2L1', '3L1', '3L2', '3T']
-        }
+        sorted_connections = sorted(connections, key=lambda x: x.get('fromLane'), reverse=True)
 
-        movements = dict_update['list_lane_order']
-        phases = []
-        for i1 in range(0, len(movements)):
-            a1 = movements[i1]
-            a1_movements_left = [movement for movement in movements if
-                                 movement not in conflicts[a1] and movement != a1]
-            for i2 in range(i1 + 1, len(movements)):
-                a2 = movements[i2]
-                if a2 not in a1_movements_left:
-                    continue
-                a2_movements_left = [movement for movement in a1_movements_left if
-                                     movement not in conflicts[a2] and movement != a2]
-                for i3 in range(i2 + 1, len(movements)):
-                    a3 = movements[i3]
-                    if a3 not in a2_movements_left:
-                        continue
-                    phases.append(a1 + '_' + a2 + '_' + a3)
+        if use_sumo_directions:
+            dir_to_from_lane = {}
+            for connection in sorted_connections:
 
-        dict_update['PHASE'] = phases
+                from_lane = connection.get('fromLane')
+                dir = connection.get('dir').lower()
+                if dir in dir_to_from_lane:
+                    dir_to_from_lane[dir].append(from_lane)
+                else:
+                    dir_to_from_lane[dir] = [from_lane]
 
-    elif number_of_legs == 4:
+            for connection in sorted_connections:
 
-        dict_update = \
-            {
-                "list_lane_order": ["3L", "3T", "1L", "1T", "0L", "0T", "2L", "2T"]
-            }
+                dir = connection.get('dir').lower()
+                from_lane = connection.get('fromLane')
 
-        if number_of_phases == 2:
-            dict_update.update(
-                {
-                    "LANE_NUM": {
-                        "LEFT": 0,
-                        "RIGHT": 0,
-                        "STRAIGHT": 1
-                    },
+                dir_from_lane = dir_to_from_lane[dir]
+                if len(dir_from_lane) == 1:
+                    dir_label = dir.upper()
+                else:
+                    dir_label = dir.upper() + str(dir_to_from_lane[dir].index(from_lane) + 1)
 
-                    "PHASE": [
-                        '3T_1T',
-                        '0T_2T',
-                        # '3L_1L',
-                        # '0L_2L',
+                movement = str(edge_index) + dir_label
 
-                    ]
-                }
-            )
-        elif number_of_phases == 4:
-            dict_update.update(
-                {
-                    "LANE_NUM": {
-                        "LEFT": 1,
-                        "RIGHT": 0,
-                        "STRAIGHT": 1
-                    },
+                movements.append(movement)
 
-                    "PHASE": [
-                        '3T_1T',
-                        '0T_2T',
-                        '3L_1L',
-                        '0L_2L',
+                movement_to_connection[movement] = connection
 
-                    ]
-                }
-            )
-        elif number_of_phases == 8:
-            dict_update.update(
-                {
-                    "LANE_NUM": {
-                        "LEFT": 1,
-                        "RIGHT": 0,
-                        "STRAIGHT": 1
-                    },
+        else:
+            dir_labels = [None]*len(sorted_connections)
+            if sorted_connections[0].get('dir').lower() == 'l':
+                dir_labels[0] = 'L'
+            if sorted_connections[len(sorted_connections) - 1].get('dir').lower() == 'r':
+                dir_labels[len(sorted_connections) - 1] = 'R'
+            count = 0
+            for index, dir_label in enumerate(dir_labels):
+                if dir_label is None:
+                    if count == 0:
+                        dir_labels[index] = 'S'
+                    else:
+                        dir_labels[index] = 'S' + str(count)
+                    count += 1
 
-                    "PHASE": [
-                        '3T_1T',
-                        '0T_2T',
-                        '3L_1L',
-                        '0L_2L',
-                        '3L_3T',
-                        '1L_1T',
-                        '2L_2T',
-                        '0L_0T',
-                    ],
-                }
-            )
-    elif number_of_legs == 3:
+            for index, connection in enumerate(sorted_connections):
 
-        dict_update = \
-            {
-                "LANE_NUM": {
-                    "LEFT": 1,
-                    "RIGHT": 0,
-                    "STRAIGHT": 1
-                },
+                movement = str(edge_index) + dir_labels[index]
 
-                "PHASE": [
-                    '0L_0T',
-                    '0T_1L',
-                    '0L_2T'
-                ],
+                if is_right_on_red and dir_labels[index] != 'R':
+                    movements.append(movement)
 
-                "list_lane_order": ["0L", "0T", "1L", "2T"],
-            }
+                movement_to_connection[movement] = connection
 
-    elif number_of_legs == 2:
+    return movements, movement_to_connection
 
-        dict_update = \
-            {
-                "LANE_NUM": {
-                    "LEFT": 1,
-                    "RIGHT": 0,
-                    "STRAIGHT": 1
-                },
+def _detect_movement_conflicts(net_xml, movement_to_connection):
 
-                "PHASE": [
-                    '0T_1L',
-                    '1L_1T'
-                ],
+    conflicts = {}
 
-                "list_lane_order": ["0T", "1L", "1T"]
-            }
-    else:
-        print(number_of_legs, " leg error")
-        sys.exit()
+    incoming_edges, outgoing_edges = get_intersection_edge_ids(net_xml)
+    connections = get_connections(net_xml)
 
-    return dict_update
+    all_edges = incoming_edges + outgoing_edges
+
+    intersection_id = get_intersections_ids(net_xml)[0]
+    intersection = net_xml.find(".//junction[@id='" + intersection_id + "']")
+    intersection_point = Point2D(intersection.get('x'), intersection.get('y'))
+
+    lane_to_movement_point = {}
+
+    for edge in all_edges:
+
+        lanes = net_xml.findall(".//edge[@id='" + edge + "']/lane")
+
+        for lane in lanes:
+
+            lane_id = lane.get('id')
+
+            lane_points = lane.get('shape').split()
+            first_lane_point = Point2D(lane_points[0].split(','))
+            last_lane_point = Point2D(lane_points[-1].split(','))
+
+            if intersection_point.distance(first_lane_point) < intersection_point.distance(last_lane_point):
+                movement_lane_point = first_lane_point
+            else:
+                movement_lane_point = last_lane_point
+
+            lane_to_movement_point[lane_id] = movement_lane_point
+
+    for index_1 in range(0, len(connections)):
+        for index_2 in range(index_1 + 1, len(connections)):
+
+            connection_1 = connections[index_1]
+            connection_2 = connections[index_2]
+
+            connection_1_from_lane = connection_1.get('from') + '_' + connection_1.get('fromLane')
+            connection_1_to_lane = connection_1.get('to') + '_' + connection_1.get('toLane')
+
+            connection_2_from_lane = connection_2.get('from') + '_' + connection_2.get('fromLane')
+            connection_2_to_lane = connection_2.get('to') + '_' + connection_2.get('toLane')
+
+            connection_1_line = \
+                Segment2D(lane_to_movement_point[connection_1_from_lane], lane_to_movement_point[connection_1_to_lane])
+
+            connection_2_line = \
+                Segment2D(lane_to_movement_point[connection_2_from_lane], lane_to_movement_point[connection_2_to_lane])
+
+            line_intersections = connection_1_line.intersection(connection_2_line)
+
+            movement_1 = movement_to_connection.inverse[connection_1][0]
+            movement_2 = movement_to_connection.inverse[connection_2][0]
+            if len(line_intersections) > 0:
+                if movement_1 in conflicts:
+                    conflicts[movement_1].append(movement_2)
+                else:
+                    conflicts[movement_1] = [movement_2]
+
+                if movement_2 in conflicts:
+                    conflicts[movement_2].append(movement_1)
+                else:
+                    conflicts[movement_2] = [movement_1]
+            else:
+                if movement_1 not in conflicts:
+                    conflicts[movement_1] = []
+
+                if movement_2 not in conflicts:
+                    conflicts[movement_2] = []
+
+    return conflicts
+
+def _detect_phases(movements, conflicts, is_right_on_red=True):
+
+    if is_right_on_red:
+        movements = [movement for movement in movements if 'R' not in movement]
+
+    phases = []
+
+    depth_first_search_tracking = [copy.deepcopy(movements)]
+    movements_left_list = [movements]
+    elements_tracking = []
+
+    i = [-1]
+    while len(depth_first_search_tracking) != 0:
+
+        while len(depth_first_search_tracking[0]) != 0:
+            i[0] += 1
+
+            element = depth_first_search_tracking[0].pop(0)
+            elements_tracking.append(element)
+
+            movements_left = [movement for movement in movements[i[0]+1:]
+                              if movement not in conflicts[element] + [element] and
+                              movement in movements_left_list[-1]]
+
+            movements_left_list.append(movements_left)
+
+            if movements_left:
+                depth_first_search_tracking = [movements_left] + depth_first_search_tracking
+                i = [i[0]] + i
+            else:
+                phases.append('_'.join(elements_tracking))
+                elements_tracking.pop()
+                movements_left_list.pop()
+
+        depth_first_search_tracking.pop(0)
+        if elements_tracking:
+            elements_tracking.pop()
+            i.pop(0)
+        movements_left_list.pop()
+
+    phase_sets = [set(phase.split('_')) for phase in phases]
+
+    indices_to_remove = set()
+    for i in range(0, len(phase_sets)):
+        for j in range(i+1, len(phase_sets)):
+
+            phase_i = phase_sets[i]
+            phase_j = phase_sets[j]
+
+            if phase_i.issubset(phase_j):
+                indices_to_remove.add(i)
+            elif phase_j.issubset(phase_i):
+                indices_to_remove.add(j)
+
+    indices_to_remove = sorted(indices_to_remove, reverse=True)
+    for index_to_remove in indices_to_remove:
+        phases.pop(index_to_remove)
+        phase_sets.pop(index_to_remove)
+
+    return phases
+
+def _build_phase_expansions(movements, phases):
+
+    phase_expansion = {}
+    for i, phase in enumerate(phases):
+        phase_movements = phase.split("_")
+        zeros = [0] * len(movements)
+
+        for phase_movement in phase_movements:
+            zeros[movements.index(phase_movement)] = 1
+
+        phase_expansion[i + 1] = zeros
+
+    return phase_expansion
 
 
 if __name__ == "__main__":

@@ -40,6 +40,10 @@ class Frap:
         incoming_edges, _ = get_intersection_edge_ids(net_xml)
         external_configurations['N_LEG'] = len(incoming_edges)
 
+        external_configurations['NUMBER_OF_LEGS_NETWORK_COMPATIBILITY'] = 5
+
+        external_configurations['USE_SUMO_DIRECTIONS_IN_MOVEMENT_DETECTION'] = False
+
         external_configurations['SUMOCFG_PARAMETERS'] = {
             '-n': net_file,
             '-r': route_file,

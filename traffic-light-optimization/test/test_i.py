@@ -38,7 +38,7 @@ traffic_level_mapping = {
 
 test_i_folder = definitions.ROOT_DIR + '/scenario/test_i'
 
-NUMBER_OF_PROCESSES = 8
+NUMBER_OF_PROCESSES = 4
 
 def _build_experiment_i_routes():
 
@@ -214,7 +214,7 @@ def create_experiment_generator(type='regular', algorithm=None):
 
     parser = etree.XMLParser(remove_blank_text=True)
 
-    test_i_scenarios = sorted(os.listdir(test_i_folder))
+    test_i_scenarios = sorted(next(os.walk(test_i_folder))[1])
 
     for scenario in test_i_scenarios:
 

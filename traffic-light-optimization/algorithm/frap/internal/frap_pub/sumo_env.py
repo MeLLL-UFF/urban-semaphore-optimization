@@ -85,6 +85,13 @@ else:
 def get_traci_constant_mapping(constant_str):
     return getattr(tc, constant_str)
 
+def get_intersections_ids(net_xml):
+    intersections = net_xml.findall(".//junction[@type]")
+
+    intersection_ids = [intersection.get('id') for intersection in intersections if intersection.get('type') != 'dead_end']
+
+    return intersection_ids
+
 def get_connections(net_xml, from_edge='ALL', to_edge='ALL'):
 
     from_attribute = ''
@@ -97,12 +104,12 @@ def get_connections(net_xml, from_edge='ALL', to_edge='ALL'):
     connections = net_xml.findall(".//connection" + from_attribute + to_attribute)
 
     edges = net_xml.findall(".//edge[@priority]")
-    edge_ids = [edge.attrib['id'] for edge in edges]
+    edge_ids = [edge.get('id') for edge in edges]
 
     actual_connections = []
     for connection in connections:
-        connection_from = connection.attrib['from']
-        connection_to = connection.attrib['to']
+        connection_from = connection.get('from')
+        connection_to = connection.get('to')
 
         if connection_from in edge_ids and connection_to in edge_ids:
             actual_connections.append(connection)
@@ -130,10 +137,10 @@ def sort_edges_by_angle(net_xml, edge_ids, incoming=True, clockwise=True):
     ids_and_angles = []
     for edge in all_edges:
 
-        edge_id = edge.attrib['id']
+        edge_id = edge.get('id')
         if edge_id in edge_ids:
             lane = edge[0]
-            polyline = lane.attrib['shape']
+            polyline = lane.get('shape')
             polyline_points = polyline.split()
 
             first_point = Point(polyline_points[0].split(','))
@@ -167,8 +174,8 @@ def get_intersection_edge_ids(net_xml, from_edge='ALL', to_edge='ALL', sorted=Tr
     outgoing_edges = set()
 
     for connection in connections:
-        connection_from = connection.attrib['from']
-        connection_to = connection.attrib['to']
+        connection_from = connection.get('from')
+        connection_to = connection.get('to')
 
         incoming_edges.add(connection_from)
         outgoing_edges.add(connection_to)
