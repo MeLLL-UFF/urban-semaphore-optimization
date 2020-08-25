@@ -12,10 +12,7 @@ class ConstructSample:
         self.cnt_round = cnt_round
         self.dic_traffic_env_conf = dic_traffic_env_conf
         self.num_lanes = np.sum(np.array(list(self.dic_traffic_env_conf["LANE_NUM"].values())))
-        if len(self.dic_traffic_env_conf["PHASE"]) == 2:
-            self.dic_phase_expansion = self.dic_traffic_env_conf["phase_expansion_4_lane"]
-        else:
-            self.dic_phase_expansion = self.dic_traffic_env_conf["phase_expansion"]
+        self.dic_phase_expansion = self.dic_traffic_env_conf["phase_expansion"]
 
     def load_data(self, folder):
 

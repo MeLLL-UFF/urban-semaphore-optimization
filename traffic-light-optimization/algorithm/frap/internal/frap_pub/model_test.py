@@ -167,7 +167,9 @@ def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_c
             # print("end down")
 
     except:
-        error_dir = model_round.replace("model", "errors")
+        error_dir = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round", model_round, 'error')
+        if not os.path.exists(ROOT_DIR + '/' + error_dir):
+            os.makedirs(ROOT_DIR + '/' + error_dir)
         f = open(os.path.join(ROOT_DIR, error_dir, "error_info.txt"), "a")
         f.write("round_%d fail to test model"%cnt_round)
         f.close()

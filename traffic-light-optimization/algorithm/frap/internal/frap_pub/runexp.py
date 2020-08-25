@@ -71,6 +71,7 @@ def main(args=None, memo=None, external_configurations={}):
     number_of_legs_network_compatibility = external_configurations.get('NUMBER_OF_LEGS_NETWORK_COMPATIBILITY', 'same')
     use_sumo_directions_in_movement_detection = external_configurations.get('USE_SUMO_DIRECTIONS_IN_MOVEMENT_DETECTION',
                                                                           False)
+    unique_id = external_configurations['UNIQUE_ID']
 
     process_list = []
     n_workers = args.workers #len(traffic_file_list)
@@ -102,12 +103,16 @@ def main(args=None, memo=None, external_configurations={}):
 
         print(traffic_file)
         dic_path_extra = {
-            "PATH_TO_MODEL": os.path.join("model", memo, traffic_file + "_" + time.strftime('%m_%d_%H_%M_%S',
-                                                                                            time.localtime(
-                                                                                                time.time())) + postfix),
-            "PATH_TO_WORK_DIRECTORY": os.path.join("records", memo, traffic_file + "_" + time.strftime('%m_%d_%H_%M_%S',
-                                                                                                       time.localtime(
-                                                                                                           time.time())) + postfix),
+            "PATH_TO_MODEL": os.path.join(
+                "model",
+                memo,
+                traffic_file + "_" + time.strftime('%m_%d_%H_%M_%S', time.localtime(time.time())) +
+                    postfix + '_' + unique_id),
+            "PATH_TO_WORK_DIRECTORY": os.path.join(
+                "records",
+                memo,
+                traffic_file + "_" + time.strftime('%m_%d_%H_%M_%S', time.localtime(time.time())) +
+                    postfix + '_' + unique_id),
             "PATH_TO_DATA": os.path.join("data", template),
             "PATH_TO_PRETRAIN_MODEL": os.path.join("model", "initial", traffic_file),
             "PATH_TO_PRETRAIN_WORK_DIRECTORY": os.path.join("records", "initial", traffic_file),
@@ -322,7 +327,7 @@ def _detect_movements(net_xml, use_sumo_directions=False, is_right_on_red=True):
 
         connections = get_connections(net_xml, from_edge=edge)
 
-        sorted_connections = sorted(connections, key=lambda x: x.get('fromLane'), reverse=True)
+        sorted_connections = list(reversed(connections))
 
         if use_sumo_directions:
             dir_to_from_lane = {}
@@ -412,6 +417,7 @@ def _detect_movement_conflicts(net_xml, movement_to_connection):
 
             lane_to_movement_point[lane_id] = movement_lane_point
 
+    same_lane_origin_movements = {}
     for index_1 in range(0, len(connections)):
         for index_2 in range(index_1 + 1, len(connections)):
 
@@ -434,7 +440,18 @@ def _detect_movement_conflicts(net_xml, movement_to_connection):
 
             movement_1 = movement_to_connection.inverse[connection_1][0]
             movement_2 = movement_to_connection.inverse[connection_2][0]
-            if len(line_intersections) > 0:
+            if connection_1_line.p1 == connection_2_line.p1:
+                if movement_1 in same_lane_origin_movements:
+                    same_lane_origin_movements[movement_1].append(movement_2)
+                else:
+                    same_lane_origin_movements[movement_1] = [movement_2]
+
+                if movement_2 in same_lane_origin_movements:
+                    same_lane_origin_movements[movement_2].append(movement_1)
+                else:
+                    same_lane_origin_movements[movement_2] = [movement_1]
+
+            elif len(line_intersections) > 0:
                 if movement_1 in conflicts:
                     conflicts[movement_1].append(movement_2)
                 else:
@@ -450,6 +467,20 @@ def _detect_movement_conflicts(net_xml, movement_to_connection):
 
                 if movement_2 not in conflicts:
                     conflicts[movement_2] = []
+
+    for key, values in same_lane_origin_movements.items():
+        original_conflicts = set(conflicts[key])
+
+        for value in values:
+
+            inherited_conflicts = conflicts[value]
+
+            original_conflicts.update(set(inherited_conflicts))
+
+            for inherited_conflict in inherited_conflicts:
+                original_conflicts.update(set(same_lane_origin_movements[inherited_conflict]))
+
+        conflicts[key] = list(original_conflicts)
 
     return conflicts
 

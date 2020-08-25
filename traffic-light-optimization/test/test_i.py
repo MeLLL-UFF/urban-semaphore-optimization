@@ -258,7 +258,7 @@ def run_experiment(arguments):
     output_file = output_folder + name + '__' + type + '_' + '_'.join(traffic_level_configuration) + \
                     '_' + 'tripinfo' + '.out.xml'
 
-    if algorithm:
+    if algorithm == 'FRAP':
 
         begin = time.time()
 

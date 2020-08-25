@@ -1,5 +1,6 @@
 import os
 import shutil
+import uuid
 
 import lxml.etree as etree
 
@@ -43,6 +44,7 @@ class Frap:
         external_configurations['NUMBER_OF_LEGS_NETWORK_COMPATIBILITY'] = 5
 
         external_configurations['USE_SUMO_DIRECTIONS_IN_MOVEMENT_DETECTION'] = False
+        external_configurations['UNIQUE_ID'] = str(uuid.uuid4())
 
         external_configurations['SUMOCFG_PARAMETERS'] = {
             '-n': net_file,

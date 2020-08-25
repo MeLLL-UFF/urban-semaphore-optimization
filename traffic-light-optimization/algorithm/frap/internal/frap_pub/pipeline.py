@@ -452,4 +452,3 @@ class Pipeline:
             f_timing.write("round_{0}: {1}\n".format(cnt_round, round_end_t-round_start_t))
             f_timing.close()
 
-            return
