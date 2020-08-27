@@ -198,7 +198,8 @@ def _start_traci(net_file, route_file, output_file):
         get_sumo_binary(),
         '-n', net_file,
         '-r', route_file,
-        '--tripinfo-output', output_file,
+        '--log', output_file,
+        '--duration-log.statistics', str(True),
         '--time-to-teleport', str(-1),
         '--collision.stoptime', str(10),
         '--collision.mingap-factor', str(0),
@@ -256,7 +257,7 @@ def run_experiment(arguments):
 
     route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
     output_file = output_folder + name + '__' + type + '_' + '_'.join(traffic_level_configuration) + \
-                    '_' + 'tripinfo' + '.out.xml'
+                    '_' + 'log' + '.out.xml'
 
     if algorithm == 'FRAP':
 
@@ -286,7 +287,7 @@ def run():
 
 
 if __name__ == "__main__":
-    _build_experiment_i_routes()
+    #_build_experiment_i_routes()
     run()
 
     #_run(type='right_on_red')

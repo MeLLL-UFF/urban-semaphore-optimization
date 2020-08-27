@@ -136,7 +136,8 @@ def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_c
                                                                external_configurations=external_configurations)
 
         done = False
-        state = env.reset(dic_path, external_configurations=external_configurations)
+        execution_name = 'test' + '_' + 'round' + '_' + str(cnt_round)
+        state = env.reset(execution_name, dic_path, external_configurations=external_configurations)
         step_num = 0
         stop_cnt = 0
         while step_num < int(dic_exp_conf["TEST_RUN_COUNTS"] / dic_traffic_env_conf["MIN_ACTION_TIME"]):

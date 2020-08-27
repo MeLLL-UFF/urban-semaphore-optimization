@@ -723,8 +723,6 @@ class SumoEnv:
         self.path_to_work_directory = path_to_work_directory
         self.dic_traffic_env_conf = dic_traffic_env_conf
 
-        self.sumo_cmd_str = self._get_sumo_cmd(external_configurations=external_configurations)
-
         self.list_intersection = None
         self.list_inter_log = None
         self.list_lanes = None
@@ -741,7 +739,7 @@ class SumoEnv:
             f = open(ROOT_DIR + '/' + path_to_log_file, "wb")
             f.close()
 
-    def reset(self, dic_path, external_configurations={}):
+    def reset(self, execution_name, dic_path, external_configurations={}):
 
         # initialize intersections
         # self.list_intersection = [Intersection(i, self.LIST_VEHICLE_VARIABLES_TO_SUB) for i in range(self.dic_sumo_env_conf["NUM_INTERSECTIONS"])]
@@ -760,13 +758,24 @@ class SumoEnv:
             self.list_lanes += inter.list_lanes
         self.list_lanes = np.unique(self.list_lanes).tolist()
 
+
+        output_file = external_configurations['SUMOCFG_PARAMETERS']['--log']
+
+        split_output_filename = output_file.rsplit('.', 2)
+        split_output_filename[0] += '_' + execution_name
+        output_file = '.'.join(split_output_filename)
+
+        external_configurations['SUMOCFG_PARAMETERS']['--log'] = output_file
+
+        sumo_cmd_str = self._get_sumo_cmd(external_configurations=external_configurations)
+
         print ("start sumo")
         try:
-            traci.start(self.sumo_cmd_str)
+            traci.start(sumo_cmd_str)
         except Exception as e:
             traci.close()
             try:
-                traci.start(self.sumo_cmd_str)
+                traci.start(sumo_cmd_str)
             except Exception as e:
                 print('TRACI TERMINATED')
                 print(str(e))

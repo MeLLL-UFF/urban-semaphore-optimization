@@ -49,7 +49,8 @@ class Frap:
         external_configurations['SUMOCFG_PARAMETERS'] = {
             '-n': net_file,
             '-r': route_file,
-            '--tripinfo-output': output_file,
+            '--log': output_file,
+            '--duration-log.statistics': True,
             '--time-to-teleport': -1,
             '--collision.stoptime': 10,
             '--collision.mingap-factor': 0,

@@ -4,7 +4,6 @@ from algorithm.frap.internal.frap_pub.pipeline import Pipeline
 import os
 import time
 from multiprocessing import Process
-import sys
 
 from sympy import Point2D, Segment2D
 from lxml import etree
@@ -101,18 +100,12 @@ def main(args=None, memo=None, external_configurations={}):
         #    else:
         #        raise ValueError
 
+        suffix = time.strftime('%m_%d_%H_%M_%S', time.localtime(time.time())) + postfix + '_' + unique_id
+
         print(traffic_file)
         dic_path_extra = {
-            "PATH_TO_MODEL": os.path.join(
-                "model",
-                memo,
-                traffic_file + "_" + time.strftime('%m_%d_%H_%M_%S', time.localtime(time.time())) +
-                    postfix + '_' + unique_id),
-            "PATH_TO_WORK_DIRECTORY": os.path.join(
-                "records",
-                memo,
-                traffic_file + "_" + time.strftime('%m_%d_%H_%M_%S', time.localtime(time.time())) +
-                    postfix + '_' + unique_id),
+            "PATH_TO_MODEL": os.path.join("model", memo, traffic_file + "_" + suffix),
+            "PATH_TO_WORK_DIRECTORY": os.path.join("records", memo, traffic_file + "_" + suffix),
             "PATH_TO_DATA": os.path.join("data", template),
             "PATH_TO_PRETRAIN_MODEL": os.path.join("model", "initial", traffic_file),
             "PATH_TO_PRETRAIN_WORK_DIRECTORY": os.path.join("records", "initial", traffic_file),
@@ -120,6 +113,13 @@ def main(args=None, memo=None, external_configurations={}):
 
         }
 
+        output_file = external_configurations['SUMOCFG_PARAMETERS']['--log']
+
+        split_output_filename = output_file.rsplit('.', 2)
+        split_output_filename[0] += '_' + suffix
+        output_file = '.'.join(split_output_filename)
+
+        external_configurations['SUMOCFG_PARAMETERS']['--log'] = output_file
 
         #model_name = "SimpleDQN"
         model_name = args.algorithm

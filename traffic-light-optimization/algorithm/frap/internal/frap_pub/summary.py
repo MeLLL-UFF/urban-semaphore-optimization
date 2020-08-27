@@ -469,7 +469,7 @@ def summary_detail_test(memo, total_summary):
 
                 valid_flag = json.load(open(os.path.join(ROOT_DIR, round_dir, "valid_flag.json")))
                 #if valid_flag['0']:  # temporary for one intersection
-                if vehicle_out > total_vol * 0.9:
+                if total_vol is not None and vehicle_out > total_vol * 0.9:
                     if min_duration > ave_duration and ave_duration > 24:
                         print(">", traffic_file)
                         print(">>>", ave_duration, vehicle_out, total_vol)
@@ -688,8 +688,8 @@ if __name__ == "__main__":
         "min_duration2": []
     }
 
-    memo = "early_stopping"
-    summary_detail_train(memo, copy.deepcopy(total_summary))
+    memo = "TransferDQN"
+    #summary_detail_train(memo, copy.deepcopy(total_summary))
     summary_detail_test(memo, copy.deepcopy(total_summary))
     # summary_detail_baseline(memo)
     #summary_detail_test_segments(memo, copy.deepcopy(total_summary))

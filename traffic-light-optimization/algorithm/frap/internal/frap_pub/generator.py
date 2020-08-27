@@ -59,9 +59,12 @@ class Generator:
 
     def generate(self):
 
-
         done = False
-        state = self.env.reset(self.dic_path, external_configurations=self.external_configurations)
+
+        execution_name = 'train' + '_' + \
+                         'generator' + '_' + str(self.cnt_gen) + '_' + \
+                         'round' + '_' + str(self.cnt_round)
+        state = self.env.reset(execution_name, self.dic_path, external_configurations=self.external_configurations)
         step_num = 0
         stop_cnt = 0
         while not done and step_num < int(self.dic_exp_conf["RUN_COUNTS"]/self.dic_traffic_env_conf["MIN_ACTION_TIME"]):
