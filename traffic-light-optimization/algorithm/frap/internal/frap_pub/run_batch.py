@@ -52,13 +52,14 @@ def run(external_configurations={}):
     #os.environ["CUDA_VISIBLE_DEVICES"] = args.visible_gpu
 
     t1 = time.time()
-    runexp.main(args, memo, external_configurations)
+    _, dic_path = runexp.main(args, memo, external_configurations)
     print("****************************** runexp ends (generate, train, test)!! ******************************")
     t2 = time.time()
     f_timing = open(os.path.join(ROOT_DIR, "records", memo, "timing.txt"), "a+")
     f_timing.write(str(t2 - t1) + '\n')
     f_timing.close()
-    summary.main(memo)
+    records_dir = dic_path["PATH_TO_WORK_DIRECTORY"]
+    summary.single_summary(memo, records_dir)
     print("****************************** summary_detail ends ******************************")
 
 if __name__ == "__main__":

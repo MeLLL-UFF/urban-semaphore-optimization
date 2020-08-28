@@ -81,6 +81,7 @@ class Generator:
             step_num += 1
             stop_cnt += 1
         self.env.bulk_log()
+        self.env.end_sumo()
 
         if self.dic_traffic_env_conf["DONE_ENABLE"]:
             run_cnt_log = open(os.path.join(ROOT_DIR, self.dic_path["PATH_TO_WORK_DIRECTORY"],

@@ -313,7 +313,7 @@ def main(args=None, memo=None, external_configurations={}):
             p = list_cur_p[i]
             p.join()
 
-    return memo
+    return memo, deploy_dic_path
 
 
 def _detect_movements(net_xml, use_sumo_directions=False, is_right_on_red=True):
