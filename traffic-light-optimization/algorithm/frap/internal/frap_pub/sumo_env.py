@@ -762,8 +762,13 @@ class SumoEnv:
         output_file = external_configurations['SUMOCFG_PARAMETERS']['--log']
 
         split_output_filename = output_file.rsplit('.', 2)
+        execution_base = split_output_filename[0].rsplit('/', 1)[1]
         split_output_filename[0] += '_' + execution_name
         output_file = '.'.join(split_output_filename)
+
+        split_output_filename = output_file.rsplit('/', 1)
+        split_output_filename.insert(1, execution_base)
+        output_file = '/'.join(split_output_filename)
 
         external_configurations['SUMOCFG_PARAMETERS']['--log'] = output_file
 
