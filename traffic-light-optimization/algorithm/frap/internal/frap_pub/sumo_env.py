@@ -772,6 +772,10 @@ class SumoEnv:
 
         external_configurations['SUMOCFG_PARAMETERS']['--log'] = output_file
 
+        output_file_path = output_file.rsplit('/', 1)[0]
+        if not os.path.isdir(output_file_path):
+            os.makedirs(output_file_path)
+
         sumo_cmd_str = self._get_sumo_cmd(external_configurations=external_configurations)
 
         print ("start sumo")
