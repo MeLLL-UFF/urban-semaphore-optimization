@@ -59,7 +59,7 @@ def get_metrics(duration_list, queue_length_list, min_duration, min_duration_id,
     plt.close()
 
     total_summary["traffic_file"].append(traffic_name)
-    total_summary["traffic"].append(traffic_name.split(".xml")[0])
+    total_summary["traffic"].append(traffic_name.split("___")[0])
     total_summary["min_queue_length"].append(min_queue_length)
     total_summary["min_queue_length_round"].append(min_queue_length_id)
     total_summary["min_duration"].append(min_duration)
@@ -789,7 +789,8 @@ def single_summary_detail_test(memo, records_dir, total_summary):
             plot_segment_duration(round_summary, result_dir, mode_name="test")
             duration_each_segment_list = round_result.iloc[min_duration_ind][1:].values
 
-            traffic_name, traffic_time = traffic_folder.split(".xml")
+            traffic_name, traffic_time = traffic_folder.split('___')
+            traffic_time = traffic_time.split('__')
             if traffic_name not in performance_at_min_duration_round:
                 performance_at_min_duration_round[traffic_name] = [(duration_each_segment_list, traffic_time)]
             else:
@@ -805,10 +806,8 @@ def single_summary_detail_test(memo, records_dir, total_summary):
                                     mode_name="test", save_path=result_dir, num_rounds=num_rounds,
                                     min_duration2=None)
 
-        if ".xml" in traffic_folder:
-            traffic_name, traffic_time = traffic_folder.split(".xml")
-        elif ".json" in traffic_folder:
-            traffic_name, traffic_time = traffic_folder.split(".json")
+        traffic_name, traffic_time = traffic_folder.split('___')
+        traffic_time = traffic_time.split('__')
         if traffic_name not in performance_duration:
             performance_duration[traffic_name] = [(duration_each_round_list, traffic_time)]
         else:

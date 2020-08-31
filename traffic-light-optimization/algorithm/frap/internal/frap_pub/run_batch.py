@@ -61,6 +61,9 @@ def run(external_configurations={}):
     records_dir = dic_path["PATH_TO_WORK_DIRECTORY"]
     summary.single_summary(memo, records_dir)
     print("****************************** summary_detail ends ******************************")
+    experiment_name = dic_path["EXECUTION_BASE"]
+
+    return experiment_name
 
 if __name__ == "__main__":
     run()

@@ -36,6 +36,77 @@ def downsample(path_to_log):
         pickle.dump(subset_data, f_subset)
 
 
+def run(dir, round_number, run_cnt, execution_name, if_gui, external_configurations={}):
+    model_dir = "model/" + dir
+    records_dir = "records/" + dir
+    model_round = 'round' + '_' + str(round_number)
+    dic_path = {}
+    dic_path["PATH_TO_MODEL"] = model_dir
+    dic_path["PATH_TO_WORK_DIRECTORY"] = records_dir
+
+    with open(os.path.join(ROOT_DIR, records_dir, "agent.conf"), "r") as f:
+        dic_agent_conf = json.load(f)
+    with open(os.path.join(ROOT_DIR, records_dir, "exp.conf"), "r") as f:
+        dic_exp_conf = json.load(f)
+    with open(os.path.join(ROOT_DIR, records_dir, "traffic_env.conf"), "r") as f:
+        dic_traffic_env_conf = json.load(f)
+
+    dic_traffic_env_conf['phase_expansion'] = {int(key): value for key, value in dic_traffic_env_conf['phase_expansion'].items()}
+
+    dic_exp_conf["RUN_COUNTS"] = run_cnt
+    dic_traffic_env_conf["IF_GUI"] = if_gui
+    dic_traffic_env_conf["SAVEREPLAY"] = True
+
+    # dump dic_exp_conf
+    with open(os.path.join(ROOT_DIR, records_dir, "test_exp.conf"), "w") as f:
+        json.dump(dic_exp_conf, f)
+
+    if dic_exp_conf["MODEL_NAME"] in dic_exp_conf["LIST_MODEL_NEED_TO_UPDATE"]:
+        dic_agent_conf["EPSILON"] = 0  # dic_agent_conf["EPSILON"]  # + 0.1*cnt_gen
+        dic_agent_conf["MIN_EPSILON"] = 0
+
+    agent_name = dic_exp_conf["MODEL_NAME"]
+    agent = DIC_AGENTS[agent_name](
+        dic_agent_conf=dic_agent_conf,
+        dic_traffic_env_conf=dic_traffic_env_conf,
+        dic_path=dic_path,
+        cnt_round=0,  # useless
+    )
+    agent.load_network(model_round)
+
+    path_to_log = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round", model_round)
+    if not os.path.exists(ROOT_DIR + '/' + path_to_log):
+        os.makedirs(ROOT_DIR + '/' + path_to_log)
+    env = DIC_ENVS[dic_traffic_env_conf["SIMULATOR_TYPE"]](path_to_log=path_to_log,
+                        path_to_work_directory=dic_path["PATH_TO_WORK_DIRECTORY"],
+                        dic_traffic_env_conf=dic_traffic_env_conf,
+                        external_configurations=external_configurations)
+
+    done = False
+    state = env.reset(execution_name, dic_path, external_configurations=external_configurations)
+    step_num = 0
+
+    while not done and step_num < int(dic_exp_conf["RUN_COUNTS"] / dic_traffic_env_conf["MIN_ACTION_TIME"]):
+        action_list = []
+        for one_state in state:
+            action = agent.choose_action(step_num, one_state)
+
+            action_list.append(action)
+
+        next_state, reward, done, _ = env.step(action_list)
+
+        state = next_state
+        step_num += 1
+    env.bulk_log()
+    env.end_sumo()
+    if not __debug__:
+        path_to_log = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round", model_round)
+        # print("downsample", path_to_log)
+        downsample(path_to_log)
+        # print("end down")
+
+
+
 def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
     model_dir = "model/" + dir
     records_dir = "records/" + dir
@@ -97,6 +168,7 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
             state = next_state
             step_num += 1
         env.bulk_log()
+        env.end_sumo()
         if not __debug__:
             path_to_log = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round", model_round)
             # print("downsample", path_to_log)

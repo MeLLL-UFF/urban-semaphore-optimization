@@ -14,15 +14,13 @@ from city.traffic_light_system.traffic_light.configurer.traffic_light_configurer
 from definitions import get_network_file_path, get_route_file_path
 
 
-def get_sumo_binary():
+def get_sumo_binary(gui=False):
     options = _get_options()
 
-    # this script has been called from the command line. It will start sumo as a
-    # server, then connect and run
-    if options.nogui:
-        sumoBinary = checkBinary('sumo')
-    else:
+    if gui:
         sumoBinary = checkBinary('sumo-gui')
+    else:
+        sumoBinary = checkBinary('sumo')
 
     return sumoBinary
 
@@ -273,3 +271,24 @@ def map_connection_direction(connection):
         direction = 'right_turn'
 
     return direction
+
+def get_average_duration_statistic(output_file):
+
+    with open(output_file, 'r') as handle:
+        content = handle.read()
+
+    statistics_begin_index = content.find('Statistics')
+
+    if statistics_begin_index == -1:
+        raise Exception('Sumo statistics output is not set')
+
+    statistics_end_index = content.find('DepartDelay:') + content[content.find('DepartDelay:'):].find('\n')
+
+    statistics = content[statistics_begin_index:statistics_end_index]
+
+    duration_begin_index = statistics.find('Duration:') + len('Duration:')
+    duration_end_index = duration_begin_index + statistics[duration_begin_index:].find('\n')
+
+    duration = float(statistics[duration_begin_index:duration_end_index])
+
+    return duration

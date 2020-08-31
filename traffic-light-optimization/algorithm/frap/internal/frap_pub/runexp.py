@@ -66,6 +66,7 @@ def main(args=None, memo=None, external_configurations={}):
 
     traffic_file_list = external_configurations['TRAFFIC_FILE_LIST']
     roadnet_file = external_configurations['ROADNET_FILE']
+    traffic_level_configuration = external_configurations['TRAFFIC_LEVEL_CONFIGURATION']
     number_of_legs = external_configurations['N_LEG']
     number_of_legs_network_compatibility = external_configurations.get('NUMBER_OF_LEGS_NETWORK_COMPATIBILITY', 'same')
     use_sumo_directions_in_movement_detection = external_configurations.get('USE_SUMO_DIRECTIONS_IN_MOVEMENT_DETECTION',
@@ -100,15 +101,18 @@ def main(args=None, memo=None, external_configurations={}):
         #    else:
         #        raise ValueError
 
-        suffix = time.strftime('%m_%d_%H_%M_%S', time.localtime(time.time())) + postfix + '_' + unique_id
+        suffix = time.strftime('%m_%d_%H_%M_%S', time.localtime(time.time())) + postfix + '__' + unique_id
+
+        roadnet_file_name = roadnet_file.rsplit('.', 2)[0]
+        experiment_name_base = roadnet_file_name + '__' + '_'.join(traffic_level_configuration)
 
         print(traffic_file)
         dic_path_extra = {
-            "PATH_TO_MODEL": os.path.join("model", memo, traffic_file + "_" + suffix),
-            "PATH_TO_WORK_DIRECTORY": os.path.join("records", memo, traffic_file + "_" + suffix),
+            "PATH_TO_MODEL": os.path.join("model", memo, experiment_name_base + "___" + suffix),
+            "PATH_TO_WORK_DIRECTORY": os.path.join("records", memo, experiment_name_base + "___" + suffix),
             "PATH_TO_DATA": os.path.join("data", template),
-            "PATH_TO_PRETRAIN_MODEL": os.path.join("model", "initial", traffic_file),
-            "PATH_TO_PRETRAIN_WORK_DIRECTORY": os.path.join("records", "initial", traffic_file),
+            "PATH_TO_PRETRAIN_MODEL": os.path.join("model", "initial", experiment_name_base),
+            "PATH_TO_PRETRAIN_WORK_DIRECTORY": os.path.join("records", "initial", experiment_name_base),
             "PATH_TO_ERROR": os.path.join("errors", memo)
 
         }
@@ -116,10 +120,13 @@ def main(args=None, memo=None, external_configurations={}):
         output_file = external_configurations['SUMOCFG_PARAMETERS']['--log']
 
         split_output_filename = output_file.rsplit('.', 2)
-        split_output_filename[0] += '_' + suffix
+        split_output_filename[0] += '___' + suffix
         output_file = '.'.join(split_output_filename)
 
         external_configurations['SUMOCFG_PARAMETERS']['--log'] = output_file
+
+        execution_base = split_output_filename[0].rsplit('/', 1)[1]
+        dic_path_extra["EXECUTION_BASE"] = execution_base
 
         #model_name = "SimpleDQN"
         model_name = args.algorithm

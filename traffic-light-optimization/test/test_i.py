@@ -19,13 +19,15 @@ else:
 
 import traci
 import lxml.etree as etree
+import pandas as pd
 
 from algorithm.frap.frap import Frap
 import definitions
 from utils.traffic_util import generate_unique_traffic_level_configurations
 from utils.sumo_util import get_intersection_edge_ids, get_connections, map_connection_direction, get_sumo_binary, \
-    sort_edges_by_angle
+    sort_edges_by_angle, get_average_duration_statistic
 from utils.process_util import NoDaemonPool
+from config import Config as config
 
 
 car_turning_policy_dict = {'left_turn': 0.1, 'straight': 0.6, 'right_turn': 0.3}
@@ -49,11 +51,11 @@ def _build_experiment_i_routes():
     for scenario in test_i_scenarios:
 
         name = scenario
-        type = 'regular'
+        _type = 'regular'
 
         scenario_folder = test_i_folder + '/' + scenario
 
-        net_xml = etree.parse(scenario_folder + '/' + name + '__' + type + '.net.xml', parser)
+        net_xml = etree.parse(scenario_folder + '/' + name + '__' + _type + '.net.xml', parser)
 
         connections = get_connections(net_xml)
 
@@ -129,11 +131,11 @@ def _configure_scenario_routes(scenario, traffic_level_configuration):
     parser = etree.XMLParser(remove_blank_text=True)
 
     name = scenario
-    type = 'regular'
+    _type = 'regular'
 
     scenario_folder = test_i_folder + '/' + scenario
 
-    net_xml = etree.parse(scenario_folder + '/' + name + '__' + type + '.net.xml', parser)
+    net_xml = etree.parse(scenario_folder + '/' + name + '__' + _type + '.net.xml', parser)
 
     connections = get_connections(net_xml)
 
@@ -210,8 +212,19 @@ def _start_traci(net_file, route_file, output_file):
     while traci.simulation.getMinExpectedNumber() > 0:
         traci.simulationStep()
 
-def create_experiment_generator(type='regular', algorithm=None):
-    # type : regular, right_on_red, unregulated
+def _consolidate_output_file(output_file):
+
+    output_folder = output_file.rsplit('/', 1)[0]
+    
+    duration = get_average_duration_statistic(output_file)
+
+    filename = output_file.rsplit('.', 2)[0]
+    duration_df = pd.DataFrame()
+    duration_df.loc[0, 'test'] = duration
+    duration_df.to_csv(filename + '_' + 'result' + '.csv')
+
+def create_experiment_generator(_type='regular', algorithm=None):
+    # _type : regular, right_on_red, unregulated
 
     parser = etree.XMLParser(remove_blank_text=True)
 
@@ -223,48 +236,42 @@ def create_experiment_generator(type='regular', algorithm=None):
 
         scenario_folder = test_i_folder + '/' + scenario
 
-        net_xml = etree.parse(scenario_folder + '/' + name + '__' + type + '.net.xml', parser)
+        net_xml = etree.parse(scenario_folder + '/' + name + '__' + _type + '.net.xml', parser)
 
         incoming_edge_ids, _ = get_intersection_edge_ids(net_xml)
         traffic_level_configurations = generate_unique_traffic_level_configurations(
             len(incoming_edge_ids))
 
-        net_file = scenario_folder + '/' + name + '__' + type + '.net.xml'
-        sumocfg_file = scenario_folder + '/' + name + '__' + type + '.sumocfg'
-        output_folder = scenario_folder + '/' + 'output' + '/'
-
-        if not os.path.isdir(output_folder):
-            os.makedirs(output_folder)
+        net_file = scenario_folder + '/' + name + '__' + _type + '.net.xml'
+        sumocfg_file = scenario_folder + '/' + name + '__' + _type + '.sumocfg'
+        base_output_folder = scenario_folder + '/' + 'output' + '/' + str(algorithm) + '/' + _type + '/'
 
         for traffic_level_configuration in traffic_level_configurations:
-            yield scenario, traffic_level_configuration, type, algorithm, net_file, scenario_folder, sumocfg_file, \
-                  output_folder
 
-def _run(type='regular', algorithm=None):
-    
-    experiment_generator = create_experiment_generator(type=type, algorithm=algorithm)
+            experiment_name = name + '__' + _type + '__' + '_'.join(traffic_level_configuration)
 
-    with NoDaemonPool(processes=NUMBER_OF_PROCESSES) as pool:
-        pool.map(run_experiment, experiment_generator)
+            output_folder = base_output_folder + experiment_name + '/'
 
+            if not os.path.isdir(output_folder):
+                os.makedirs(output_folder)
+
+            yield scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, \
+                  sumocfg_file, output_folder
 
 def run_experiment(arguments):
 
-    scenario, traffic_level_configuration, type, algorithm, net_file, scenario_folder, sumocfg_file, output_folder = \
-        arguments
-
-    name = scenario
+    scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, sumocfg_file, \
+        output_folder = arguments
 
     route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
-    output_file = output_folder + name + '__' + type + '_' + '_'.join(traffic_level_configuration) + \
-                    '_' + 'log' + '.out.xml'
+    output_file = output_folder + experiment_name + '.out.xml'
 
     if algorithm == 'FRAP':
 
         begin = time.time()
 
         frap = Frap()
-        frap.run(net_file, route_file, sumocfg_file, output_file)
+        frap.run(net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
 
         end = time.time()
         timing = end - begin
@@ -274,21 +281,37 @@ def run_experiment(arguments):
     else:
         _start_traci(net_file, route_file, output_file)
         traci.close()
+        _consolidate_output_file(output_file)
 
     sys.stdout.flush()
 
     os.remove(route_file)
 
+def _run(_type='regular', algorithm=None):
+    
+    experiment_generator = create_experiment_generator(_type=_type, algorithm=algorithm)
+
+    with NoDaemonPool(processes=NUMBER_OF_PROCESSES) as pool:
+        pool.map(run_experiment, experiment_generator)
+
 def run():
     #'OFF', STATIC, and FRAP
-    #_run(type='unregulated')
-    #_run(type='right_on_red')
-    _run(type='right_on_red', algorithm='FRAP')
+    #_run(_type='unregulated')
+    #_run(_type='right_on_red')
+    _run(_type='right_on_red', algorithm='FRAP')
 
 
 if __name__ == "__main__":
     #_build_experiment_i_routes()
     run()
 
-    #_run(type='right_on_red')
-    #_run(type='unregulated')
+    #_configure_scenario_routes(scenario='0_regular-intersection', traffic_level_configuration=('light', 'light', 'light', 'light'))
+    #frap = Frap()
+    #frap.visualize_policy_behavior(scenario='0_regular-intersection__right_on_red', traffic_level_configuration='light_light_light_light', 
+    # experiment='0_regular-intersection__right_on_red__light_light_light_light___08_31_11_09_11_10__08ad4741-9654-4abe-b748-9f24702088e2')
+    #frap.visualize_policy_behavior(scenario='0_regular-intersection', _type='right_on_red', traffic_level_configuration='light_light_light_light')
+
+    #_run(_type='right_on_red')
+    #_run(_type='unregulated')
+
+    
