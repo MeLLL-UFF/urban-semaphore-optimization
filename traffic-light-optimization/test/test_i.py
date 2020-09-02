@@ -38,7 +38,7 @@ traffic_level_mapping = {
     'heavy': 0.7
 }
 
-test_i_folder = definitions.ROOT_DIR + '/scenario/test_i'
+test_i_folder = definitions.ROOT_DIR + config.SCENARIO_PATH + '/test_i'
 
 NUMBER_OF_PROCESSES = 4
 
@@ -192,7 +192,7 @@ def _configure_scenario_routes(scenario, traffic_level_configuration):
 
     return route_file_path
 
-def _start_traci(net_file, route_file, output_file):
+def _start_traci(net_file, route_file, output_file, max_simulation_time=float('inf')):
 
     # this is the normal way of using traci. sumo is started as a
     # subprocess and then the python script connects and runs
@@ -209,7 +209,8 @@ def _start_traci(net_file, route_file, output_file):
         '--collision.check-junctions', str(True)
     ])
 
-    while traci.simulation.getMinExpectedNumber() > 0:
+    while traci.simulation.getMinExpectedNumber() > 0 and \
+            traci.simulation.getTime() < max_simulation_time:
         traci.simulationStep()
 
 def _consolidate_output_file(output_file):
@@ -266,7 +267,11 @@ def run_experiment(arguments):
     route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
     output_file = output_folder + experiment_name + '.out.xml'
 
+    global NUMBER_OF_PROCESSES
+
     if algorithm == 'FRAP':
+
+        NUMBER_OF_PROCESSES = 4
 
         begin = time.time()
 
@@ -279,7 +284,10 @@ def run_experiment(arguments):
         with open(scenario_folder + '/' + 'frap_timing.txt', 'a') as handle:
             handle.write(str(timing))
     else:
-        _start_traci(net_file, route_file, output_file)
+
+        NUMBER_OF_PROCESSES = 32
+
+        _start_traci(net_file, route_file, output_file, max_simulation_time=3600)
         traci.close()
         _consolidate_output_file(output_file)
 
@@ -296,20 +304,20 @@ def _run(_type='regular', algorithm=None):
 
 def run():
     #'OFF', STATIC, and FRAP
-    #_run(_type='unregulated')
-    #_run(_type='right_on_red')
-    _run(_type='right_on_red', algorithm='FRAP')
+    _run(_type='unregulated')
+    _run(_type='right_on_red')
+    #_run(_type='right_on_red', algorithm='FRAP')
 
 
 if __name__ == "__main__":
     #_build_experiment_i_routes()
-    run()
+    #run()
 
-    #_configure_scenario_routes(scenario='0_regular-intersection', traffic_level_configuration=('light', 'light', 'light', 'light'))
-    #frap = Frap()
-    #frap.visualize_policy_behavior(scenario='0_regular-intersection__right_on_red', traffic_level_configuration='light_light_light_light', 
+    _configure_scenario_routes(scenario='0_regular-intersection', traffic_level_configuration=('light', 'light', 'light', 'light'))
+    frap = Frap()
+    #frap.visualize_policy_behavior(sscenario='0_regular-intersection', _type='right_on_red', traffic_level_configuration='light_light_light_light', 
     # experiment='0_regular-intersection__right_on_red__light_light_light_light___08_31_11_09_11_10__08ad4741-9654-4abe-b748-9f24702088e2')
-    #frap.visualize_policy_behavior(scenario='0_regular-intersection', _type='right_on_red', traffic_level_configuration='light_light_light_light')
+    frap.visualize_policy_behavior(scenario='0_regular-intersection', _type='right_on_red', traffic_level_configuration='light_light_light_light')
 
     #_run(_type='right_on_red')
     #_run(_type='unregulated')

@@ -10,6 +10,7 @@ from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR as FRAP_ROOT_D
 
 from utils.sumo_util import get_intersections_ids, get_intersection_edge_ids, get_average_duration_statistic, get_sumo_binary
 from config import Config as config
+from definitions import ROOT_DIR
 
 
 class Frap:
@@ -29,7 +30,7 @@ class Frap:
         # experiment: 'last' or actual name
         # _round: 'last', 'best', or number
 
-        output_folder_base = os.path.join(config.SCENARIO_PATH, 'test_i', scenario, 'output', 'FRAP', _type, 
+        output_folder_base = ROOT_DIR + os.path.join(config.SCENARIO_PATH, 'test_i', scenario, 'output', 'FRAP', _type, 
             scenario + '__' + _type + '__' + traffic_level_configuration)
 
         if experiment == 'last':
@@ -53,14 +54,14 @@ class Frap:
 
         execution_name = 'replay' + '_' + 'test_round' + '_' + 'round' + '_' + str(_round)
 
-        net_file = os.path.join(config.SCENARIO_PATH, 'test_i', scenario, scenario + '__' + _type + '.net.xml')
-        route_file = os.path.join(config.SCENARIO_PATH, 'test_i', scenario, 
+        net_file = ROOT_DIR + os.path.join(config.SCENARIO_PATH, 'test_i', scenario, scenario + '__' + _type + '.net.xml')
+        route_file = ROOT_DIR + os.path.join(config.SCENARIO_PATH, 'test_i', scenario, 
             'temp', 'routes', scenario + '_' + traffic_level_configuration + '.rou.xml')
 
         if not os.path.isfile(route_file):
             raise ValueError("Route file does not exist")
 
-        sumocfg_file = os.path.join(config.SCENARIO_PATH, 'test_i', scenario, scenario + '__' + _type + '.sumocfg')
+        sumocfg_file = ROOT_DIR + os.path.join(config.SCENARIO_PATH, 'test_i', scenario, scenario + '__' + _type + '.sumocfg')
         output_file = os.path.join(output_folder, '')
 
         external_configurations = self._create_external_configurations_dict(
