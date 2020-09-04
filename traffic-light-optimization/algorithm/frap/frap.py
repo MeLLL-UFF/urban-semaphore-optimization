@@ -2,8 +2,12 @@ import os
 import shutil
 import uuid
 
+import numpy as np
 import lxml.etree as etree
 import pandas as pd
+import matplotlib as mlp
+mlp.use("agg")
+import matplotlib.pyplot as plt
 
 from algorithm.frap.internal.frap_pub import run_batch, replay
 from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR as FRAP_ROOT_DIR
@@ -55,8 +59,9 @@ class Frap:
         execution_name = 'replay' + '_' + 'test_round' + '_' + 'round' + '_' + str(_round)
 
         net_file = ROOT_DIR + os.path.join(config.SCENARIO_PATH, 'test_i', scenario, scenario + '__' + _type + '.net.xml')
-        route_file = ROOT_DIR + os.path.join(config.SCENARIO_PATH, 'test_i', scenario, 
-            'temp', 'routes', scenario + '_' + traffic_level_configuration + '.rou.xml')
+        route_file = ROOT_DIR + os.path.join(config.SCENARIO_PATH, 'test_i', scenario, scenario + '.rou.xml')
+        #route_file = ROOT_DIR + os.path.join(config.SCENARIO_PATH, 'test_i', scenario, 
+        #    'temp', 'routes', scenario + '_' + traffic_level_configuration + '.rou.xml')
 
         if not os.path.isfile(route_file):
             raise ValueError("Route file does not exist")
@@ -75,12 +80,13 @@ class Frap:
             if_gui=True,
             external_configurations=external_configurations)
 
-    def _consolidate_output_file(self, output_file, experiment_name):
-        
-        output_folder = output_file.rsplit('/', 1)[0] + '/' + experiment_name
+    def _consolidate_output_file(self, output_folder, experiment_name):
         
         duration_df = pd.DataFrame()
         for _file in os.listdir(output_folder):
+
+            if '.out' not in _file:
+                continue
 
             duration = get_average_duration_statistic(os.path.join(output_folder,  _file))
 
@@ -97,6 +103,49 @@ class Frap:
         duration_df = duration_df.reindex(sorted(duration_df.columns), axis=1)
 
         duration_df.to_csv(os.path.join(output_folder, experiment_name + '_' + 'result' + '.csv'))
+
+        self._plot_consolidate_output(output_folder, experiment_name, duration_df['test'])
+
+
+    def _plot_consolidate_output(self, output_folder, experiment_name, duration_list):
+        
+        num_rounds = len(duration_list)
+        NAN_LABEL = -1
+
+        min_duration = float('inf')
+        min_duration_id = 0
+
+        validation_duration_length = 10
+        minimum_round = 50 if num_rounds > 50 else 0
+        duration_list = np.array(duration_list)
+
+        nan_count = len(np.where(duration_list == NAN_LABEL)[0])
+        validation_duration = duration_list[-validation_duration_length:]
+        final_duration = np.round(np.mean(validation_duration[validation_duration > 0]), decimals=2)
+
+        if nan_count == 0:
+            convergence = {1.2: len(duration_list) - 1, 1.1: len(duration_list) - 1}
+            for j in range(minimum_round, len(duration_list)):
+                for level in [1.2, 1.1]:
+                    if max(duration_list[j:]) <= level * final_duration:
+                        if convergence[level] > j:
+                            convergence[level] = j
+            conv_12 = convergence[1.2]
+            conv_11 = convergence[1.1]
+        else:
+            conv_12, conv_11 = 0, 0
+
+        # simple plot for each training instance
+        f, ax = plt.subplots(1, 1, figsize=(20, 9), dpi=100)
+        ax.plot(duration_list, linewidth=2, color='k')
+        ax.plot([0, len(duration_list)], [final_duration, final_duration], linewidth=2, color="g")
+        ax.plot([conv_12, conv_12], [duration_list[conv_12], duration_list[conv_12] * 3], linewidth=2, color="b")
+        ax.plot([conv_11, conv_11], [duration_list[conv_11], duration_list[conv_11] * 3], linewidth=2, color="b")
+        ax.plot([0, len(duration_list)], [min_duration, min_duration], linewidth=2, color="r")
+        ax.plot([min_duration_id, min_duration_id], [min_duration, min_duration * 3], linewidth=2, color="r")
+        ax.set_title(experiment_name.split('___')[0]  + "-" + str(final_duration))
+        plt.savefig(os.path.join(output_folder, experiment_name + '_' + 'result' + '.png'))
+        plt.close()
 
     def _create_external_configurations_dict(self, net_file, route_file, sumocfg_file, output_file,
                                              traffic_level_configuration):
