@@ -87,8 +87,11 @@ class Frap:
 
             if '.out' not in _file:
                 continue
-
-            duration = get_average_duration_statistic(os.path.join(output_folder,  _file))
+            
+            try:
+                duration = get_average_duration_statistic(os.path.join(output_folder,  _file))
+            except:
+                duration = np.NaN
 
             round_split = _file.split('_round_')
             round_number = int(round_split[1].split('.')[0])
@@ -104,10 +107,16 @@ class Frap:
 
         duration_df.to_csv(os.path.join(output_folder, experiment_name + '_' + 'result' + '.csv'))
 
-        self._plot_consolidate_output(output_folder, experiment_name, duration_df['test'])
+        split_experiment_name = experiment_name.split('__')
+        scenario = split_experiment_name[0]
+        traffic_level_configuration = split_experiment_name[2]
+
+        self._plot_consolidate_output(output_folder, experiment_name, duration_df['test'], 
+            scenario, traffic_level_configuration)
 
 
-    def _plot_consolidate_output(self, output_folder, experiment_name, duration_list):
+    def _plot_consolidate_output(self, output_folder, experiment_name, duration_list,
+                                 scenario, traffic_level_configuration):
         
         num_rounds = len(duration_list)
         NAN_LABEL = -1
@@ -135,6 +144,20 @@ class Frap:
         else:
             conv_12, conv_11 = 0, 0
 
+        
+        right_on_red_output_folder = ROOT_DIR + os.path.join(
+            config.SCENARIO_PATH, 'test_i', scenario, 'output', 'None', 'right_on_red',
+            scenario + '__' + 'right_on_red' + '__' + traffic_level_configuration)
+        unregulated_output_folder = ROOT_DIR + os.path.join(
+            config.SCENARIO_PATH, 'test_i', scenario, 'output', 'None', 'unregulated',
+            scenario + '__' + 'unregulated' + '__' + traffic_level_configuration)
+
+        right_on_red_result_file = right_on_red_output_folder + '/' + scenario + '__' + 'right_on_red' + '__' + \
+                                   traffic_level_configuration + '_result.csv'
+
+        unregulated_result_file = unregulated_output_folder + '/' + scenario + '__' + 'unregulated' + '__' + \
+                                  traffic_level_configuration + '_result.csv'
+
         # simple plot for each training instance
         f, ax = plt.subplots(1, 1, figsize=(20, 9), dpi=100)
         ax.plot(duration_list, linewidth=2, color='k')
@@ -143,6 +166,17 @@ class Frap:
         ax.plot([conv_11, conv_11], [duration_list[conv_11], duration_list[conv_11] * 3], linewidth=2, color="b")
         ax.plot([0, len(duration_list)], [min_duration, min_duration], linewidth=2, color="r")
         ax.plot([min_duration_id, min_duration_id], [min_duration, min_duration * 3], linewidth=2, color="r")
+
+        if os.path.isfile(right_on_red_result_file):
+            right_on_red_df = pd.read_csv(right_on_red_result_file)
+            ax.plot([0, len(duration_list)], [right_on_red_df['test'], right_on_red_df['test']],
+                    linewidth=2, linestyle=':', color='r')
+        
+        if os.path.isfile(unregulated_result_file):
+            unregulated_df = pd.read_csv(unregulated_result_file)
+            ax.plot([0, len(duration_list)], [unregulated_df['test'], unregulated_df['test']],
+                    linewidth=2, linestyle=':', color='g')
+
         ax.set_title(experiment_name.split('___')[0]  + "-" + str(final_duration))
         plt.savefig(os.path.join(output_folder, experiment_name + '_' + 'result' + '.png'))
         plt.close()
