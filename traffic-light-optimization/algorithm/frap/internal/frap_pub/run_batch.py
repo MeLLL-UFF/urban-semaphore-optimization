@@ -59,7 +59,7 @@ def run(external_configurations={}):
     f_timing.write(str(t2 - t1) + '\n')
     f_timing.close()
     records_dir = dic_path["PATH_TO_WORK_DIRECTORY"]
-    summary.single_summary(memo, records_dir)
+    summary.single_experiment_summary(memo, records_dir)
     print("****************************** summary_detail ends ******************************")
     experiment_name = dic_path["EXECUTION_BASE"]
 

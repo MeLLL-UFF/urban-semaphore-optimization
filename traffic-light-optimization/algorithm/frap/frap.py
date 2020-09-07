@@ -26,7 +26,9 @@ class Frap:
 
         experiment_name = run_batch.run(external_configurations)
 
-        self._consolidate_output_file(output_file, experiment_name)
+        output_folder = output_file.rsplit('/', 1)[0] + '/' + experiment_name        
+
+        self._consolidate_output_file(output_folder, experiment_name)
 
         return experiment_name
 
@@ -111,8 +113,9 @@ class Frap:
         scenario = split_experiment_name[0]
         traffic_level_configuration = split_experiment_name[2]
 
-        self._plot_consolidate_output(output_folder, experiment_name, duration_df['test'], 
-            scenario, traffic_level_configuration)
+        if 'test' in duration_df:
+            self._plot_consolidate_output(output_folder, experiment_name, duration_df['test'], 
+                scenario, traffic_level_configuration)
 
 
     def _plot_consolidate_output(self, output_folder, experiment_name, duration_list,

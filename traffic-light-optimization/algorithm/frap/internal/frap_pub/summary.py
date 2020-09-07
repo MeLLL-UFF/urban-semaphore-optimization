@@ -650,7 +650,15 @@ def summary_detail_baseline(memo):
     total_result.to_csv(os.path.join(ROOT_DIR, "summary", memo, "total_baseline_test_results.csv"))
 
 
-def single_summary_detail_test(memo, records_dir, total_summary):
+def plot_reward(reward_each_round, save_path, traffic_name, mode_name):
+
+    f, ax = plt.subplots(1, 1, figsize=(20, 9), dpi=100)
+    ax.plot(reward_each_round, linewidth=2, color='k')
+    ax.set_title(traffic_name + "-" + str(np.mean(reward_each_round)))
+    plt.savefig(ROOT_DIR + '/' + save_path + "/" + traffic_name + "-" + mode_name + "-" + 'reward' ".png")
+    plt.close()
+
+def single_experiment_summary_detail_test(memo, records_dir, total_summary):
     # each_round_train_duration
 
     performance_duration = {}
@@ -682,6 +690,8 @@ def single_summary_detail_test(memo, records_dir, total_summary):
     round_files = [f for f in round_files if "round" in f]
     round_files.sort(key=lambda x: int(x[6:]))
     round_summary = {"round": list(range(num_rounds))}
+
+    average_reward_each_round = []
     for round in round_files:
 
         try:
@@ -696,10 +706,18 @@ def single_summary_detail_test(memo, records_dir, total_summary):
             f = open(os.path.join(ROOT_DIR, round_dir, "inter_0.pkl"), "rb")
             samples = pkl.load(f)
             queue_length_each_round = 0
+            reward_each_round = []
             for sample in samples:
                 queue_length_each_round += sum(sample['state']['lane_queue_length'])
+                reward_each_round.append(sample['reward']) 
             sample_num = len(samples)
             f.close()
+
+            traffic_folder = records_dir.rsplit('/', 1)[1]
+
+            plot_reward(reward_each_round, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
+
+            average_reward_each_round.append(np.mean(reward_each_round))
 
             # summary items (duration) from csv
             df_vehicle_inter_0 = pd.read_csv(os.path.join(ROOT_DIR + '/' + round_dir, "vehicle_inter_0.csv"),
@@ -765,7 +783,7 @@ def single_summary_detail_test(memo, records_dir, total_summary):
                     else:
                         round_summary[key].append(list_duration_seg[j])
 
-        except:
+        except Exception as e:
             duration_each_round_list.append(NAN_LABEL)
             queue_length_each_round_list.append(NAN_LABEL)
             num_of_vehicle_in.append(NAN_LABEL)
@@ -775,6 +793,9 @@ def single_summary_detail_test(memo, records_dir, total_summary):
         result_dir = os.path.join("summary", memo, traffic_folder)
         if not os.path.exists(ROOT_DIR + '/' + result_dir):
             os.makedirs(ROOT_DIR + '/' + result_dir)
+        
+        plot_reward(average_reward_each_round, save_path=result_dir, traffic_name=traffic_folder, mode_name='test')
+        
         _res = {
             "duration": duration_each_round_list,
             "queue_length": queue_length_each_round_list,
@@ -826,7 +847,7 @@ def single_summary_detail_test(memo, records_dir, total_summary):
     performance_at_min_duration_round_plot(performance_at_min_duration_round, figure_dir, mode_name="test")
 
 
-def single_summary(memo=None, records_dir=None):
+def single_experiment_summary(memo=None, records_dir=None):
 
     total_summary = {
         "traffic": [],
@@ -844,7 +865,7 @@ def single_summary(memo=None, records_dir=None):
     }
 
     #summary_detail_train(memo, copy.deepcopy(total_summary))
-    single_summary_detail_test(memo, records_dir, copy.deepcopy(total_summary))
+    single_experiment_summary_detail_test(memo, records_dir, copy.deepcopy(total_summary))
     # summary_detail_test_segments(memo, copy.deepcopy(total_summary))
 
 def main(memo=None):

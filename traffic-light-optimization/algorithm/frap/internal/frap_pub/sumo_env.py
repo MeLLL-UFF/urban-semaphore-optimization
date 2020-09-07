@@ -872,12 +872,13 @@ class SumoEnv:
     #              "action": action[inter_ind]}, f)
     #         f.close()
 
-    def log(self, cur_time, before_action_feature, action):
+    def log(self, cur_time, before_action_feature, action, reward):
 
         for inter_ind in range(len(self.list_intersection)):
             self.list_inter_log[inter_ind].append({"time": cur_time,
                                                     "state": before_action_feature[inter_ind],
-                                                    "action": action[inter_ind]})
+                                                    "action": action[inter_ind],
+                                                    "reward": reward})
 
     def step(self, action):
 
@@ -901,17 +902,6 @@ class SumoEnv:
             before_action_feature = self.get_feature()
             state = self.get_state()
 
-            if self.dic_traffic_env_conf["DEBUG"]:
-                print("time: {0}, phase: {1}, time this phase: {2}, action: {3}".format(instant_time, before_action_feature[0]["cur_phase"], before_action_feature[0]["time_this_phase"], action_in_sec_display[0]))
-            else:
-                if i == 0:
-                    print("time: {0}, phase: {1}, time this phase: {2}, action: {3}".format(instant_time,
-                                                                                        before_action_feature[0][
-                                                                                            "cur_phase"],
-                                                                                        before_action_feature[0][
-                                                                                            "time_this_phase"],
-                                                                                        action_in_sec_display[0]))
-
             # _step
             self._inner_step(action_in_sec)
 
@@ -919,8 +909,25 @@ class SumoEnv:
             reward = self.get_reward()
             average_reward_action = (average_reward_action*i + reward[0])/(i+1)
 
+
+            if self.dic_traffic_env_conf['DEBUG']:
+                print("time: {0}, phase: {1}, time this phase: {2}, action: {3}, reward: {4}".
+                      format(instant_time,
+                             before_action_feature[0]["cur_phase"],
+                             before_action_feature[0]["time_this_phase"],
+                             action_in_sec_display[0],
+                             reward[0]))
+            else:
+                if i == 0:
+                    print("time: {0}, phase: {1}, time this phase: {2}, action: {3}, reward: {4}".
+                          format(instant_time,
+                                 before_action_feature[0]["cur_phase"],
+                                 before_action_feature[0]["time_this_phase"],
+                                 action_in_sec_display[0],
+                                 reward[0]))
+
             # log
-            self.log(cur_time=instant_time, before_action_feature=before_action_feature, action=action_in_sec_display)
+            self.log(cur_time=instant_time, before_action_feature=before_action_feature, action=action_in_sec_display, reward=reward[0])
 
             next_state, done = self.get_state()
 
