@@ -70,7 +70,7 @@ def run(dir, round_number, run_cnt, execution_name, if_gui, external_configurati
         dic_agent_conf=dic_agent_conf,
         dic_traffic_env_conf=dic_traffic_env_conf,
         dic_path=dic_path,
-        cnt_round=0,  # useless
+        cnt_round=round_number + 1,  # useless
     )
     agent.load_network(model_round)
 

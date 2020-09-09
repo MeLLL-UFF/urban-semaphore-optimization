@@ -40,7 +40,7 @@ class Frap:
             scenario + '__' + _type + '__' + traffic_level_configuration)
 
         if experiment == 'last':
-            experiment = os.listdir(output_folder_base)[-1]
+            experiment = sorted(os.listdir(output_folder_base))[-1]
 
         output_folder = os.path.join(output_folder_base, experiment)
         frap_records_folder = os.path.join(FRAP_ROOT_DIR, 'records', 'TransferDQN', experiment)
@@ -60,16 +60,13 @@ class Frap:
 
         execution_name = 'replay' + '_' + 'test_round' + '_' + 'round' + '_' + str(_round)
 
-        net_file = ROOT_DIR + os.path.join(config.SCENARIO_PATH, 'test_i', scenario, scenario + '__' + _type + '.net.xml')
-        route_file = ROOT_DIR + os.path.join(config.SCENARIO_PATH, 'test_i', scenario, scenario + '.rou.xml')
-        #route_file = ROOT_DIR + os.path.join(config.SCENARIO_PATH, 'test_i', scenario, 
-        #    'temp', 'routes', scenario + '_' + traffic_level_configuration + '.rou.xml')
+        net_file = os.path.join(frap_records_folder, scenario + '__' + _type + '.net.xml')
+        route_file = os.path.join(frap_records_folder, scenario + '_' + traffic_level_configuration + '.rou.xml')
+        sumocfg_file = os.path.join(frap_records_folder, scenario + '__' + _type + '.sumocfg')
+        output_file = os.path.join(output_folder, '')
 
         if not os.path.isfile(route_file):
             raise ValueError("Route file does not exist")
-
-        sumocfg_file = ROOT_DIR + os.path.join(config.SCENARIO_PATH, 'test_i', scenario, scenario + '__' + _type + '.sumocfg')
-        output_file = os.path.join(output_folder, '')
 
         external_configurations = self._create_external_configurations_dict(
             net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)

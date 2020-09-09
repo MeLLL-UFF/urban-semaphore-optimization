@@ -650,11 +650,18 @@ def summary_detail_baseline(memo):
     total_result.to_csv(os.path.join(ROOT_DIR, "summary", memo, "total_baseline_test_results.csv"))
 
 
-def plot_reward(reward_each_round, save_path, traffic_name, mode_name):
+def consolidate_reward(rewards, save_path, traffic_name, mode_name):
+
+    rewards_df = pd.DataFrame({'reward': rewards})
+
+    rewards_df.to_csv(ROOT_DIR + '/' + save_path + "/" + traffic_name + "-" + mode_name + "-" + 'reward' ".csv")
+
+
+def plot_reward(rewards, save_path, traffic_name, mode_name):
 
     f, ax = plt.subplots(1, 1, figsize=(20, 9), dpi=100)
-    ax.plot(reward_each_round, linewidth=2, color='k')
-    ax.set_title(traffic_name + "-" + str(np.mean(reward_each_round)))
+    ax.plot(rewards, linewidth=2, color='k')
+    ax.set_title(traffic_name + "-" + str(np.mean(rewards)))
     plt.savefig(ROOT_DIR + '/' + save_path + "/" + traffic_name + "-" + mode_name + "-" + 'reward' ".png")
     plt.close()
 
@@ -706,18 +713,19 @@ def single_experiment_summary_detail_test(memo, records_dir, total_summary):
             f = open(os.path.join(ROOT_DIR, round_dir, "inter_0.pkl"), "rb")
             samples = pkl.load(f)
             queue_length_each_round = 0
-            reward_each_round = []
+            reward_each_step = []
             for sample in samples:
                 queue_length_each_round += sum(sample['state']['lane_queue_length'])
-                reward_each_round.append(sample['reward']) 
+                reward_each_step.append(sample['reward']) 
             sample_num = len(samples)
             f.close()
 
             traffic_folder = records_dir.rsplit('/', 1)[1]
 
-            plot_reward(reward_each_round, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
+            consolidate_reward(reward_each_step, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
+            plot_reward(reward_each_step, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
 
-            average_reward_each_round.append(np.mean(reward_each_round))
+            average_reward_each_round.append(np.mean(reward_each_step))
 
             # summary items (duration) from csv
             df_vehicle_inter_0 = pd.read_csv(os.path.join(ROOT_DIR + '/' + round_dir, "vehicle_inter_0.csv"),
@@ -794,6 +802,7 @@ def single_experiment_summary_detail_test(memo, records_dir, total_summary):
         if not os.path.exists(ROOT_DIR + '/' + result_dir):
             os.makedirs(ROOT_DIR + '/' + result_dir)
         
+        consolidate_reward(average_reward_each_round, save_path=result_dir, traffic_name=traffic_folder, mode_name='test')
         plot_reward(average_reward_each_round, save_path=result_dir, traffic_name=traffic_folder, mode_name='test')
         
         _res = {
