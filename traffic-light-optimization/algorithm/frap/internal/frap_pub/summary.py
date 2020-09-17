@@ -679,6 +679,9 @@ def consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step,
     relative_occupancy_df = pd.DataFrame(relative_occupancy_each_step)
     relative_mean_speed_df = pd.DataFrame(relative_mean_speed_each_step)
 
+    relative_occupancy_df = relative_occupancy_df.rolling(10, min_periods=1).mean()
+    relative_mean_speed_df = relative_mean_speed_df.rolling(10, min_periods=1).mean()
+
     movements = dic_traffic_env_conf['list_lane_order']
     movement_to_connection = dic_traffic_env_conf['movement_to_connection']
 
@@ -766,6 +769,28 @@ def consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step,
         axs[i][0].set_ylim(0, 1)
         axs[i][1].set_ylim(0, 1)
 
+        axs[i][0].yaxis.set_major_locator(MaxNLocator(nbins=5))
+        axs[i][0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+        axs[i][0].yaxis.set_minor_locator(MultipleLocator(0.05))
+
+        axs[i][0].xaxis.set_major_locator(MultipleLocator(300))
+        axs[i][0].xaxis.set_major_formatter(FormatStrFormatter('%d'))
+        axs[i][0].xaxis.set_minor_locator(MultipleLocator(10))
+
+        axs[i][1].yaxis.set_major_locator(MaxNLocator(nbins=5))
+        axs[i][1].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+        axs[i][1].yaxis.set_minor_locator(MultipleLocator(0.05))
+
+        axs[i][1].xaxis.set_major_locator(MultipleLocator(300))
+        axs[i][1].xaxis.set_major_formatter(FormatStrFormatter('%d'))
+        axs[i][1].xaxis.set_minor_locator(MultipleLocator(10))
+
+        axs[i][0].set_axisbelow(True)
+        axs[i][0].grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
+
+        axs[i][1].set_axisbelow(True)
+        axs[i][1].grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
+
     plt.savefig(ROOT_DIR + '/' + save_path + '/' + traffic_name + '-' + mode_name + '-' + 
         'occupancy_and_speed_inflow_outflow' + '-' + 'per_edge' + '.png')
     plt.close()
@@ -789,8 +814,30 @@ def consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step,
         axs[i][1].set_title(movement + ' ' + 'relative_speed (%)')
         axs[i][0].set_ylim(0, 1)
         axs[i][1].set_ylim(0, 1)
-        axs[i][0].legend(['inflow', 'outflow'])
-        axs[i][1].legend(['inflow', 'outflow'])
+        axs[i][0].legend(['inflow', 'outflow'], loc='upper right')
+        axs[i][1].legend(['inflow', 'outflow'], loc='upper right')
+
+        axs[i][0].yaxis.set_major_locator(MaxNLocator(nbins=5))
+        axs[i][0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+        axs[i][0].yaxis.set_minor_locator(MultipleLocator(0.05))
+
+        axs[i][0].xaxis.set_major_locator(MultipleLocator(300))
+        axs[i][0].xaxis.set_major_formatter(FormatStrFormatter('%d'))
+        axs[i][0].xaxis.set_minor_locator(MultipleLocator(10))
+
+        axs[i][1].yaxis.set_major_locator(MaxNLocator(nbins=5))
+        axs[i][1].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+        axs[i][1].yaxis.set_minor_locator(MultipleLocator(0.05))
+
+        axs[i][1].xaxis.set_major_locator(MultipleLocator(300))
+        axs[i][1].xaxis.set_major_formatter(FormatStrFormatter('%d'))
+        axs[i][1].xaxis.set_minor_locator(MultipleLocator(10))
+
+        axs[i][0].set_axisbelow(True)
+        axs[i][0].grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
+
+        axs[i][1].set_axisbelow(True)
+        axs[i][1].grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
 
     plt.savefig(ROOT_DIR + '/' + save_path + '/' + traffic_name + '-' + mode_name + '-' + 
         'occupancy_and_speed_inflow_outflow' + '-' + 'per_movement' + '.png')
@@ -811,8 +858,30 @@ def consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step,
     axs[1].set_title('relative_speed (%)')
     axs[0].set_ylim(0, 1)
     axs[1].set_ylim(0, 1)
-    axs[0].legend(['inflow', 'outflow'])
-    axs[1].legend(['inflow', 'outflow'])
+    axs[0].legend(['inflow', 'outflow'], loc='upper right')
+    axs[1].legend(['inflow', 'outflow'], loc='upper right')
+
+    axs[0].yaxis.set_major_locator(MaxNLocator(nbins=5))
+    axs[0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    axs[0].yaxis.set_minor_locator(MultipleLocator(0.05))
+
+    axs[0].xaxis.set_major_locator(MultipleLocator(300))
+    axs[0].xaxis.set_major_formatter(FormatStrFormatter('%d'))
+    axs[0].xaxis.set_minor_locator(MultipleLocator(10))
+
+    axs[1].yaxis.set_major_locator(MaxNLocator(nbins=5))
+    axs[1].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    axs[1].yaxis.set_minor_locator(MultipleLocator(0.05))
+
+    axs[1].xaxis.set_major_locator(MultipleLocator(300))
+    axs[1].xaxis.set_major_formatter(FormatStrFormatter('%d'))
+    axs[1].xaxis.set_minor_locator(MultipleLocator(10))
+
+    axs[0].set_axisbelow(True)
+    axs[0].grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
+
+    axs[1].set_axisbelow(True)
+    axs[1].grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
 
     plt.savefig(ROOT_DIR + '/' + save_path + '/' + traffic_name + '-' + mode_name + '-' + 
         'occupancy_and_speed_inflow_outflow' + '-' + 'all_lanes' + '.png')
@@ -934,7 +1003,6 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
         'off, no signal'
     ]
 
-
     x_len, y_len = percent_number_of_cars_per_movement_df.shape
 
     f, axs = plt.subplots(y_len, 1, figsize=(60, 3*y_len), dpi=100, sharex=True)
@@ -1026,15 +1094,6 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
         'phase_and_demand' + '-' + 'absolute' + '-' + 'per_movement' + '.png')
     plt.close()
 
-
-    def autolabel(bars):
-        for bar in bars:
-            height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2., 1.05*height,
-                    '%d' % round(height*100) + '%',
-                    ha='center', va='bottom')
-
-
     f, ax = plt.subplots(1, 1, figsize=(40, 20), dpi=100)
     plt.subplots_adjust(left=0.1, right=0.9, bottom=0.05, top=0.90, wspace=0.05, hspace=0.05)
 
@@ -1056,18 +1115,18 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
         data = percent(traffic_light_df.iloc[:, i].value_counts())
         sorted_index = sorted(list(data.index), key=lambda x: sort_order.index(x))
         data = data.reindex(sorted_index)
+        data = data.cumsum()
+        data = data.reindex(index=data.index[::-1])
 
         lane_traffic_light_colors = [traffic_light_color_mapping[index] for index in data.index]
         
-        base_bar_positions = np.multiply([width]*len(data), range(0, len(data)))
-        bar_positions = accumulated_width + base_bar_positions + width/2
+        bar_position = accumulated_width + width/2
 
-        bars = ax.bar(bar_positions, data, width=width, color=tuple(lane_traffic_light_colors))
-        autolabel(bars)
+        bars = ax.bar(bar_position, data, width=width, color=tuple(lane_traffic_light_colors))
 
-        x_ticks.append(accumulated_width + width*len(data)/2)
+        x_ticks.append(accumulated_width + width/2)
         
-        accumulated_width += width*len(data) + width
+        accumulated_width += width + width
 
 
     ax.set_xticks(x_ticks)

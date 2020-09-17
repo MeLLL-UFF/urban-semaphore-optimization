@@ -449,9 +449,9 @@ class Intersection:
                 for lane_index, lane_id in enumerate(self.list_entering_lanes):
                     self.current_phase_index = self.next_phase_to_set_index
                     traffic_light_index = int(self.lane_to_traffic_light_index_mapping[lane_id])
-                    new_traffic_light = self.dic_phase_strs[self.phases[self.current_phase_index - 1]][lane_index]
+                    new_lane_traffic_light = self.dic_phase_strs[self.phases[self.current_phase_index - 1]][lane_index]
                     current_traffic_light = current_traffic_light[:traffic_light_index] + \
-                                            new_traffic_light + \
+                                            new_lane_traffic_light + \
                                             current_traffic_light[traffic_light_index + 1:]
 
                 traci.trafficlight.setRedYellowGreenState(
@@ -483,9 +483,14 @@ class Intersection:
 
                 for lane_index, lane_id in enumerate(self.list_entering_lanes):
                     traffic_light_index = int(self.lane_to_traffic_light_index_mapping[lane_id])
-                    new_traffic_light = self.all_yellow_phase_str[lane_index]
-                    current_traffic_light = current_traffic_light[:traffic_light_index] + \
-                                            new_traffic_light + \
+                    current_lane_traffic_light = current_traffic_light[traffic_light_index]
+                    next_lane_traffic_light = self.dic_phase_strs[self.phases[self.next_phase_to_set_index - 1]][lane_index]
+                    
+                    if (current_lane_traffic_light == 'g' or current_lane_traffic_light == 'G') and \
+                       (next_lane_traffic_light != 'g' and next_lane_traffic_light != 'G'):
+                        new_lane_traffic_light = self.all_yellow_phase_str[lane_index]
+                        current_traffic_light = current_traffic_light[:traffic_light_index] + \
+                                            new_lane_traffic_light + \
                                             current_traffic_light[traffic_light_index + 1:]
 
 
