@@ -837,7 +837,7 @@ class SumoEnv:
         if self.dic_traffic_env_conf["IF_GUI"]:
             return sumo_cmd
         else:
-            return sumo_cmd
+            return sumo_cmd_nogui
 
     def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf, external_configurations={}, mode='train'):
         # mode: train, test, replay
