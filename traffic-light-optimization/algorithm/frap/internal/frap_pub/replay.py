@@ -80,7 +80,8 @@ def run(dir, round_number, run_cnt, execution_name, if_gui, external_configurati
     env = DIC_ENVS[dic_traffic_env_conf["SIMULATOR_TYPE"]](path_to_log=path_to_log,
                         path_to_work_directory=dic_path["PATH_TO_WORK_DIRECTORY"],
                         dic_traffic_env_conf=dic_traffic_env_conf,
-                        external_configurations=external_configurations)
+                        external_configurations=external_configurations,
+                        mode='replay')
 
     done = False
     state = env.reset(execution_name, dic_path, external_configurations=external_configurations)
@@ -150,7 +151,8 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
         env = DIC_ENVS[dic_traffic_env_conf["SIMULATOR_TYPE"]](path_to_log=path_to_log,
                          path_to_work_directory=dic_path["PATH_TO_WORK_DIRECTORY"],
                          dic_traffic_env_conf=dic_traffic_env_conf,
-                         external_configurations=external_configurations)
+                         external_configurations=external_configurations,
+                         mode='replay')
 
         done = False
         state = env.reset(dic_path, external_configurations=external_configurations)

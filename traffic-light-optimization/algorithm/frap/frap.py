@@ -9,7 +9,7 @@ import matplotlib as mlp
 mlp.use("agg")
 import matplotlib.pyplot as plt
 
-from algorithm.frap.internal.frap_pub import run_batch, replay
+from algorithm.frap.internal.frap_pub import run_batch, replay, summary
 from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR as FRAP_ROOT_DIR
 
 from utils.sumo_util import get_intersections_ids, get_intersection_edge_ids, get_average_duration_statistic, get_sumo_binary
@@ -32,9 +32,9 @@ class Frap:
 
         return experiment_name
 
-    def visualize_policy_behavior(self, scenario, _type, traffic_level_configuration, experiment='last', _round='best'):
+    def visualize_policy_behavior(self, scenario, _type, traffic_level_configuration, experiment='last', _round='best_time_loss'):
         # experiment: 'last' or actual name
-        # _round: 'last', 'best', or number
+        # _round: 'last', 'best_time_loss', 'best_average_trip_duration', 'best_reward' or number
 
         output_folder_base = ROOT_DIR + os.path.join(config.SCENARIO_PATH, 'test_i', scenario, 'output', 'FRAP', _type, 
             scenario + '__' + _type + '__' + traffic_level_configuration)
@@ -44,19 +44,37 @@ class Frap:
 
         output_folder = os.path.join(output_folder_base, experiment)
         frap_records_folder = os.path.join(FRAP_ROOT_DIR, 'records', 'TransferDQN', experiment)
+        frap_summary_folder = os.path.join(FRAP_ROOT_DIR, 'summary', 'TransferDQN', experiment)
 
-        if _round == 'best':
+        if _round == 'best_time_loss':
+            result_df = pd.read_csv(os.path.join(frap_summary_folder, experiment + '-test-time_loss.csv'))
+            result_df.set_index(result_df.columns[0], inplace=True)
+
+            column_label = 'time_loss'
+            
+            _round = result_df[column_label].idxmin()
+
+        elif _round == 'best_average_trip_duration':
             result_df = pd.read_csv(os.path.join(output_folder, experiment + '_result.csv'))
             result_df.set_index(result_df.columns[0], inplace=True)
 
             column_label = 'test'
             
             _round = result_df[column_label].idxmin()
+        
+        elif _round == 'best_reward':
+            result_df = pd.read_csv(os.path.join(frap_summary_folder, experiment + '-test-reward.csv'))
+            result_df.set_index(result_df.columns[0], inplace=True)
+
+            column_label = 'reward'
+            
+            _round = result_df[column_label].idxmax()
 
         elif _round == 'last':
-            round_folders = os.listdir(os.path.join(frap_records_folder, 'test_round'))
-            last_round = round_folders.sort(key=lambda x: int(x.split('_')[1]))[-1]
-            _round = last_round.split('_')[1]
+            round_folders = next(os.walk(os.path.join(frap_records_folder, 'test_round')))[1]
+            round_folders.sort(key=lambda x: int(x.split('_')[1]))
+            last_round = round_folders[-1]
+            _round = int(last_round.split('_')[1])
 
         execution_name = 'replay' + '_' + 'test_round' + '_' + 'round' + '_' + str(_round)
 
@@ -104,7 +122,7 @@ class Frap:
         duration_df = duration_df.reindex(sorted(duration_df.index))
         duration_df = duration_df.reindex(sorted(duration_df.columns), axis=1)
 
-        duration_df.to_csv(os.path.join(output_folder, experiment_name + '_' + 'result' + '.csv'))
+        duration_df.to_csv(os.path.join(output_folder, experiment_name + '_' + 'avg_trip_duration_result' + '.csv'))
 
         split_experiment_name = experiment_name.split('__')
         scenario = split_experiment_name[0]
@@ -234,3 +252,9 @@ class Frap:
         }
 
         return external_configurations
+
+
+    def summary(self):
+
+        summary.single_experiment_summary('TransferDQN', 
+            'records/TransferDQN/0_regular-intersection__right_on_red__custom_4_street_traffic___09_15_21_22_33_10__a3df2d4b-ac30-43b2-ac62-b8fefe50d244')

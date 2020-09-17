@@ -5,11 +5,16 @@ import numpy as np
 import json
 import copy
 from math import isnan
+from lxml import etree
 import matplotlib as mlp
 from algorithm.frap.internal.frap_pub.script import  *
+from algorithm.frap.internal.frap_pub.sumo_env import get_connections, get_lane_traffic_light_controller
 
 mlp.use("agg")
 import matplotlib.pyplot as plt
+from matplotlib.ticker import (MultipleLocator, MaxNLocator, FormatStrFormatter,
+                               AutoMinorLocator)
+from matplotlib.lines import Line2D
 
 from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
 
@@ -650,20 +655,436 @@ def summary_detail_baseline(memo):
     total_result.to_csv(os.path.join(ROOT_DIR, "summary", memo, "total_baseline_test_results.csv"))
 
 
-def consolidate_reward(rewards, save_path, traffic_name, mode_name):
+def consolidate(object_label, object_list, save_path, traffic_name, mode_name):
 
-    rewards_df = pd.DataFrame({'reward': rewards})
+    objects_df = pd.DataFrame({object_label: object_list})
 
-    rewards_df.to_csv(ROOT_DIR + '/' + save_path + "/" + traffic_name + "-" + mode_name + "-" + 'reward' ".csv")
+    objects_df.to_csv(ROOT_DIR + '/' + save_path + "/" + traffic_name + "-" + mode_name + "-" + object_label + ".csv")
+
+    plot(object_label, object_list, save_path, traffic_name, mode_name)
 
 
-def plot_reward(rewards, save_path, traffic_name, mode_name):
+def plot(object_label, object_list, save_path, traffic_name, mode_name):
 
     f, ax = plt.subplots(1, 1, figsize=(20, 9), dpi=100)
-    ax.plot(rewards, linewidth=2, color='k')
-    ax.set_title(traffic_name + "-" + str(np.mean(rewards)))
-    plt.savefig(ROOT_DIR + '/' + save_path + "/" + traffic_name + "-" + mode_name + "-" + 'reward' ".png")
+    ax.margins(0)
+    ax.plot(object_list, linewidth=2, color='k')
+    ax.set_title(traffic_name + "-" + str(np.mean(object_list)))
+    plt.savefig(ROOT_DIR + '/' + save_path + "/" + traffic_name + "-" + mode_name + "-" + object_label + ".png")
     plt.close()
+
+def consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step, relative_mean_speed_each_step, 
+        dic_traffic_env_conf, save_path, traffic_name, mode_name):
+
+    relative_occupancy_df = pd.DataFrame(relative_occupancy_each_step)
+    relative_mean_speed_df = pd.DataFrame(relative_mean_speed_each_step)
+
+    movements = dic_traffic_env_conf['list_lane_order']
+    movement_to_connection = dic_traffic_env_conf['movement_to_connection']
+
+    from_lane_set = set()
+    to_lane_set = set()
+
+    per_movement_df = pd.DataFrame()
+    for movement in movements:
+
+        connection = movement_to_connection[movement]
+
+        from_lane = connection['from'] + '_' + connection['fromLane']
+        to_lane = connection['to'] + '_' + connection['toLane']
+
+        per_movement_df.loc[:, movement + '_' + 'inflow' + '_' + 'relative_occupancy'] = relative_occupancy_df.loc[:, from_lane]
+        per_movement_df.loc[:, movement + '_' + 'outflow' + '_' + 'relative_occupancy'] = relative_occupancy_df.loc[:, to_lane]
+        per_movement_df.loc[:, movement + '_' + 'inflow' + '_' + 'relative_mean_speed'] = relative_mean_speed_df.loc[:, from_lane]
+        per_movement_df.loc[:, movement + '_' + 'outflow' + '_' + 'relative_mean_speed'] = relative_mean_speed_df.loc[:, to_lane]
+
+        from_lane_set.add(from_lane)
+        to_lane_set.add(to_lane)
+
+    per_movement_df.to_csv(ROOT_DIR + '/' + save_path + '/' + traffic_name + '-' + mode_name + '-' + 
+        'occupancy_and_speed_inflow_outflow' + '-' + 'per_movement' + '.csv')
+
+
+    edge_dict = {}
+    lanes = relative_occupancy_df.columns.tolist()
+    for lane in lanes:
+        edge = lane.split('_')[0]
+
+        if edge in edge_dict:
+            edge_dict[edge].append(lane)
+        else:
+            edge_dict[edge] = [lane]
+
+    per_edge_df = pd.DataFrame()   
+    edges = list(edge_dict.keys()) 
+    for edge in edges:
+        per_edge_df.loc[:, edge + '_' + 'relative_occupancy'] = relative_occupancy_df.loc[:, edge_dict[edge]].mean(axis=1)
+        per_edge_df.loc[:, edge + '_' + 'relative_mean_speed'] = relative_mean_speed_df.loc[:, edge_dict[edge]].mean(axis=1)
+
+    per_edge_df.to_csv(ROOT_DIR + '/' + save_path + '/' + traffic_name + '-' + mode_name + '-' + 
+        'occupancy_and_speed_inflow_outflow' + '-' + 'per_edge' + '.csv')
+
+
+    from_lanes_relative_occupancy_df = relative_occupancy_df.loc[:, from_lane_set].mean(axis=1)
+    to_lanes_relative_occupancy_df = relative_occupancy_df.loc[:, to_lane_set].mean(axis=1)
+    from_lanes_relative_mean_speed_df = relative_mean_speed_df.loc[:, from_lane_set].mean(axis=1)
+    to_lanes_relative_mean_speed_df = relative_mean_speed_df.loc[:, to_lane_set].mean(axis=1)
+
+    all_lanes_df = pd.concat(
+        [
+            from_lanes_relative_occupancy_df, 
+            to_lanes_relative_occupancy_df,
+            from_lanes_relative_mean_speed_df, 
+            to_lanes_relative_mean_speed_df
+        ], axis=1, sort=False)
+
+    all_lanes_df.columns = [
+        'from_lane_relative_occupancy', 
+        'to_lane_relative_occupancy', 
+        'from_lane_relative_mean_speed',
+        'to_lane_relative_mean_speed'
+    ]
+
+    all_lanes_df.to_csv(ROOT_DIR + '/' + save_path + '/' + traffic_name + '-' + mode_name + '-' + 
+        'occupancy_and_speed_inflow_outflow' + '-' + 'all_lanes' + '.csv')
+
+    
+    f, axs = plt.subplots(len(edges), 2, figsize=(120, 18*len(edges)), dpi=100)
+    plt.subplots_adjust(left=0.02, right=0.98, bottom=0.02, top=0.98, wspace=0.05, hspace=0.05)
+
+    for i in range(0, len(edges)):
+
+        axs[i][0].margins(0)
+        axs[i][1].margins(0)
+
+        edge = edges[i]
+
+        axs[i][0].plot(per_edge_df.iloc[:, i*2+0:i*2+1], linewidth=2, color='k')
+        axs[i][1].plot(per_edge_df.iloc[:, i*2+1:i*2+2], linewidth=2, color='k')
+        axs[i][0].set_title(edge + ' ' + 'relative_occupancy (%)')
+        axs[i][1].set_title(edge + ' ' + 'relative_speed (%)')
+        axs[i][0].set_ylim(0, 1)
+        axs[i][1].set_ylim(0, 1)
+
+    plt.savefig(ROOT_DIR + '/' + save_path + '/' + traffic_name + '-' + mode_name + '-' + 
+        'occupancy_and_speed_inflow_outflow' + '-' + 'per_edge' + '.png')
+    plt.close()
+
+
+    f, axs = plt.subplots(len(movements), 2, figsize=(120, 18*len(movements)), dpi=100)
+    plt.subplots_adjust(left=0.02, right=0.98, bottom=0.02, top=0.98, wspace=0.05, hspace=0.05)
+
+    for i in range(0, len(movements)):
+
+        movement = movements[i]
+
+        axs[i][0].margins(0)
+        axs[i][1].margins(0)
+
+        axs[i][0].plot(per_movement_df.iloc[:, i*4+0:i*4+1], linewidth=2, color='b')
+        axs[i][0].plot(per_movement_df.iloc[:, i*4+1:i*4+2], linewidth=2, color='r')
+        axs[i][1].plot(per_movement_df.iloc[:, i*4+2:i*4+3], linewidth=2, color='b')
+        axs[i][1].plot(per_movement_df.iloc[:, i*4+3:i*4+4], linewidth=2, color='r')
+        axs[i][0].set_title(movement + ' ' + 'relative_occupancy (%)')
+        axs[i][1].set_title(movement + ' ' + 'relative_speed (%)')
+        axs[i][0].set_ylim(0, 1)
+        axs[i][1].set_ylim(0, 1)
+        axs[i][0].legend(['inflow', 'outflow'])
+        axs[i][1].legend(['inflow', 'outflow'])
+
+    plt.savefig(ROOT_DIR + '/' + save_path + '/' + traffic_name + '-' + mode_name + '-' + 
+        'occupancy_and_speed_inflow_outflow' + '-' + 'per_movement' + '.png')
+    plt.close()
+
+
+    f, axs = plt.subplots(1, 2, figsize=(120, 18), dpi=100)
+    plt.subplots_adjust(left=0.02, right=0.98, wspace=0.05, hspace=0.05)
+
+    axs[0].margins(0)
+    axs[1].margins(0)
+
+    axs[0].plot(all_lanes_df.iloc[:, 0:1], linewidth=2, color='b')
+    axs[0].plot(all_lanes_df.iloc[:, 1:2], linewidth=2, color='r')
+    axs[1].plot(all_lanes_df.iloc[:, 2:3], linewidth=2, color='b')
+    axs[1].plot(all_lanes_df.iloc[:, 3:4], linewidth=2, color='r')
+    axs[0].set_title('relative_occupancy (%)')
+    axs[1].set_title('relative_speed (%)')
+    axs[0].set_ylim(0, 1)
+    axs[1].set_ylim(0, 1)
+    axs[0].legend(['inflow', 'outflow'])
+    axs[1].legend(['inflow', 'outflow'])
+
+    plt.savefig(ROOT_DIR + '/' + save_path + '/' + traffic_name + '-' + mode_name + '-' + 
+        'occupancy_and_speed_inflow_outflow' + '-' + 'all_lanes' + '.png')
+    plt.close()
+
+
+def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_light_each_step, 
+        dic_traffic_env_conf, records_dir, save_path, traffic_name, mode_name):
+
+    absolute_number_of_cars_df = pd.DataFrame(absolute_number_of_cars_each_step)
+    traffic_light_df = pd.DataFrame(traffic_light_each_step)
+
+    movements = dic_traffic_env_conf['list_lane_order']
+    movement_to_connection = dic_traffic_env_conf['movement_to_connection']
+
+    absolute_number_of_cars_per_movement_df = pd.DataFrame()
+    for movement in movements:
+
+        connection = movement_to_connection[movement]
+        from_lane = connection['from'] + '_' + connection['fromLane']
+
+        absolute_number_of_cars_per_movement_df.loc[:, movement] = absolute_number_of_cars_df.loc[:, from_lane]
+
+    def percent(row):
+
+        new_row = []
+
+        row_sum = row.sum()
+        for index, element in enumerate(row):
+            if row_sum == 0:
+                new_row.append(0)
+            else:
+                new_row.append(element/row_sum)
+
+        row.iloc[:] = new_row
+
+        return row
+
+    percent_number_of_cars_per_movement_df = absolute_number_of_cars_per_movement_df.apply(percent, axis=1)
+
+    absolute_number_of_cars_per_movement_df.to_csv(ROOT_DIR + '/' + save_path + '/' + traffic_name + '-' + mode_name + '-' + 
+        'phase_and_demand' + '-' + 'absolute' + '-' + 'per_movement' + '.csv')
+
+    percent_number_of_cars_per_movement_df.to_csv(ROOT_DIR + '/' + save_path + '/' + traffic_name + '-' + mode_name + '-' + 
+        'phase_and_demand' + '-' + 'percent' + '-' + 'per_movement' + '.csv')
+    
+
+    traffic_light_color_mapping = {
+        'r': (1, 0, 0),             # red
+        'y': (1, 1, 0),             # yellow
+        'g': (0, 0.702, 0),         # dark green
+        'G': (0, 1, 0),             # green
+        's': (0.502, 0, 0.502),     # purple
+        'u': (1, 0.502, 0),         # orange
+        'o': (0.502, 0.251, 0),     # brown
+        'O': (0, 1, 1)              # cyan
+    }
+
+
+    net_file = ROOT_DIR + '/' + records_dir + '/' + dic_traffic_env_conf['ROADNET_FILE']
+    parser = etree.XMLParser(remove_blank_text=True)
+    net_file_xml = etree.parse(net_file, parser)
+    connections = get_connections(net_file_xml)
+    entering_lanes = [connection.get('from') + '_' + connection.get('fromLane') for connection in connections]
+    lane_to_traffic_light_index_mapping = get_lane_traffic_light_controller(net_file_xml, entering_lanes)
+
+    movement_to_traffic_light_index_mapping = {}
+    for movement in movements:
+
+        connection = movement_to_connection[movement]
+        from_lane = connection['from'] + '_' + connection['fromLane']
+
+        movement_to_traffic_light_index_mapping[movement] = lane_to_traffic_light_index_mapping[from_lane]
+
+    def strip_traffic_light(traffic_light):
+
+        new_data = []
+
+        for index in movement_to_traffic_light_index_mapping.values():
+            new_data.append(traffic_light.iloc[0][int(index)])
+
+        lanes_traffic_light = pd.Series(new_data, movement_to_traffic_light_index_mapping.keys())
+
+        return lanes_traffic_light
+
+    traffic_light_df = traffic_light_df.apply(strip_traffic_light, axis=1)
+
+    traffic_light_df.to_csv(ROOT_DIR + '/' + save_path + '/' + traffic_name + '-' + mode_name + '-' + 
+        'phase_and_demand' + '-' + 'traffic_light' + '.csv')
+
+    traffic_light_colors = traffic_light_df.applymap(lambda x: traffic_light_color_mapping[x])
+
+
+    legend_label_keys_kwargs = {
+        'marker': 's', 
+        'markersize': 30,
+        'linewidth': 0,
+    }
+
+    legend_label_keys = [
+        Line2D([], [], color=traffic_light_color_mapping['r'], **legend_label_keys_kwargs),
+        Line2D([], [], color=traffic_light_color_mapping['y'], **legend_label_keys_kwargs),
+        Line2D([], [], color=traffic_light_color_mapping['g'], **legend_label_keys_kwargs),
+        Line2D([], [], color=traffic_light_color_mapping['G'], **legend_label_keys_kwargs),
+        Line2D([], [], color=traffic_light_color_mapping['s'], **legend_label_keys_kwargs),
+        Line2D([], [], color=traffic_light_color_mapping['u'], **legend_label_keys_kwargs),
+        Line2D([], [], color=traffic_light_color_mapping['o'], **legend_label_keys_kwargs),
+        Line2D([], [], color=traffic_light_color_mapping['O'], **legend_label_keys_kwargs)
+    ]
+
+    legend_label_values = [
+        'red light', 
+        'amber (yellow) light', 
+        'green light, no priority', 
+        'green light, priority', 
+        'right on red light', 
+        'red+yellow light',
+        'off, blinking',
+        'off, no signal'
+    ]
+
+
+    x_len, y_len = percent_number_of_cars_per_movement_df.shape
+
+    f, axs = plt.subplots(y_len, 1, figsize=(60, 3*y_len), dpi=100, sharex=True)
+    plt.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.90, wspace=0.05, hspace=0)
+
+    x = range(0, x_len)
+    for i in range(0, y_len):
+
+        data = percent_number_of_cars_per_movement_df.iloc[:, i]
+        
+        axs[i].margins(0)
+        axs[i].set_ylim(0, 1)
+
+        if i == y_len - 1:
+            axs[i].yaxis.set_major_locator(MaxNLocator(nbins=5))
+        else:
+            axs[i].yaxis.set_major_locator(MaxNLocator(nbins=5, prune='lower'))
+        axs[i].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+        axs[i].yaxis.set_minor_locator(MultipleLocator(0.05))
+
+        axs[i].xaxis.set_major_locator(MultipleLocator(300))
+        axs[i].xaxis.set_major_formatter(FormatStrFormatter('%d'))
+        axs[i].xaxis.set_minor_locator(MultipleLocator(10))
+
+        axs[i].set_axisbelow(True)
+        axs[i].grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
+
+
+        lane_traffic_light_colors = traffic_light_colors.iloc[:, i]
+
+        axs[i].plot(data, linewidth=2, color='k')
+        axs[i].bar(x, data, width=1, color=tuple(lane_traffic_light_colors))
+
+        axs[i].set_ylabel(data.name.split('_', 1)[0], labelpad=-100, rotation=0)
+
+    axs[0].legend(legend_label_keys, legend_label_values, bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
+           ncol=len(legend_label_values), mode="expand", borderaxespad=0.)
+
+    plt.suptitle('phase and demand distribution (%, in decimal)')
+
+    plt.savefig(ROOT_DIR + '/' + save_path + '/' + traffic_name + '-' + mode_name + '-' + 
+        'phase_and_demand' + '-' + 'percent' + '-' + 'per_movement' + '.png')
+    plt.close()
+
+
+    x_len, y_len = absolute_number_of_cars_per_movement_df.shape
+
+    f, axs = plt.subplots(y_len, 1, figsize=(60, 3*y_len), dpi=100, sharex=True)
+    plt.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.90, wspace=0.05, hspace=0)
+
+    max_number_of_cars = absolute_number_of_cars_per_movement_df.values.max()
+
+    x = range(0, x_len)
+    for i in range(0, y_len):
+
+        data = absolute_number_of_cars_per_movement_df.iloc[:, i]
+        
+        axs[i].margins(0)
+        axs[i].set_ylim(0, max_number_of_cars)
+
+        if i == y_len - 1:
+            axs[i].yaxis.set_major_locator(MaxNLocator(nbins=5))
+        else:
+            axs[i].yaxis.set_major_locator(MaxNLocator(nbins=5, prune='lower'))
+        axs[i].yaxis.set_major_formatter(FormatStrFormatter('%d'))
+        axs[i].yaxis.set_minor_locator(MultipleLocator(1))
+
+        axs[i].xaxis.set_major_locator(MultipleLocator(300))
+        axs[i].xaxis.set_major_formatter(FormatStrFormatter('%d'))
+        axs[i].xaxis.set_minor_locator(MultipleLocator(10))
+
+        axs[i].set_axisbelow(True)
+        axs[i].grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
+
+
+        lane_traffic_light_colors = traffic_light_colors.iloc[:, i]
+
+        axs[i].plot(data, linewidth=2, color='k')
+        axs[i].bar(x, data, width=1, color=tuple(lane_traffic_light_colors))
+
+        axs[i].set_ylabel(data.name.split('_', 1)[0], labelpad=-100, rotation=0)
+
+    axs[0].legend(legend_label_keys, legend_label_values, bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
+           ncol=len(legend_label_values), mode="expand", borderaxespad=0.)
+
+    plt.suptitle('phase and demand distribution (absolute numbers)')
+
+    plt.savefig(ROOT_DIR + '/' + save_path + '/' + traffic_name + '-' + mode_name + '-' + 
+        'phase_and_demand' + '-' + 'absolute' + '-' + 'per_movement' + '.png')
+    plt.close()
+
+
+    def autolabel(bars):
+        for bar in bars:
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2., 1.05*height,
+                    '%d' % round(height*100) + '%',
+                    ha='center', va='bottom')
+
+
+    f, ax = plt.subplots(1, 1, figsize=(40, 20), dpi=100)
+    plt.subplots_adjust(left=0.1, right=0.9, bottom=0.05, top=0.90, wspace=0.05, hspace=0.05)
+
+    ax.margins(0.05)
+    ax.set_ylim(0, 1)
+
+    ax.yaxis.set_major_locator(MaxNLocator(nbins= 10))
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    ax.yaxis.set_minor_locator(MultipleLocator(0.05))
+
+    x_ticks = []
+    width = 1
+
+    sort_order = list(traffic_light_color_mapping.keys())
+
+    accumulated_width = 0
+    for i in range(0, traffic_light_df.shape[1]):
+
+        data = percent(traffic_light_df.iloc[:, i].value_counts())
+        sorted_index = sorted(list(data.index), key=lambda x: sort_order.index(x))
+        data = data.reindex(sorted_index)
+
+        lane_traffic_light_colors = [traffic_light_color_mapping[index] for index in data.index]
+        
+        base_bar_positions = np.multiply([width]*len(data), range(0, len(data)))
+        bar_positions = accumulated_width + base_bar_positions + width/2
+
+        bars = ax.bar(bar_positions, data, width=width, color=tuple(lane_traffic_light_colors))
+        autolabel(bars)
+
+        x_ticks.append(accumulated_width + width*len(data)/2)
+        
+        accumulated_width += width*len(data) + width
+
+
+    ax.set_xticks(x_ticks)
+    ax.set_xticklabels(traffic_light_df.columns)
+
+    ax.set_axisbelow(True)
+    ax.grid(axis='y', color='gray', linestyle='dashed', alpha=0.7, which='both')
+
+    ax.legend(legend_label_keys, legend_label_values, bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
+           ncol=len(legend_label_values), mode="expand", borderaxespad=0.)
+
+    plt.suptitle('traffic light distribution (%, in decimal)')
+
+    plt.savefig(ROOT_DIR + '/' + save_path + '/' + traffic_name + '-' + mode_name + '-' + 
+        'traffic light distribution' + '-' + 'per_movement' + '.png')
+    plt.close()    
+
 
 def single_experiment_summary_detail_test(memo, records_dir, total_summary):
     # each_round_train_duration
@@ -689,16 +1110,23 @@ def single_experiment_summary_detail_test(memo, records_dir, total_summary):
     num_of_vehicle_in = []
     num_of_vehicle_out = []
 
+    traffic_env_conf = open(os.path.join(ROOT_DIR, records_dir, "traffic_env.conf"), 'r')
+    dic_traffic_env_conf = json.load(traffic_env_conf)
+
     test_round_dir = os.path.join(records_dir, "test_round")
     try:
         round_files = os.listdir(ROOT_DIR + '/' + test_round_dir)
     except:
         print("no test round in {}".format(records_dir))
+        return
     round_files = [f for f in round_files if "round" in f]
     round_files.sort(key=lambda x: int(x[6:]))
     round_summary = {"round": list(range(num_rounds))}
 
     average_reward_each_round = []
+    average_time_loss_each_round = []
+    average_relative_occupancy_each_round = []
+    average_relative_mean_speed_each_round = []
     for round in round_files:
 
         try:
@@ -710,22 +1138,45 @@ def single_experiment_summary_detail_test(memo, records_dir, total_summary):
             list_duration_id_seg = [0] * num_seg
 
             # summary items (queue_length) from pickle
-            f = open(os.path.join(ROOT_DIR, round_dir, "inter_0.pkl"), "rb")
+            f = open(os.path.join(ROOT_DIR, round_dir, "inter_0_detailed.pkl"), "rb")
             samples = pkl.load(f)
             queue_length_each_round = 0
             reward_each_step = []
+            time_loss_each_step = []
+            traffic_light_each_step = []
+            relative_occupancy_each_step = []
+            relative_mean_speed_each_step = []
+            absolute_number_of_cars_each_step = []
+
             for sample in samples:
                 queue_length_each_round += sum(sample['state']['lane_queue_length'])
-                reward_each_step.append(sample['reward']) 
+                reward_each_step.append(sample['reward'])
+                time_loss_each_step.append(sample['extra']['time_loss'])
+                traffic_light_each_step.append(sample['extra']['traffic_light'])
+                relative_occupancy_each_step.append(sample['extra']['relative_occupancy'])
+                relative_mean_speed_each_step.append(sample['extra']['relative_mean_speed'])
+                absolute_number_of_cars_each_step.append(sample['extra']['absolute_number_of_cars'])
             sample_num = len(samples)
             f.close()
 
             traffic_folder = records_dir.rsplit('/', 1)[1]
 
-            consolidate_reward(reward_each_step, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
-            plot_reward(reward_each_step, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
+            consolidate('time_loss', time_loss_each_step, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
+            consolidate('reward', reward_each_step, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
+
+            consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step, relative_mean_speed_each_step, 
+                dic_traffic_env_conf, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
+
+            consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_light_each_step, 
+                dic_traffic_env_conf, records_dir=records_dir, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
+
+            relative_occupancy_df = pd.DataFrame(relative_occupancy_each_step)
+            relative_mean_speed_df = pd.DataFrame(relative_mean_speed_each_step)
 
             average_reward_each_round.append(np.mean(reward_each_step))
+            average_time_loss_each_round.append(np.mean(time_loss_each_step))
+            average_relative_occupancy_each_round.append(relative_occupancy_df.mean().to_dict())
+            average_relative_mean_speed_each_round.append(relative_mean_speed_df.mean().to_dict())
 
             # summary items (duration) from csv
             df_vehicle_inter_0 = pd.read_csv(os.path.join(ROOT_DIR + '/' + round_dir, "vehicle_inter_0.csv"),
@@ -802,8 +1253,11 @@ def single_experiment_summary_detail_test(memo, records_dir, total_summary):
         if not os.path.exists(ROOT_DIR + '/' + result_dir):
             os.makedirs(ROOT_DIR + '/' + result_dir)
         
-        consolidate_reward(average_reward_each_round, save_path=result_dir, traffic_name=traffic_folder, mode_name='test')
-        plot_reward(average_reward_each_round, save_path=result_dir, traffic_name=traffic_folder, mode_name='test')
+        consolidate('time_loss', average_time_loss_each_round, save_path=result_dir, traffic_name=traffic_folder, mode_name='test')
+        consolidate('reward', average_reward_each_round, save_path=result_dir, traffic_name=traffic_folder, mode_name='test')
+
+        consolidate_occupancy_and_speed_inflow_outflow(average_relative_occupancy_each_round, average_relative_mean_speed_each_round, 
+                dic_traffic_env_conf, save_path=result_dir, traffic_name=traffic_folder, mode_name='test')
         
         _res = {
             "duration": duration_each_round_list,

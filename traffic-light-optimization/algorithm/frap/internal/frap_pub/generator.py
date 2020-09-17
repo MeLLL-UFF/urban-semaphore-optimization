@@ -55,7 +55,8 @@ class Generator:
                               path_to_log = self.path_to_log,
                               path_to_work_directory = self.dic_path["PATH_TO_WORK_DIRECTORY"],
                               dic_traffic_env_conf = self.dic_traffic_env_conf,
-                              external_configurations=self.external_configurations)
+                              external_configurations=self.external_configurations,
+                              mode='train')
 
     def generate(self):
 

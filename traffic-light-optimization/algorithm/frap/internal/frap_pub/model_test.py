@@ -133,7 +133,8 @@ def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_c
                                                                path_to_work_directory=dic_path[
                                                                    "PATH_TO_WORK_DIRECTORY"],
                                                                dic_traffic_env_conf=dic_traffic_env_conf,
-                                                               external_configurations=external_configurations)
+                                                               external_configurations=external_configurations,
+                                                               mode='test')
 
         done = False
         execution_name = 'test' + '_' + 'round' + '_' + str(cnt_round)
@@ -167,7 +168,7 @@ def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_c
             downsample(path_to_log)
             # print("end down")
 
-    except:
+    except Exception as e:
         error_dir = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round", model_round, 'error')
         if not os.path.exists(ROOT_DIR + '/' + error_dir):
             os.makedirs(ROOT_DIR + '/' + error_dir)

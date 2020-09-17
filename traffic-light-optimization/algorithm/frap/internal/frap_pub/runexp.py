@@ -268,6 +268,11 @@ def main(args=None, memo=None, external_configurations={}):
             _detect_movements(net_xml, use_sumo_directions_in_movement_detection)
         dic_traffic_env_conf_extra['list_lane_order'] = movements
 
+        serializable_movement_to_connection = dict(copy.deepcopy(movement_to_connection))
+        for movement in serializable_movement_to_connection.keys():
+            serializable_movement_to_connection[movement] = dict(serializable_movement_to_connection[movement].attrib)
+        dic_traffic_env_conf_extra['movement_to_connection'] = serializable_movement_to_connection
+
         conflicts = _detect_movement_conflicts(net_xml, movement_to_connection)
         phases = _detect_phases(movements, conflicts)
         dic_traffic_env_conf_extra['PHASE'] = phases

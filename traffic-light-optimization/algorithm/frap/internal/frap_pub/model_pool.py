@@ -105,7 +105,8 @@ class ModelPool():
                              path_to_log=path_to_log,
                              path_to_work_directory=self.dic_path["PATH_TO_WORK_DIRECTORY"],
                              dic_traffic_env_conf=dic_traffic_env_conf,
-                             external_configurations=external_configurations)
+                             external_configurations=external_configurations,
+                             mode='train')
 
             done = False
             state = env.reset({}, external_configurations=external_configurations)

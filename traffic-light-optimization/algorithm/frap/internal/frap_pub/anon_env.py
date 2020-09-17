@@ -364,7 +364,13 @@ class AnonEnv:
         "intersection_1_1"
     ]
 
-    def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf, external_configurations={}):
+    def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf, external_configurations={}, mode='train'):
+        # mode: train or test
+
+        if mode != 'train' and mode != 'test':
+            raise ValueError("Mode must be either 'train' or 'test', current value is " + mode)
+        self.mode = mode
+
         self.path_to_log = path_to_log
         self.path_to_work_directory = path_to_work_directory
         self.dic_traffic_env_conf = dic_traffic_env_conf

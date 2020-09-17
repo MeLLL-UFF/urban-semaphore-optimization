@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import sys
+import shutil
 import pickle
 from sys import platform
 from math import floor, ceil
@@ -188,6 +189,127 @@ def get_intersection_edge_ids(net_xml, from_edge='ALL', to_edge='ALL', sorted=Tr
         outgoing_edges = list(outgoing_edges)
 
     return incoming_edges, outgoing_edges
+
+
+def get_time_loss(junction_id):
+    
+    subscription_results = traci.junction.getContextSubscriptionResults(junction_id)
+    
+    halting = 0
+    if subscription_results:
+        
+        relative_speeds = [d[tc.VAR_SPEED] / d[tc.VAR_ALLOWED_SPEED] for d in subscription_results.values()]
+        
+        # compute values corresponding to summary-output
+        running = len(relative_speeds)
+        halting = len([1 for d in subscription_results.values() if d[tc.VAR_SPEED] < 0.1])
+        step_length = traci.simulation.getDeltaT()        
+        mean_relative_speed = sum(relative_speeds) / running
+        
+        time_loss = (1 - mean_relative_speed) * running * step_length
+    else:
+        time_loss = 0
+
+    return time_loss
+
+
+def get_lane_relative_occupancy(edges):
+
+    result = {}
+    alternative_result = {}
+
+    lanes = traci.lane.getIDList()
+
+    for lane in lanes:
+
+        edge_id = traci.lane.getEdgeID(lane)
+
+        if edge_id not in edges:
+            continue
+
+        vehicles = traci.lane.getLastStepVehicleIDs(lane)
+        lane_length = traci.lane.getLength(lane)
+
+        total_occupied_length = 0
+
+        # Accounts for lane next entering car secure gap spacing
+        if vehicles:
+            vehicle = vehicles[0]
+            min_gap = traci.vehicle.getMinGap(vehicle)
+            last_vehicle_secure_gap_margin = traci.vehicle.getTau(vehicle) * traci.vehicle.getSpeed(vehicle) + min_gap
+            actual_distance = lane_length - traci.vehicle.getLanePosition(vehicle)
+            total_occupied_length += + min(last_vehicle_secure_gap_margin, actual_distance)
+
+        for vehicle in vehicles:
+            min_gap = traci.vehicle.getMinGap(vehicle)
+            leader_vehicle = traci.vehicle.getLeader(vehicle)
+
+            if leader_vehicle:
+
+                leader_id, leader_vehicle_distance = leader_vehicle
+
+                actual_distance = max(0 + min_gap, leader_vehicle_distance + min_gap)
+                secure_gap = traci.vehicle.getSecureGap(vehicle, traci.vehicle.getSpeed(vehicle), 
+                    traci.vehicle.getSpeed(leader_id), traci.vehicle.getDecel(leader_id), leader_id) + min_gap
+
+            else:
+                actual_distance = lane_length - traci.vehicle.getLanePosition(vehicle)
+                secure_gap = traci.vehicle.getTau(vehicle) * traci.vehicle.getSpeed(vehicle) + min_gap
+
+            occupied_length = traci.vehicle.getLength(vehicle) + min(secure_gap, actual_distance)
+            
+            total_occupied_length += occupied_length
+
+        lane_relative_occupancy = total_occupied_length / lane_length
+
+        result[lane] = lane_relative_occupancy
+
+    return result
+
+
+def get_relative_mean_speed(edges):
+
+    result = {}
+
+    lanes = traci.lane.getIDList()
+
+    for lane in lanes:
+
+        edge_id = traci.lane.getEdgeID(lane)
+
+        if edge_id not in edges:
+            continue
+
+        vehicles = traci.lane.getLastStepVehicleIDs(lane)
+
+        if vehicles:
+            mean_speed = traci.lane.getLastStepMeanSpeed(lane)
+        else:
+            mean_speed = 0
+        
+        result[lane] = mean_speed / traci.lane.getMaxSpeed(lane)
+
+    return result
+
+def get_absolute_number_of_cars(edges):
+
+    result = {}
+
+    lanes = traci.lane.getIDList()
+
+    for lane in lanes:
+
+        edge_id = traci.lane.getEdgeID(lane)
+
+        if edge_id not in edges:
+            continue
+
+        vehicles = traci.lane.getLastStepVehicleIDs(lane)
+
+        result[lane] = len(vehicles)
+
+    return result
+
 
 class Intersection:
 
@@ -715,9 +837,14 @@ class SumoEnv:
         if self.dic_traffic_env_conf["IF_GUI"]:
             return sumo_cmd
         else:
-            return sumo_cmd_nogui
+            return sumo_cmd
 
-    def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf, external_configurations={}):
+    def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf, external_configurations={}, mode='train'):
+        # mode: train, test, replay
+
+        if mode != 'train' and mode != 'test' and mode != 'replay':
+            raise ValueError("Mode must be either 'train', 'test', or replay, current value is " + mode)
+        self.mode = mode
 
         self.path_to_log = path_to_log
         self.path_to_work_directory = path_to_work_directory
@@ -795,6 +922,10 @@ class SumoEnv:
         for lane in self.list_lanes:
             traci.lane.subscribe(lane, [getattr(tc, var) for var in self.LIST_LANE_VARIABLES_TO_SUB])
 
+        if self.mode == 'test':
+            for inter_ind, inter in enumerate(self.list_intersection):
+                traci.junction.subscribeContext(inter.node_light, tc.CMD_GET_VEHICLE_VARIABLE, 1000000, [tc.VAR_SPEED, tc.VAR_ALLOWED_SPEED])
+
         # get new measurements
         for inter in self.list_intersection:
             inter.update_current_measurements()
@@ -814,13 +945,12 @@ class SumoEnv:
     def bulk_log(self):
 
         valid_flag = {}
-        for inter_ind in range(len(self.list_intersection)):
+        for inter_ind, inter in enumerate(self.list_intersection):
             path_to_log_file = os.path.join(self.path_to_log, "vehicle_inter_{0}.csv".format(inter_ind))
             dic_vehicle = self.list_intersection[inter_ind].get_dic_vehicle_arrive_leave_time()
             df = self.convert_dic_to_df(dic_vehicle)
             df.to_csv(ROOT_DIR + '/' + path_to_log_file, na_rep="nan")
 
-            inter = self.list_intersection[inter_ind]
             feature = inter.get_feature()
             print(feature['lane_num_vehicle'])
             if max(feature['lane_num_vehicle']) > self.dic_traffic_env_conf["VALID_THRESHOLD"]:
@@ -834,6 +964,10 @@ class SumoEnv:
             f = open(ROOT_DIR + '/' + path_to_log_file, "wb")
             pickle.dump(self.list_inter_log[inter_ind], f)
             f.close()
+
+            if self.mode == 'test':
+                detailed_copy = os.path.join(self.path_to_log, "inter_{0}_detailed.pkl".format(inter_ind))
+                shutil.copy(ROOT_DIR + '/' + path_to_log_file, ROOT_DIR + '/' + detailed_copy)
 
 
     def end_sumo(self):
@@ -874,11 +1008,41 @@ class SumoEnv:
 
     def log(self, cur_time, before_action_feature, action, reward):
 
-        for inter_ind in range(len(self.list_intersection)):
-            self.list_inter_log[inter_ind].append({"time": cur_time,
+        for inter_ind, inter in enumerate(self.list_intersection):
+
+            if self.mode == 'test':
+
+                traffic_light = traci.trafficlight.getRedYellowGreenState(inter.node_light)
+                time_loss = get_time_loss(inter.node_light)
+
+                incoming_edges, outgoing_edges = get_intersection_edge_ids(inter.net_file_xml)
+
+                edges = [] + incoming_edges + outgoing_edges
+
+                relative_occupancy = get_lane_relative_occupancy(edges)
+                relative_mean_speed = get_relative_mean_speed(edges)
+                absolute_number_of_cars = get_absolute_number_of_cars(edges)
+
+                extra = {
+                    "traffic_light": traffic_light,
+                    "time_loss": time_loss,
+                    "relative_occupancy": relative_occupancy,
+                    "relative_mean_speed": relative_mean_speed,
+                    "absolute_number_of_cars": absolute_number_of_cars
+                }
+
+                self.list_inter_log[inter_ind].append({"time": cur_time,
+                                                        "state": before_action_feature[inter_ind],
+                                                        "action": action[inter_ind],
+                                                        "reward": reward,
+                                                        "extra": extra})
+            else:
+
+                self.list_inter_log[inter_ind].append({"time": cur_time,
                                                     "state": before_action_feature[inter_ind],
                                                     "action": action[inter_ind],
                                                     "reward": reward})
+
 
     def step(self, action):
 
