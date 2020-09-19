@@ -6,11 +6,12 @@ import json
 import copy
 from math import isnan
 from lxml import etree
-import matplotlib as mlp
 from algorithm.frap.internal.frap_pub.script import  *
 from algorithm.frap.internal.frap_pub.sumo_env import get_connections, get_lane_traffic_light_controller
 
+import matplotlib as mlp
 mlp.use("agg")
+
 import matplotlib.pyplot as plt
 from matplotlib.ticker import (MultipleLocator, MaxNLocator, FormatStrFormatter,
                                AutoMinorLocator)
@@ -905,23 +906,10 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
 
         absolute_number_of_cars_per_movement_df.loc[:, movement] = absolute_number_of_cars_df.loc[:, from_lane]
 
-    def percent(row):
-
-        new_row = []
-
-        row_sum = row.sum()
-        for index, element in enumerate(row):
-            if row_sum == 0:
-                new_row.append(0)
-            else:
-                new_row.append(element/row_sum)
-
-        row.iloc[:] = new_row
-
-        return row
-
-    percent_number_of_cars_per_movement_df = absolute_number_of_cars_per_movement_df.apply(percent, axis=1)
-
+    percent_number_of_cars_per_movement_df = absolute_number_of_cars_per_movement_df.div(
+        absolute_number_of_cars_per_movement_df.sum(axis=1), 
+        axis=0)
+    
     absolute_number_of_cars_per_movement_df.to_csv(ROOT_DIR + '/' + save_path + '/' + traffic_name + '-' + mode_name + '-' + 
         'phase_and_demand' + '-' + 'absolute' + '-' + 'per_movement' + '.csv')
 
@@ -940,7 +928,6 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
         'O': (0, 1, 1)              # cyan
     }
 
-
     net_file = ROOT_DIR + '/' + records_dir + '/' + dic_traffic_env_conf['ROADNET_FILE']
     parser = etree.XMLParser(remove_blank_text=True)
     net_file_xml = etree.parse(net_file, parser)
@@ -956,18 +943,16 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
 
         movement_to_traffic_light_index_mapping[movement] = lane_to_traffic_light_index_mapping[from_lane]
 
-    def strip_traffic_light(traffic_light):
+    desired_indices = np.array(list(movement_to_traffic_light_index_mapping.values())).astype(np.int)
 
-        new_data = []
-
-        for index in movement_to_traffic_light_index_mapping.values():
-            new_data.append(traffic_light.iloc[0][int(index)])
-
-        lanes_traffic_light = pd.Series(new_data, movement_to_traffic_light_index_mapping.keys())
-
-        return lanes_traffic_light
-
-    traffic_light_df = traffic_light_df.apply(strip_traffic_light, axis=1)
+    # split each traffic light and retrieve desired movements
+    traffic_light_df = pd.DataFrame(
+        list(map(
+            lambda x: np.array(list(x))[desired_indices], 
+            traffic_light_df.iloc[:, 0]
+        )),
+        columns=movement_to_traffic_light_index_mapping.keys()
+    )
 
     traffic_light_df.to_csv(ROOT_DIR + '/' + save_path + '/' + traffic_name + '-' + mode_name + '-' + 
         'phase_and_demand' + '-' + 'traffic_light' + '.csv')
@@ -1006,7 +991,7 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
     x_len, y_len = percent_number_of_cars_per_movement_df.shape
 
     f, axs = plt.subplots(y_len, 1, figsize=(60, 3*y_len), dpi=100, sharex=True)
-    plt.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.90, wspace=0.05, hspace=0)
+    plt.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.90, wspace=0.05, hspace=0.1)
 
     x = range(0, x_len)
     for i in range(0, y_len):
@@ -1051,7 +1036,7 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
     x_len, y_len = absolute_number_of_cars_per_movement_df.shape
 
     f, axs = plt.subplots(y_len, 1, figsize=(60, 3*y_len), dpi=100, sharex=True)
-    plt.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.90, wspace=0.05, hspace=0)
+    plt.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.90, wspace=0.05, hspace=0.1)
 
     max_number_of_cars = absolute_number_of_cars_per_movement_df.values.max()
 
@@ -1112,7 +1097,8 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
     accumulated_width = 0
     for i in range(0, traffic_light_df.shape[1]):
 
-        data = percent(traffic_light_df.iloc[:, i].value_counts())
+        value_counts = traffic_light_df.iloc[:, i].value_counts()
+        data = value_counts.div(value_counts.sum())
         sorted_index = sorted(list(data.index), key=lambda x: sort_order.index(x))
         data = data.reindex(sorted_index)
         data = data.cumsum()
@@ -1142,7 +1128,7 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
 
     plt.savefig(ROOT_DIR + '/' + save_path + '/' + traffic_name + '-' + mode_name + '-' + 
         'traffic light distribution' + '-' + 'per_movement' + '.png')
-    plt.close()    
+    plt.close()
 
 
 def single_experiment_summary_detail_test(memo, records_dir, total_summary):
