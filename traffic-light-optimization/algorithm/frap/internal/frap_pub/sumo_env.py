@@ -191,18 +191,14 @@ def get_intersection_edge_ids(net_xml, from_edge='ALL', to_edge='ALL', sorted=Tr
     return incoming_edges, outgoing_edges
 
 
-def get_time_loss(junction_id):
-    
-    subscription_results = traci.junction.getContextSubscriptionResults(junction_id)
-    
-    halting = 0
-    if subscription_results:
+def get_time_loss(dic_vehicle_sub_current_step):
+
+    if dic_vehicle_sub_current_step:
         
-        relative_speeds = [d[tc.VAR_SPEED] / d[tc.VAR_ALLOWED_SPEED] for d in subscription_results.values()]
+        relative_speeds = [d[tc.VAR_SPEED] / d[tc.VAR_ALLOWED_SPEED] for d in dic_vehicle_sub_current_step.values()]
         
         # compute values corresponding to summary-output
         running = len(relative_speeds)
-        halting = len([1 for d in subscription_results.values() if d[tc.VAR_SPEED] < 0.1])
         step_length = traci.simulation.getDeltaT()        
         mean_relative_speed = sum(relative_speeds) / running
         
@@ -213,100 +209,101 @@ def get_time_loss(junction_id):
     return time_loss
 
 
-def get_lane_relative_occupancy(edges):
+def get_lane_relative_occupancy(
+    dic_lane_sub_current_step, 
+    dic_lane_vehicle_sub_current_step, 
+    dic_vehicle_sub_current_step, 
+    edges):
 
     result = {}
     alternative_result = {}
 
-    lanes = traci.lane.getIDList()
+    all_vehicles = dic_vehicle_sub_current_step
 
-    for lane in lanes:
+    for lane_id, lane in dic_lane_sub_current_step.items():
 
-        edge_id = traci.lane.getEdgeID(lane)
+        edge_id = lane[tc.LANE_EDGE_ID]
 
         if edge_id not in edges:
             continue
 
-        vehicles = traci.lane.getLastStepVehicleIDs(lane)
-        lane_length = traci.lane.getLength(lane)
+        vehicles = dic_lane_vehicle_sub_current_step.get(lane_id, {})
+        lane_length = lane[tc.VAR_LENGTH]
 
         total_occupied_length = 0
 
         # Accounts for lane next entering car secure gap spacing
         if vehicles:
-            vehicle = vehicles[0]
-            min_gap = traci.vehicle.getMinGap(vehicle)
-            last_vehicle_secure_gap_margin = traci.vehicle.getTau(vehicle) * traci.vehicle.getSpeed(vehicle) + min_gap
-            actual_distance = lane_length - traci.vehicle.getLanePosition(vehicle)
-            total_occupied_length += + min(last_vehicle_secure_gap_margin, actual_distance)
+            vehicle_id, vehicle = next(iter(vehicles.items()))
+            min_gap = vehicle[tc.VAR_MINGAP]
+            last_vehicle_secure_gap_margin = vehicle[tc.VAR_TAU] * vehicle[tc.VAR_SPEED] + min_gap
+            actual_distance = lane_length - vehicle[tc.VAR_LANEPOSITION]
+            total_occupied_length += min(last_vehicle_secure_gap_margin, actual_distance)
 
-        for vehicle in vehicles:
-            min_gap = traci.vehicle.getMinGap(vehicle)
-            leader_vehicle = traci.vehicle.getLeader(vehicle)
+        for vehicle_id, vehicle in vehicles.items():
+            min_gap = vehicle[tc.VAR_MINGAP]
+            leader_vehicle_result = traci.vehicle.getLeader(vehicle_id)
 
-            if leader_vehicle:
+            if leader_vehicle_result:
 
-                leader_id, leader_vehicle_distance = leader_vehicle
+                leader_id, leader_vehicle_distance = leader_vehicle_result
+                leader_vehicle = all_vehicles[leader_id]
 
                 actual_distance = max(0 + min_gap, leader_vehicle_distance + min_gap)
-                secure_gap = traci.vehicle.getSecureGap(vehicle, traci.vehicle.getSpeed(vehicle), 
-                    traci.vehicle.getSpeed(leader_id), traci.vehicle.getDecel(leader_id), leader_id) + min_gap
+                secure_gap = traci.vehicle.getSecureGap(vehicle_id, vehicle[tc.VAR_SPEED], 
+                    leader_vehicle[tc.VAR_SPEED], leader_vehicle[tc.VAR_DECEL], leader_id) + min_gap
 
             else:
-                actual_distance = lane_length - traci.vehicle.getLanePosition(vehicle)
-                secure_gap = traci.vehicle.getTau(vehicle) * traci.vehicle.getSpeed(vehicle) + min_gap
+                actual_distance = lane_length - vehicle[tc.VAR_LANEPOSITION]
+                secure_gap = vehicle[tc.VAR_TAU] * vehicle[tc.VAR_SPEED] + min_gap
 
-            occupied_length = traci.vehicle.getLength(vehicle) + min(secure_gap, actual_distance)
+            occupied_length = vehicle[tc.VAR_LENGTH] + min(secure_gap, actual_distance)
             
             total_occupied_length += occupied_length
 
         lane_relative_occupancy = total_occupied_length / lane_length
 
-        result[lane] = lane_relative_occupancy
+        result[lane_id] = lane_relative_occupancy
 
     return result
 
 
-def get_relative_mean_speed(edges):
+def get_relative_mean_speed(dic_lane_sub_current_step, edges):
 
     result = {}
 
-    lanes = traci.lane.getIDList()
+    for lane_id, lane in dic_lane_sub_current_step.items():
 
-    for lane in lanes:
-
-        edge_id = traci.lane.getEdgeID(lane)
+        edge_id = lane[tc.LANE_EDGE_ID]
 
         if edge_id not in edges:
             continue
 
-        vehicles = traci.lane.getLastStepVehicleIDs(lane)
+        vehicles = lane[tc.LAST_STEP_VEHICLE_ID_LIST]
 
         if vehicles:
-            mean_speed = traci.lane.getLastStepMeanSpeed(lane)
+            mean_speed = lane[tc.LAST_STEP_MEAN_SPEED]
         else:
             mean_speed = 0
         
-        result[lane] = mean_speed / traci.lane.getMaxSpeed(lane)
+        result[lane_id] = mean_speed / lane[tc.VAR_MAXSPEED]
 
     return result
 
-def get_absolute_number_of_cars(edges):
+def get_absolute_number_of_cars(dic_lane_sub_current_step, edges):
 
     result = {}
 
-    lanes = traci.lane.getIDList()
+    for lane_id, lane in dic_lane_sub_current_step.items():
 
-    for lane in lanes:
-
-        edge_id = traci.lane.getEdgeID(lane)
+        edge_id = lane[tc.LANE_EDGE_ID]
 
         if edge_id not in edges:
             continue
 
-        vehicles = traci.lane.getLastStepVehicleIDs(lane)
+        vehicles = lane[tc.LAST_STEP_VEHICLE_ID_LIST]
 
-        result[lane] = len(vehicles)
+        result[lane_id] = len(vehicles)
 
     return result
 
@@ -338,13 +335,14 @@ class Intersection:
         # ===== sumo intersection settings =====
 
         self.dic_path = dic_path
-        incoming_edges, outgoing_edges = get_intersection_edge_ids(self.net_file_xml)
+        self.incoming_edges, self.outgoing_edges = get_intersection_edge_ids(self.net_file_xml)
+        self.edges = [] + self.incoming_edges + self.outgoing_edges
 
         self.list_approachs = [str(i) for i in range(dic_sumo_env_conf["N_LEG"])]
         self.dic_approach_to_node = {str(i): "{0}.node{1}".format(self.node_light, i) for i in self.list_approachs }
         # REPLACING ORIGINAL
-        self.dic_entering_approach_to_edge = {approach: incoming_edges[index] for index, approach in enumerate(self.list_approachs)}
-        self.dic_exiting_approach_to_edge = {approach: outgoing_edges[index] for index, approach in enumerate(self.list_approachs)}
+        self.dic_entering_approach_to_edge = {approach: self.incoming_edges[index] for index, approach in enumerate(self.list_approachs)}
+        self.dic_exiting_approach_to_edge = {approach: self.outgoing_edges[index] for index, approach in enumerate(self.list_approachs)}
         # ORIGINAL
         #self.dic_entering_approach_to_edge = {approach: "edge-{0}-{1}".format(self.dic_approach_to_node[approach], self.node_light) for approach in self.list_approachs}
         #self.dic_exiting_approach_to_edge = {approach: "edge-{0}-{1}".format(self.node_light, self.dic_approach_to_node[approach]) for approach in self.list_approachs}
@@ -429,6 +427,8 @@ class Intersection:
         self.dic_lane_sub_previous_step = None
         self.dic_vehicle_sub_current_step = None
         self.dic_vehicle_sub_previous_step = None
+        self.dic_lane_vehicle_sub_current_step = None
+        self.dic_lane_vehicle_sub_previous_step = None
         self.list_vehicles_current_step = []
         self.list_vehicles_previous_step = []
 
@@ -507,6 +507,7 @@ class Intersection:
         self.previous_phase_index = self.current_phase_index
         self.dic_lane_sub_previous_step = self.dic_lane_sub_current_step
         self.dic_vehicle_sub_previous_step = self.dic_vehicle_sub_current_step
+        self.dic_lane_vehicle_sub_previous_step = self.dic_lane_vehicle_sub_current_step
         self.list_vehicles_previous_step = self.list_vehicles_current_step
 
     def update_current_measurements(self):
@@ -538,6 +539,13 @@ class Intersection:
 
         # vehicle level observations
         self.dic_vehicle_sub_current_step = {vehicle: traci.vehicle.getSubscriptionResults(vehicle) for vehicle in self.list_vehicles_current_step}
+        self.dic_lane_vehicle_sub_current_step = {}
+        for vehicle, values in self.dic_vehicle_sub_current_step.items():
+            lane = values[tc.VAR_LANE_ID]
+            if lane in self.dic_lane_vehicle_sub_current_step:
+                self.dic_lane_vehicle_sub_current_step[lane][vehicle] = self.dic_vehicle_sub_current_step[vehicle]
+            else:
+                self.dic_lane_vehicle_sub_current_step[lane] = {vehicle: self.dic_vehicle_sub_current_step[vehicle]}
 
         # update vehicle arrive and left time
         self._update_arrive_time(list_vehicles_new_arrive)
@@ -781,6 +789,12 @@ class SumoEnv:
         "LAST_STEP_VEHICLE_HALTING_NUMBER",
         "VAR_WAITING_TIME",
 
+        "LANE_EDGE_ID",
+        ### "LAST_STEP_VEHICLE_ID_LIST",
+        "VAR_LENGTH",
+        "LAST_STEP_MEAN_SPEED",
+        "VAR_MAXSPEED"
+
     ]
 
     # add more variables here if you need more measurements
@@ -793,6 +807,17 @@ class SumoEnv:
         "VAR_ACCUMULATED_WAITING_TIME",
         # "VAR_LANEPOSITION_LAT",
         "VAR_LANEPOSITION",
+        
+        ### "VAR_SPEED",
+        "VAR_ALLOWED_SPEED",
+        "VAR_MINGAP",
+        "VAR_TAU",
+        ### "VAR_LANEPOSITION",
+        #"VAR_LEADER",  # Problems with subscription
+        #"VAR_SECURE_GAP", # Problems with subscription
+        "VAR_LENGTH",
+        "VAR_LANE_ID",
+        "VAR_DECEL"
     ]
 
     def _get_sumo_cmd(self, external_configurations={}):
@@ -927,10 +952,6 @@ class SumoEnv:
         for lane in self.list_lanes:
             traci.lane.subscribe(lane, [getattr(tc, var) for var in self.LIST_LANE_VARIABLES_TO_SUB])
 
-        if self.mode == 'test':
-            for inter_ind, inter in enumerate(self.list_intersection):
-                traci.junction.subscribeContext(inter.node_light, tc.CMD_GET_VEHICLE_VARIABLE, 1000000, [tc.VAR_SPEED, tc.VAR_ALLOWED_SPEED])
-
         # get new measurements
         for inter in self.list_intersection:
             inter.update_current_measurements()
@@ -1018,15 +1039,11 @@ class SumoEnv:
             if self.mode == 'test':
 
                 traffic_light = traci.trafficlight.getRedYellowGreenState(inter.node_light)
-                time_loss = get_time_loss(inter.node_light)
-
-                incoming_edges, outgoing_edges = get_intersection_edge_ids(inter.net_file_xml)
-
-                edges = [] + incoming_edges + outgoing_edges
-
-                relative_occupancy = get_lane_relative_occupancy(edges)
-                relative_mean_speed = get_relative_mean_speed(edges)
-                absolute_number_of_cars = get_absolute_number_of_cars(edges)
+                time_loss = get_time_loss(inter.dic_vehicle_sub_current_step)
+                relative_occupancy = get_lane_relative_occupancy(inter.dic_lane_sub_current_step, 
+                    inter.dic_lane_vehicle_sub_current_step, inter.dic_vehicle_sub_current_step, inter.edges)
+                relative_mean_speed = get_relative_mean_speed(inter.dic_lane_sub_current_step, inter.edges)
+                absolute_number_of_cars = get_absolute_number_of_cars(inter.dic_lane_sub_current_step, inter.edges)
 
                 extra = {
                     "traffic_light": traffic_light,
