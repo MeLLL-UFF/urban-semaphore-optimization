@@ -1131,7 +1131,9 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
     plt.close()
 
 
-def single_experiment_summary_detail_test(memo, records_dir, total_summary):
+def single_experiment_summary_detail_test(memo, records_dir, total_summary, plots='all'):
+    # plots: None, 'records_only 'summary_only', 'all'
+
     # each_round_train_duration
 
     performance_duration = {}
@@ -1197,10 +1199,11 @@ def single_experiment_summary_detail_test(memo, records_dir, total_summary):
                 queue_length_each_round += sum(sample['state']['lane_queue_length'])
                 reward_each_step.append(sample['reward'])
                 time_loss_each_step.append(sample['extra']['time_loss'])
-                traffic_light_each_step.append(sample['extra']['traffic_light'])
-                relative_occupancy_each_step.append(sample['extra']['relative_occupancy'])
-                relative_mean_speed_each_step.append(sample['extra']['relative_mean_speed'])
-                absolute_number_of_cars_each_step.append(sample['extra']['absolute_number_of_cars'])
+                if plots is not None:
+                    traffic_light_each_step.append(sample['extra']['traffic_light'])
+                    relative_occupancy_each_step.append(sample['extra']['relative_occupancy'])
+                    relative_mean_speed_each_step.append(sample['extra']['relative_mean_speed'])
+                    absolute_number_of_cars_each_step.append(sample['extra']['absolute_number_of_cars'])
             sample_num = len(samples)
             f.close()
 
@@ -1209,19 +1212,22 @@ def single_experiment_summary_detail_test(memo, records_dir, total_summary):
             consolidate('time_loss', time_loss_each_step, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
             consolidate('reward', reward_each_step, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
 
-            consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step, relative_mean_speed_each_step, 
-                dic_traffic_env_conf, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
+            if plots is not None and plots != 'summary_only':
+                consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step, relative_mean_speed_each_step, 
+                    dic_traffic_env_conf, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
 
-            consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_light_each_step, 
-                dic_traffic_env_conf, records_dir=records_dir, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
+                consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_light_each_step, 
+                    dic_traffic_env_conf, records_dir=records_dir, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
 
             relative_occupancy_df = pd.DataFrame(relative_occupancy_each_step)
             relative_mean_speed_df = pd.DataFrame(relative_mean_speed_each_step)
 
             average_reward_each_round.append(np.mean(reward_each_step))
             average_time_loss_each_round.append(np.mean(time_loss_each_step))
-            average_relative_occupancy_each_round.append(relative_occupancy_df.mean().to_dict())
-            average_relative_mean_speed_each_round.append(relative_mean_speed_df.mean().to_dict())
+
+            if plots is not None and plots != 'records_only':
+                average_relative_occupancy_each_round.append(relative_occupancy_df.mean().to_dict())
+                average_relative_mean_speed_each_round.append(relative_mean_speed_df.mean().to_dict())
 
             # summary items (duration) from csv
             df_vehicle_inter_0 = pd.read_csv(os.path.join(ROOT_DIR + '/' + round_dir, "vehicle_inter_0.csv"),
@@ -1301,7 +1307,8 @@ def single_experiment_summary_detail_test(memo, records_dir, total_summary):
         consolidate('time_loss', average_time_loss_each_round, save_path=result_dir, traffic_name=traffic_folder, mode_name='test')
         consolidate('reward', average_reward_each_round, save_path=result_dir, traffic_name=traffic_folder, mode_name='test')
 
-        consolidate_occupancy_and_speed_inflow_outflow(average_relative_occupancy_each_round, average_relative_mean_speed_each_round, 
+        if plots is not None and plots != 'records_only':
+            consolidate_occupancy_and_speed_inflow_outflow(average_relative_occupancy_each_round, average_relative_mean_speed_each_round, 
                 dic_traffic_env_conf, save_path=result_dir, traffic_name=traffic_folder, mode_name='test')
         
         _res = {
@@ -1355,7 +1362,7 @@ def single_experiment_summary_detail_test(memo, records_dir, total_summary):
     performance_at_min_duration_round_plot(performance_at_min_duration_round, figure_dir, mode_name="test")
 
 
-def single_experiment_summary(memo=None, records_dir=None):
+def single_experiment_summary(memo=None, records_dir=None, plots='all'):
 
     total_summary = {
         "traffic": [],
@@ -1373,7 +1380,7 @@ def single_experiment_summary(memo=None, records_dir=None):
     }
 
     #summary_detail_train(memo, copy.deepcopy(total_summary))
-    single_experiment_summary_detail_test(memo, records_dir, copy.deepcopy(total_summary))
+    single_experiment_summary_detail_test(memo, records_dir, copy.deepcopy(total_summary), plots)
     # summary_detail_test_segments(memo, copy.deepcopy(total_summary))
 
 def main(memo=None):
