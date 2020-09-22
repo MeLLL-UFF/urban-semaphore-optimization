@@ -339,7 +339,7 @@ class Intersection:
         self.edges = [] + self.incoming_edges + self.outgoing_edges
 
         self.list_approachs = [str(i) for i in range(dic_sumo_env_conf["N_LEG"])]
-        self.dic_approach_to_node = {str(i): "{0}.node{1}".format(self.node_light, i) for i in self.list_approachs }
+        #self.dic_approach_to_node = {str(i): "{0}.node{1}".format(self.node_light, i) for i in self.list_approachs }
         # REPLACING ORIGINAL
         self.dic_entering_approach_to_edge = {approach: self.incoming_edges[index] for index, approach in enumerate(self.list_approachs)}
         self.dic_exiting_approach_to_edge = {approach: self.outgoing_edges[index] for index, approach in enumerate(self.list_approachs)}
@@ -373,10 +373,15 @@ class Intersection:
         #self.list_exiting_lanes = []
         #for approach in self.list_approachs:
         #    self.list_exiting_lanes += [self.dic_exiting_approach_to_edge[approach] + '_' + str(i) for i in self.dic_exiting_approach_lanes[approach]]
-        self.list_entering_lanes = [connection.get('from') + '_' + connection.get('fromLane')
-                                    for connection in connections if connection.get('dir') != 'r']
-        self.list_exiting_lanes = [connection.get('to') + '_' + connection.get('toLane')
-                                    for connection in connections if connection.get('dir') != 'r']
+
+        movement_to_connection = dic_sumo_env_conf['movement_to_connection']
+
+        self.list_entering_lanes = [connection.get('from') + '_' + connection.get('fromLane') 
+                                    for _, connection in movement_to_connection.items() 
+                                    if connection.get('dir') != 'r']
+        self.list_exiting_lanes = [connection.get('to') + '_' + connection.get('toLane') 
+                                    for _, connection in movement_to_connection.items() 
+                                    if connection.get('dir') != 'r']
         self.list_lanes = self.list_entering_lanes + self.list_exiting_lanes
 
         self.lane_to_traffic_light_index_mapping = get_lane_traffic_light_controller(
@@ -446,10 +451,12 @@ class Intersection:
 
                 current_traffic_light = traci.trafficlight.getRedYellowGreenState(self.node_light)
 
+                self.current_phase_index = self.next_phase_to_set_index
+                phase = self.phases[self.current_phase_index - 1]
+
                 for lane_index, lane_id in enumerate(self.list_entering_lanes):
-                    self.current_phase_index = self.next_phase_to_set_index
                     traffic_light_index = int(self.lane_to_traffic_light_index_mapping[lane_id])
-                    new_lane_traffic_light = self.dic_phase_strs[self.phases[self.current_phase_index - 1]][lane_index]
+                    new_lane_traffic_light = self.dic_phase_strs[phase][lane_index]
                     current_traffic_light = current_traffic_light[:traffic_light_index] + \
                                             new_lane_traffic_light + \
                                             current_traffic_light[traffic_light_index + 1:]
@@ -481,10 +488,12 @@ class Intersection:
                 # change to yellow first, and activate the counter and flag
                 current_traffic_light = traci.trafficlight.getRedYellowGreenState(self.node_light)
 
+                phase = self.phases[self.next_phase_to_set_index - 1]
+
                 for lane_index, lane_id in enumerate(self.list_entering_lanes):
                     traffic_light_index = int(self.lane_to_traffic_light_index_mapping[lane_id])
                     current_lane_traffic_light = current_traffic_light[traffic_light_index]
-                    next_lane_traffic_light = self.dic_phase_strs[self.phases[self.next_phase_to_set_index - 1]][lane_index]
+                    next_lane_traffic_light = self.dic_phase_strs[phase][lane_index]
                     
                     if (current_lane_traffic_light == 'g' or current_lane_traffic_light == 'G') and \
                        (next_lane_traffic_light != 'g' and next_lane_traffic_light != 'G'):
