@@ -254,9 +254,5 @@ class Frap:
         return external_configurations
 
 
-    def summary(self, experiment, _round=None):
-
-        if _round == None:
-            summary.single_experiment_summary('TransferDQN', 'records/TransferDQN/' + experiment)
-        else:
-            summary.single_round_summary('TransferDQN', 'records/TransferDQN/' + experiment, _round=_round)
+    def summary(self, experiment, plots='all', _round=None):
+        summary.single_experiment_summary('TransferDQN', 'records/TransferDQN/' + experiment, plots=plots, _round=_round)
