@@ -656,22 +656,57 @@ def summary_detail_baseline(memo):
     total_result.to_csv(os.path.join(ROOT_DIR, "summary", memo, "total_baseline_test_results.csv"))
 
 
-def consolidate(object_label, object_list, save_path, traffic_name, mode_name):
+def consolidate_reward(reward_each_step, save_path, traffic_name, mode_name):
 
-    objects_df = pd.DataFrame({object_label: object_list})
+    reward_df = pd.DataFrame({'reward': reward_each_step})
+    reward_df.to_csv(ROOT_DIR + '/' + save_path + "/" + traffic_name + "-" + mode_name + "-" + 'reward' + ".csv")
 
-    objects_df.to_csv(ROOT_DIR + '/' + save_path + "/" + traffic_name + "-" + mode_name + "-" + object_label + ".csv")
-
-    plot(object_label, object_list, save_path, traffic_name, mode_name)
-
-
-def plot(object_label, object_list, save_path, traffic_name, mode_name):
 
     f, ax = plt.subplots(1, 1, figsize=(20, 9), dpi=100)
-    ax.margins(0)
-    ax.plot(object_list, linewidth=2, color='k')
-    ax.set_title(traffic_name + "-" + str(np.mean(object_list)))
-    plt.savefig(ROOT_DIR + '/' + save_path + "/" + traffic_name + "-" + mode_name + "-" + object_label + ".png")
+    
+    ax.margins(0.05)
+
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    ax.yaxis.set_minor_locator(MultipleLocator(2.5))
+
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=12))
+    ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
+    ax.xaxis.set_minor_locator(MultipleLocator(10))
+
+    ax.set_axisbelow(True)
+    ax.grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
+
+    ax.plot(reward_df, linewidth=2, color='k')
+    ax.set_title('reward' + ' - ' + str(reward_df.mean()[0]))
+    plt.savefig(ROOT_DIR + '/' + save_path + "/" + traffic_name + "-" + mode_name + "-" + 'reward' + ".png")
+    plt.close()
+
+
+def consolidate_time_loss(time_loss_each_step, save_path, traffic_name, mode_name):
+
+    time_loss_df = pd.DataFrame({'time_loss': time_loss_each_step})
+    time_loss_df.to_csv(ROOT_DIR + '/' + save_path + "/" + traffic_name + "-" + mode_name + "-" + 'time_loss' + ".csv")
+
+
+    f, ax = plt.subplots(1, 1, figsize=(20, 9), dpi=100)
+    
+    ax.margins(0.05)
+
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
+    ax.yaxis.set_minor_locator(MultipleLocator(10))
+
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=12))
+    ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
+    ax.xaxis.set_minor_locator(MultipleLocator(10))
+
+    ax.set_axisbelow(True)
+    ax.grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
+
+    ax.plot(time_loss_df, linewidth=2, color='k')
+    ax.set_title('time loss' + ' - ' + str(time_loss_df.mean()[0]))
+    plt.savefig(ROOT_DIR + '/' + save_path + "/" + traffic_name + "-" + mode_name + "-" + 'time_loss' + ".png")
     plt.close()
 
 def consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step, relative_mean_speed_each_step, 
@@ -774,7 +809,7 @@ def consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step,
         axs[i][0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         axs[i][0].yaxis.set_minor_locator(MultipleLocator(0.05))
 
-        axs[i][0].xaxis.set_major_locator(MultipleLocator(300))
+        axs[i][0].xaxis.set_major_locator(MaxNLocator(nbins=12))
         axs[i][0].xaxis.set_major_formatter(FormatStrFormatter('%d'))
         axs[i][0].xaxis.set_minor_locator(MultipleLocator(10))
 
@@ -782,7 +817,7 @@ def consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step,
         axs[i][1].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         axs[i][1].yaxis.set_minor_locator(MultipleLocator(0.05))
 
-        axs[i][1].xaxis.set_major_locator(MultipleLocator(300))
+        axs[i][1].xaxis.set_major_locator(MaxNLocator(nbins=12))
         axs[i][1].xaxis.set_major_formatter(FormatStrFormatter('%d'))
         axs[i][1].xaxis.set_minor_locator(MultipleLocator(10))
 
@@ -822,7 +857,7 @@ def consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step,
         axs[i][0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         axs[i][0].yaxis.set_minor_locator(MultipleLocator(0.05))
 
-        axs[i][0].xaxis.set_major_locator(MultipleLocator(300))
+        axs[i][0].xaxis.set_major_locator(MaxNLocator(nbins=12))
         axs[i][0].xaxis.set_major_formatter(FormatStrFormatter('%d'))
         axs[i][0].xaxis.set_minor_locator(MultipleLocator(10))
 
@@ -830,7 +865,7 @@ def consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step,
         axs[i][1].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         axs[i][1].yaxis.set_minor_locator(MultipleLocator(0.05))
 
-        axs[i][1].xaxis.set_major_locator(MultipleLocator(300))
+        axs[i][1].xaxis.set_major_locator(MaxNLocator(nbins=12))
         axs[i][1].xaxis.set_major_formatter(FormatStrFormatter('%d'))
         axs[i][1].xaxis.set_minor_locator(MultipleLocator(10))
 
@@ -866,7 +901,7 @@ def consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step,
     axs[0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     axs[0].yaxis.set_minor_locator(MultipleLocator(0.05))
 
-    axs[0].xaxis.set_major_locator(MultipleLocator(300))
+    axs[0].xaxis.set_major_locator(MaxNLocator(nbins=12))
     axs[0].xaxis.set_major_formatter(FormatStrFormatter('%d'))
     axs[0].xaxis.set_minor_locator(MultipleLocator(10))
 
@@ -874,7 +909,7 @@ def consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step,
     axs[1].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     axs[1].yaxis.set_minor_locator(MultipleLocator(0.05))
 
-    axs[1].xaxis.set_major_locator(MultipleLocator(300))
+    axs[1].xaxis.set_major_locator(MaxNLocator(nbins=12))
     axs[1].xaxis.set_major_formatter(FormatStrFormatter('%d'))
     axs[1].xaxis.set_minor_locator(MultipleLocator(10))
 
@@ -1008,7 +1043,7 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
         axs[i].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         axs[i].yaxis.set_minor_locator(MultipleLocator(0.05))
 
-        axs[i].xaxis.set_major_locator(MultipleLocator(300))
+        axs[i].xaxis.set_major_locator(MaxNLocator(nbins=12))
         axs[i].xaxis.set_major_formatter(FormatStrFormatter('%d'))
         axs[i].xaxis.set_minor_locator(MultipleLocator(10))
 
@@ -1055,7 +1090,7 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
         axs[i].yaxis.set_major_formatter(FormatStrFormatter('%d'))
         axs[i].yaxis.set_minor_locator(MultipleLocator(1))
 
-        axs[i].xaxis.set_major_locator(MultipleLocator(300))
+        axs[i].xaxis.set_major_locator(MaxNLocator(nbins=12))
         axs[i].xaxis.set_major_formatter(FormatStrFormatter('%d'))
         axs[i].xaxis.set_minor_locator(MultipleLocator(10))
 
@@ -1131,7 +1166,7 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
     plt.close()
 
 
-def single_experiment_summary_detail_test(memo, records_dir, total_summary, plots='all'):
+def single_experiment_summary_detail_test(memo, records_dir, total_summary, plots='all', _round=None):
     # plots: None, 'records_only 'summary_only', 'all'
 
     # each_round_train_duration
@@ -1169,6 +1204,9 @@ def single_experiment_summary_detail_test(memo, records_dir, total_summary, plot
     round_files = [f for f in round_files if "round" in f]
     round_files.sort(key=lambda x: int(x[6:]))
     round_summary = {"round": list(range(num_rounds))}
+
+    if _round is not None:
+        round_files = [round_files[_round - 1]]
 
     average_reward_each_round = []
     average_time_loss_each_round = []
@@ -1209,8 +1247,8 @@ def single_experiment_summary_detail_test(memo, records_dir, total_summary, plot
 
             traffic_folder = records_dir.rsplit('/', 1)[1]
 
-            consolidate('time_loss', time_loss_each_step, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
-            consolidate('reward', reward_each_step, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
+            consolidate_time_loss(time_loss_each_step, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
+            consolidate_reward(reward_each_step, save_path=round_dir, traffic_name=traffic_folder, mode_name='test')
 
             if plots is not None and plots != 'summary_only':
                 consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step, relative_mean_speed_each_step, 
@@ -1299,70 +1337,58 @@ def single_experiment_summary_detail_test(memo, records_dir, total_summary, plot
             num_of_vehicle_in.append(NAN_LABEL)
             num_of_vehicle_out.append(NAN_LABEL)
 
-        traffic_folder = records_dir.rsplit('/', 1)[1]
-        result_dir = os.path.join("summary", memo, traffic_folder)
-        if not os.path.exists(ROOT_DIR + '/' + result_dir):
-            os.makedirs(ROOT_DIR + '/' + result_dir)
-        
-        consolidate('time_loss', average_time_loss_each_round, save_path=result_dir, traffic_name=traffic_folder, mode_name='test')
-        consolidate('reward', average_reward_each_round, save_path=result_dir, traffic_name=traffic_folder, mode_name='test')
+    if _round is not None:
+        return
 
-        if plots is not None and plots != 'records_only':
-            consolidate_occupancy_and_speed_inflow_outflow(average_relative_occupancy_each_round, average_relative_mean_speed_each_round, 
-                dic_traffic_env_conf, save_path=result_dir, traffic_name=traffic_folder, mode_name='test')
-        
-        _res = {
-            "duration": duration_each_round_list,
-            "queue_length": queue_length_each_round_list,
-            "vehicle_in": num_of_vehicle_in,
-            "vehicle_out": num_of_vehicle_out
-        }
-        result = pd.DataFrame(_res)
-        result.to_csv(os.path.join(ROOT_DIR, result_dir, "test_results.csv"))
-        if num_seg > 1:
-            round_result = pd.DataFrame(round_summary)
-            round_result.to_csv(os.path.join(ROOT_DIR + '/' + result_dir, "test_seg_results.csv"), index=False)
-            plot_segment_duration(round_summary, result_dir, mode_name="test")
-            duration_each_segment_list = round_result.iloc[min_duration_ind][1:].values
+    traffic_folder = records_dir.rsplit('/', 1)[1]
+    result_dir = os.path.join("summary", memo, traffic_folder)
+    if not os.path.exists(ROOT_DIR + '/' + result_dir):
+        os.makedirs(ROOT_DIR + '/' + result_dir)
+    
+    consolidate_time_loss(average_time_loss_each_round, save_path=result_dir, traffic_name=traffic_folder, mode_name='test')
+    consolidate_reward(average_reward_each_round, save_path=result_dir, traffic_name=traffic_folder, mode_name='test')
 
-            traffic_name, traffic_time = traffic_folder.split('___')
-            traffic_time = traffic_time.split('__')
-            if traffic_name not in performance_at_min_duration_round:
-                performance_at_min_duration_round[traffic_name] = [(duration_each_segment_list, traffic_time)]
-            else:
-                performance_at_min_duration_round[traffic_name].append((duration_each_segment_list, traffic_time))
-
-
-        # print(os.path.join(result_dir, "test_results.csv"))
-
-        # total_summary
-        total_summary = get_metrics(duration_each_round_list, queue_length_each_round_list,
-                                    min_duration, min_duration_ind, min_queue_length, min_queue_length_id,
-                                    traffic_folder, total_summary,
-                                    mode_name="test", save_path=result_dir, num_rounds=num_rounds,
-                                    min_duration2=None)
+    if plots is not None and plots != 'records_only':
+        consolidate_occupancy_and_speed_inflow_outflow(average_relative_occupancy_each_round, average_relative_mean_speed_each_round, 
+            dic_traffic_env_conf, save_path=result_dir, traffic_name=traffic_folder, mode_name='test')
+    
+    _res = {
+        "duration": duration_each_round_list,
+        "queue_length": queue_length_each_round_list,
+        "vehicle_in": num_of_vehicle_in,
+        "vehicle_out": num_of_vehicle_out
+    }
+    result = pd.DataFrame(_res)
+    result.to_csv(os.path.join(ROOT_DIR, result_dir, "test_results.csv"))
+    if num_seg > 1:
+        round_result = pd.DataFrame(round_summary)
+        round_result.to_csv(os.path.join(ROOT_DIR + '/' + result_dir, "test_seg_results.csv"), index=False)
+        plot_segment_duration(round_summary, result_dir, mode_name="test")
+        duration_each_segment_list = round_result.iloc[min_duration_ind][1:].values
 
         traffic_name, traffic_time = traffic_folder.split('___')
         traffic_time = traffic_time.split('__')
-        if traffic_name not in performance_duration:
-            performance_duration[traffic_name] = [(duration_each_round_list, traffic_time)]
+        if traffic_name not in performance_at_min_duration_round:
+            performance_at_min_duration_round[traffic_name] = [(duration_each_segment_list, traffic_time)]
         else:
-            performance_duration[traffic_name].append((duration_each_round_list, traffic_time))
+            performance_at_min_duration_round[traffic_name].append((duration_each_segment_list, traffic_time))
 
-    total_result = pd.DataFrame(total_summary)
-    if not os.path.exists(ROOT_DIR + '/' + "summary" + '/' + memo):
-        os.makedirs(ROOT_DIR + '/' + "summary" + '/' + memo)
-    total_result.to_csv(os.path.join(ROOT_DIR, "summary", memo, "total_test_results.csv"))
-    figure_dir = os.path.join("summary", memo, "figures")
-    if not os.path.exists(ROOT_DIR + '/' + figure_dir):
-        os.makedirs(ROOT_DIR + '/' + figure_dir)
-    if dic_exp_conf["EARLY_STOP"]:
-        performance_duration = padding_duration(performance_duration)
-    summary_plot(performance_duration, figure_dir, mode_name="test", num_rounds=num_rounds)
-    performance_at_min_duration_round_plot(performance_at_min_duration_round, figure_dir, mode_name="test")
+    # total_summary
+    total_summary = get_metrics(duration_each_round_list, queue_length_each_round_list,
+                                min_duration, min_duration_ind, min_queue_length, min_queue_length_id,
+                                traffic_folder, total_summary,
+                                mode_name="test", save_path=result_dir, num_rounds=num_rounds,
+                                min_duration2=None)
+
+    traffic_name, traffic_time = traffic_folder.split('___')
+    traffic_time = traffic_time.split('__')
+    if traffic_name not in performance_duration:
+        performance_duration[traffic_name] = [(duration_each_round_list, traffic_time)]
+    else:
+        performance_duration[traffic_name].append((duration_each_round_list, traffic_time))
 
 
-def single_experiment_summary(memo=None, records_dir=None, plots='all'):
+def single_experiment_summary(memo=None, records_dir=None, plots='all', _round=None):
 
     total_summary = {
         "traffic": [],
@@ -1380,7 +1406,7 @@ def single_experiment_summary(memo=None, records_dir=None, plots='all'):
     }
 
     #summary_detail_train(memo, copy.deepcopy(total_summary))
-    single_experiment_summary_detail_test(memo, records_dir, copy.deepcopy(total_summary), plots)
+    single_experiment_summary_detail_test(memo, records_dir, copy.deepcopy(total_summary), plots, _round)
     # summary_detail_test_segments(memo, copy.deepcopy(total_summary))
 
 def main(memo=None):

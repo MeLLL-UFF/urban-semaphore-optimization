@@ -254,7 +254,9 @@ class Frap:
         return external_configurations
 
 
-    def summary(self):
+    def summary(self, experiment, _round=None):
 
-        summary.single_experiment_summary('TransferDQN', 
-            'records/TransferDQN/0_regular-intersection__right_on_red__custom_4_street_traffic___09_15_21_22_33_10__a3df2d4b-ac30-43b2-ac62-b8fefe50d244')
+        if _round == None:
+            summary.single_experiment_summary('TransferDQN', 'records/TransferDQN/' + experiment)
+        else:
+            summary.single_round_summary('TransferDQN', 'records/TransferDQN/' + experiment, _round=_round)
