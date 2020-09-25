@@ -1,38 +1,33 @@
 import os
 import ast
 import copy
-import optparse
 
 from sumolib import checkBinary
 import lxml.etree as etree
 from sympy.geometry.line import Point
 from sympy.functions.elementary.trigonometric import atan2
 from sympy.core.numbers import pi
+from sympy import Point2D, Segment2D
 
+from utils.bidict import bidict
 from city.flow.configurer.flow_configurer import FlowConfigurer
 from city.traffic_light_system.traffic_light.configurer.traffic_light_configurer_factory import traffic_light_configurer_instances
 from definitions import get_network_file_path, get_route_file_path
 
 
 def get_sumo_binary(gui=False):
-    options = _get_options()
 
     if gui:
-        sumoBinary = checkBinary('sumo-gui')
+        sumo_binary = checkBinary('sumo-gui')
     else:
-        sumoBinary = checkBinary('sumo')
+        sumo_binary = checkBinary('sumo')
 
-    return sumoBinary
-
-def _get_options():
-    optParser = optparse.OptionParser()
-    optParser.add_option("--nogui", action="store_true",
-                         default=True, help="run the commandline version of sumo")
-    options, args = optParser.parse_args()
-    return options
+    return sumo_binary
 
 
 net_xml_copy = None
+route_xml_copy = None
+
 
 def configure_sumo_traffic_light_parameters(experiment, traffic_light_parameters={}):
 
@@ -54,9 +49,9 @@ def configure_sumo_traffic_light_parameters(experiment, traffic_light_parameters
     net_xml_copy = copy.deepcopy(net_xml)
     configurer.set_network_definition(net_xml)
 
-    tlLogics = net_xml.findall(".//tlLogic")
+    tl_logics = net_xml.findall(".//tlLogic")
 
-    for tlLogic in tlLogics:
+    for tlLogic in tl_logics:
 
         params = tlLogic.findall('.//param')
         optimizable_phases_param = params[0]
@@ -74,32 +69,6 @@ def configure_sumo_traffic_light_parameters(experiment, traffic_light_parameters
 
     net_xml.write(net_filename, pretty_print=True)
 
-def reset_sumo_traffic_light_parameters(scenario):
-
-    net_filename = os.path.abspath(get_network_file_path(scenario))
-
-    net_xml_copy.write(net_filename, pretty_print=True)
-
-
-route_xml_copy = None
-
-def fix_flow_route_association(scenario):
-
-    parser = etree.XMLParser(remove_blank_text=True)
-
-    route_filename = os.path.abspath(get_route_file_path(scenario))
-
-    route_xml = etree.parse(route_filename, parser)
-
-    flows = route_xml.findall(".//flow")
-
-    for flow in flows:
-
-        if not flow.get('route'):
-            flow_id = flow.get('id')
-            flow.set('route', flow_id.replace('flow_', ''))
-
-    route_xml.write(route_filename, pretty_print=True)
 
 def configure_sumo_flow_parameters(scenario):
     global route_xml_copy
@@ -120,16 +89,46 @@ def configure_sumo_flow_parameters(scenario):
 
     route_xml.write(route_filename, pretty_print=True)
 
-def reset_sumo_flow_parameters(scenario):
+
+def fix_flow_route_association(scenario):
+
+    parser = etree.XMLParser(remove_blank_text=True)
 
     route_filename = os.path.abspath(get_route_file_path(scenario))
 
-    route_xml_copy.write(route_filename, pretty_print=True)
+    route_xml = etree.parse(route_filename, parser)
+
+    flows = route_xml.findall(".//flow")
+
+    for flow in flows:
+
+        if not flow.get('route'):
+            flow_id = flow.get('id')
+            flow.set('route', flow_id.replace('flow_', ''))
+
+    route_xml.write(route_filename, pretty_print=True)
+
+
+def reset_sumo_traffic_light_parameters(scenario):
+    net_filename = os.path.abspath(get_network_file_path(scenario))
+
+    if net_xml_copy is not None:
+        net_xml_copy.write(net_filename, pretty_print=True)
+
+
+def reset_sumo_flow_parameters(scenario):
+    route_filename = os.path.abspath(get_route_file_path(scenario))
+
+    if route_xml_copy is not None:
+        route_xml_copy.write(route_filename, pretty_print=True)
+
 
 def get_intersections_ids(net_xml):
     intersections = net_xml.findall(".//junction[@type]")
 
-    intersection_ids = [intersection.get('id') for intersection in intersections if intersection.get('type') != 'dead_end']
+    intersection_ids = [intersection.get('id')
+                        for intersection in intersections
+                        if intersection.get('type') != 'dead_end']
 
     return intersection_ids
 
@@ -158,8 +157,9 @@ def get_connections(net_xml, from_edge='ALL', to_edge='ALL'):
 
     return actual_connections
 
-def sort_edges_by_angle(net_xml, edge_ids, incoming=True, clockwise=True):
 
+def sort_edges_by_angle(net_xml, edge_ids, incoming=True, clockwise=True):
+    
     all_edges = net_xml.findall(".//edge[@priority]")
 
     ids_and_angles = []
@@ -182,7 +182,7 @@ def sort_edges_by_angle(net_xml, edge_ids, incoming=True, clockwise=True):
             angle = atan2(normalized_point.x, normalized_point.y)
 
             if angle < 0:
-                angle += 2*pi
+                angle += 2 * pi
 
             ids_and_angles.append([edge_id, angle])
 
@@ -190,11 +190,12 @@ def sort_edges_by_angle(net_xml, edge_ids, incoming=True, clockwise=True):
 
     ids_and_angles.sort(key=lambda x: x[1], reverse=reverse)
 
-    angle_sorted_ids = [id for id, angle in ids_and_angles]
+    angle_sorted_ids = [_id for _id, angle in ids_and_angles]
 
     return angle_sorted_ids
 
-def get_intersection_edge_ids(net_xml, from_edge='ALL', to_edge='ALL', sorted=True):
+
+def get_intersection_edge_ids(net_xml, from_edge='ALL', to_edge='ALL', _sorted=True):
 
     connections = get_connections(net_xml, from_edge=from_edge, to_edge=to_edge)
 
@@ -208,7 +209,7 @@ def get_intersection_edge_ids(net_xml, from_edge='ALL', to_edge='ALL', sorted=Tr
         incoming_edges.add(connection_from)
         outgoing_edges.add(connection_to)
 
-    if sorted:
+    if _sorted:
         incoming_edges = sort_edges_by_angle(net_xml, incoming_edges)
         outgoing_edges = sort_edges_by_angle(net_xml, outgoing_edges, incoming=False)
     else:
@@ -216,6 +217,7 @@ def get_intersection_edge_ids(net_xml, from_edge='ALL', to_edge='ALL', sorted=Tr
         outgoing_edges = list(outgoing_edges)
 
     return incoming_edges, outgoing_edges
+
 
 def get_lane_traffic_light_controller(net_xml, lanes_ids):
 
@@ -232,6 +234,7 @@ def get_lane_traffic_light_controller(net_xml, lanes_ids):
             lane_to_traffic_light_index_mapping[lane_id] = traffic_light_index
 
     return lane_to_traffic_light_index_mapping
+
 
 def translate_polyline(polyline, x=0, y=0):
 
@@ -272,6 +275,7 @@ def map_connection_direction(connection):
 
     return direction
 
+
 def get_average_duration_statistic(output_file):
 
     with open(output_file, 'r') as handle:
@@ -292,3 +296,250 @@ def get_average_duration_statistic(output_file):
     duration = float(statistics[duration_begin_index:duration_end_index])
 
     return duration
+
+
+def detect_movements(net_xml, use_sumo_directions=False, is_right_on_red=True):
+
+    incoming_edges, _ = get_intersection_edge_ids(net_xml)
+
+    movement_to_connection = bidict()
+
+    movements = []
+    for edge_index, edge in enumerate(incoming_edges):
+
+        connections = get_connections(net_xml, from_edge=edge)
+
+        sorted_connections = list(reversed(connections))
+
+        if use_sumo_directions:
+            direction_to_from_lane = {}
+            for connection in sorted_connections:
+
+                from_lane = connection.get('fromLane')
+                direction = connection.get('dir').lower()
+                if direction in direction_to_from_lane:
+                    direction_to_from_lane[direction].append(from_lane)
+                else:
+                    direction_to_from_lane[direction] = [from_lane]
+
+            for connection in sorted_connections:
+
+                direction = connection.get('dir').lower()
+                from_lane = connection.get('fromLane')
+
+                direction_from_lane = direction_to_from_lane[direction]
+                if len(direction_from_lane) == 1:
+                    direction_label = direction.upper()
+                else:
+                    direction_label = direction.upper() + str(direction_to_from_lane[dir].index(from_lane) + 1)
+
+                movement = str(edge_index) + direction_label
+
+                movements.append(movement)
+
+                movement_to_connection[movement] = connection
+
+        else:
+            direction_labels = ['']*len(sorted_connections)
+            if sorted_connections[0].get('dir').lower() == 'l':
+                direction_labels[0] = 'L'
+            if sorted_connections[len(sorted_connections) - 1].get('dir').lower() == 'r':
+                direction_labels[len(sorted_connections) - 1] = 'R'
+            count = 0
+            for index, direction_label in enumerate(direction_labels):
+                if direction_label is None:
+                    if count == 0:
+                        direction_labels[index] = 'S'
+                    else:
+                        direction_labels[index] = 'S' + str(count)
+                    count += 1
+
+            for index, connection in enumerate(sorted_connections):
+
+                movement = str(edge_index) + direction_labels[index]
+
+                if is_right_on_red and direction_labels[index] != 'R':
+                    movements.append(movement)
+
+                movement_to_connection[movement] = connection
+
+    return movements, movement_to_connection
+
+
+def detect_movement_conflicts(net_xml, movement_to_connection):
+
+    conflicts = {}
+
+    incoming_edges, outgoing_edges = get_intersection_edge_ids(net_xml)
+    connections = get_connections(net_xml)
+
+    all_edges = incoming_edges + outgoing_edges
+
+    intersection_id = get_intersections_ids(net_xml)[0]
+    intersection = net_xml.find(".//junction[@id='" + intersection_id + "']")
+    intersection_point = Point2D(intersection.get('x'), intersection.get('y'))
+
+    lane_to_movement_point = {}
+
+    for edge in all_edges:
+
+        lanes = net_xml.findall(".//edge[@id='" + edge + "']/lane")
+
+        for lane in lanes:
+
+            lane_id = lane.get('id')
+
+            lane_points = lane.get('shape').split()
+            first_lane_point = Point2D(lane_points[0].split(','))
+            last_lane_point = Point2D(lane_points[-1].split(','))
+
+            if intersection_point.distance(first_lane_point) < intersection_point.distance(last_lane_point):
+                movement_lane_point = first_lane_point
+            else:
+                movement_lane_point = last_lane_point
+
+            lane_to_movement_point[lane_id] = movement_lane_point
+
+    same_lane_origin_movements = {}
+    for index_1 in range(0, len(connections)):
+        for index_2 in range(index_1 + 1, len(connections)):
+
+            connection_1 = connections[index_1]
+            connection_2 = connections[index_2]
+
+            connection_1_from_lane = connection_1.get('from') + '_' + connection_1.get('fromLane')
+            connection_1_to_lane = connection_1.get('to') + '_' + connection_1.get('toLane')
+
+            connection_2_from_lane = connection_2.get('from') + '_' + connection_2.get('fromLane')
+            connection_2_to_lane = connection_2.get('to') + '_' + connection_2.get('toLane')
+
+            connection_1_line = \
+                Segment2D(lane_to_movement_point[connection_1_from_lane], lane_to_movement_point[connection_1_to_lane])
+
+            connection_2_line = \
+                Segment2D(lane_to_movement_point[connection_2_from_lane], lane_to_movement_point[connection_2_to_lane])
+
+            line_intersections = connection_1_line.intersection(connection_2_line)
+
+            movement_1 = movement_to_connection.inverse[connection_1][0]
+            movement_2 = movement_to_connection.inverse[connection_2][0]
+            if connection_1_line.p1 == connection_2_line.p1:
+                if movement_1 in same_lane_origin_movements:
+                    same_lane_origin_movements[movement_1].append(movement_2)
+                else:
+                    same_lane_origin_movements[movement_1] = [movement_2]
+
+                if movement_2 in same_lane_origin_movements:
+                    same_lane_origin_movements[movement_2].append(movement_1)
+                else:
+                    same_lane_origin_movements[movement_2] = [movement_1]
+
+            elif len(line_intersections) > 0:
+                if movement_1 in conflicts:
+                    conflicts[movement_1].append(movement_2)
+                else:
+                    conflicts[movement_1] = [movement_2]
+
+                if movement_2 in conflicts:
+                    conflicts[movement_2].append(movement_1)
+                else:
+                    conflicts[movement_2] = [movement_1]
+            else:
+                if movement_1 not in conflicts:
+                    conflicts[movement_1] = []
+
+                if movement_2 not in conflicts:
+                    conflicts[movement_2] = []
+
+    for key, values in same_lane_origin_movements.items():
+        original_conflicts = set(conflicts[key])
+
+        for value in values:
+
+            inherited_conflicts = conflicts[value]
+
+            original_conflicts.update(set(inherited_conflicts))
+
+            for inherited_conflict in inherited_conflicts:
+                original_conflicts.update(set(same_lane_origin_movements[inherited_conflict]))
+
+        conflicts[key] = list(original_conflicts)
+
+    return conflicts
+
+
+def detect_phases(movements, conflicts, is_right_on_red=True):
+
+    if is_right_on_red:
+        movements = [movement for movement in movements if 'R' not in movement]
+
+    phases = []
+
+    depth_first_search_tracking = [copy.deepcopy(movements)]
+    movements_left_list = [movements]
+    elements_tracking = []
+
+    i = [-1]
+    while len(depth_first_search_tracking) != 0:
+
+        while len(depth_first_search_tracking[0]) != 0:
+            i[0] += 1
+
+            element = depth_first_search_tracking[0].pop(0)
+            elements_tracking.append(element)
+
+            movements_left = [movement for movement in movements[i[0]+1:]
+                              if movement not in conflicts[element] + [element] and
+                              movement in movements_left_list[-1]]
+
+            movements_left_list.append(movements_left)
+
+            if movements_left:
+                depth_first_search_tracking = [movements_left] + depth_first_search_tracking
+                i = [i[0]] + i
+            else:
+                phases.append('_'.join(elements_tracking))
+                elements_tracking.pop()
+                movements_left_list.pop()
+
+        depth_first_search_tracking.pop(0)
+        if elements_tracking:
+            elements_tracking.pop()
+            i.pop(0)
+        movements_left_list.pop()
+
+    phase_sets = [set(phase.split('_')) for phase in phases]
+
+    indices_to_remove = set()
+    for i in range(0, len(phase_sets)):
+        for j in range(i+1, len(phase_sets)):
+
+            phase_i = phase_sets[i]
+            phase_j = phase_sets[j]
+
+            if phase_i.issubset(phase_j):
+                indices_to_remove.add(i)
+            elif phase_j.issubset(phase_i):
+                indices_to_remove.add(j)
+
+    indices_to_remove = sorted(indices_to_remove, reverse=True)
+    for index_to_remove in indices_to_remove:
+        phases.pop(index_to_remove)
+        phase_sets.pop(index_to_remove)
+
+    return phases
+
+
+def build_phase_expansions(movements, phases):
+
+    phase_expansion = {}
+    for i, phase in enumerate(phases):
+        phase_movements = phase.split("_")
+        zeros = [0] * len(movements)
+
+        for phase_movement in phase_movements:
+            zeros[movements.index(phase_movement)] = 1
+
+        phase_expansion[i + 1] = zeros
+
+    return phase_expansion

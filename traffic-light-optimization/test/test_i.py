@@ -17,15 +17,14 @@ if 'SUMO_HOME' in os.environ:
 else:
     sys.exit("please declare environment variable 'SUMO_HOME'")
 
-import traci
 import lxml.etree as etree
-import pandas as pd
 
 from algorithm.frap.frap import Frap
+from algorithm.sumo_based.sumo_base import SumoBase
 import definitions
 from utils.traffic_util import generate_unique_traffic_level_configurations
-from utils.sumo_util import get_intersection_edge_ids, get_connections, map_connection_direction, get_sumo_binary, \
-    sort_edges_by_angle, get_average_duration_statistic
+from utils.sumo_util import get_intersection_edge_ids, get_connections, map_connection_direction, \
+    sort_edges_by_angle
 from utils.process_util import NoDaemonPool
 from config import Config as config
 
@@ -192,38 +191,6 @@ def _configure_scenario_routes(scenario, traffic_level_configuration):
 
     return route_file_path
 
-def _start_traci(net_file, route_file, output_file, max_simulation_time=float('inf')):
-
-    # this is the normal way of using traci. sumo is started as a
-    # subprocess and then the python script connects and runs
-    traci.start([
-        get_sumo_binary(),
-        '-n', net_file,
-        '-r', route_file,
-        '--log', output_file,
-        '--duration-log.statistics', str(True),
-        '--time-to-teleport', str(-1),
-        '--collision.stoptime', str(10),
-        '--collision.mingap-factor', str(0),
-        '--collision.action', 'warn',
-        '--collision.check-junctions', str(True)
-    ])
-
-    while traci.simulation.getMinExpectedNumber() > 0 and \
-            traci.simulation.getTime() < max_simulation_time:
-        traci.simulationStep()
-
-def _consolidate_output_file(output_file):
-
-    output_folder = output_file.rsplit('/', 1)[0]
-    
-    duration = get_average_duration_statistic(output_file)
-
-    filename = output_file.rsplit('.', 2)[0]
-    duration_df = pd.DataFrame()
-    duration_df.loc[0, 'test'] = duration
-    duration_df.to_csv(filename + '_' + 'result' + '.csv')
-
 def create_experiment_generator(_type='regular', algorithm=None):
     # _type : regular, right_on_red, unregulated
 
@@ -233,23 +200,21 @@ def create_experiment_generator(_type='regular', algorithm=None):
 
     for scenario in test_i_scenarios:
 
-        name = scenario
-
         scenario_folder = test_i_folder + '/' + scenario
 
-        net_xml = etree.parse(scenario_folder + '/' + name + '__' + _type + '.net.xml', parser)
+        net_xml = etree.parse(scenario_folder + '/' + scenario + '__' + _type + '.net.xml', parser)
 
         incoming_edge_ids, _ = get_intersection_edge_ids(net_xml)
         traffic_level_configurations = generate_unique_traffic_level_configurations(
             len(incoming_edge_ids))
 
-        net_file = scenario_folder + '/' + name + '__' + _type + '.net.xml'
-        sumocfg_file = scenario_folder + '/' + name + '__' + _type + '.sumocfg'
+        net_file = scenario_folder + '/' + scenario + '__' + _type + '.net.xml'
+        sumocfg_file = scenario_folder + '/' + scenario + '__' + _type + '.sumocfg'
         base_output_folder = scenario_folder + '/' + 'output' + '/' + str(algorithm) + '/' + _type + '/'
 
         for traffic_level_configuration in traffic_level_configurations:
 
-            experiment_name = name + '__' + _type + '__' + '_'.join(traffic_level_configuration)
+            experiment_name = scenario + '__' + _type + '__' + '_'.join(traffic_level_configuration)
 
             output_folder = base_output_folder + experiment_name + '/'
 
@@ -265,13 +230,13 @@ def run_experiment(arguments):
         output_folder = arguments
 
     route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
-    output_file = output_folder + experiment_name + '.out.xml'
+    #route_file = scenario_folder + '/' + 'temp' + '/' + 'routes' + '/' + scenario + '_' + '_'.join(traffic_level_configuration) + '.rou.xml'
+    output_file = output_folder + experiment_name + '.out.txt'
 
-    global NUMBER_OF_PROCESSES
+    if not os.path.isdir(output_folder):
+        os.makedirs(output_folder)
 
     if algorithm == 'FRAP':
-
-        NUMBER_OF_PROCESSES = 4
 
         begin = time.time()
 
@@ -285,11 +250,8 @@ def run_experiment(arguments):
             handle.write(str(timing))
     else:
 
-        NUMBER_OF_PROCESSES = 32
-
-        _start_traci(net_file, route_file, output_file, max_simulation_time=3600)
-        traci.close()
-        _consolidate_output_file(output_file)
+        sumo = SumoBase(net_file, scenario, _type, traffic_level_configuration)
+        sumo.run(net_file, route_file, output_file)
 
     sys.stdout.flush()
 
@@ -299,27 +261,48 @@ def _run(_type='regular', algorithm=None):
     
     experiment_generator = create_experiment_generator(_type=_type, algorithm=algorithm)
 
+    global NUMBER_OF_PROCESSES
+
+    if algorithm == 'FRAP':
+        NUMBER_OF_PROCESSES = 4
+    else:
+        NUMBER_OF_PROCESSES = 1
+
     with NoDaemonPool(processes=NUMBER_OF_PROCESSES) as pool:
         pool.map(run_experiment, experiment_generator)
 
 def run():
     #'OFF', STATIC, and FRAP
-    _run(_type='unregulated')
-    _run(_type='right_on_red')
-    #_run(_type='right_on_red', algorithm='FRAP')
+    #_run(_type='unregulated')
+    #_run(_type='right_on_red')
+    _run(_type='right_on_red', algorithm='FRAP')
 
 
 if __name__ == "__main__":
     #_build_experiment_i_routes()
-    #run()
+    run()
 
-    _configure_scenario_routes(scenario='0_regular-intersection', traffic_level_configuration=('light', 'light', 'light', 'light'))
-    frap = Frap()
-    #frap.visualize_policy_behavior(sscenario='0_regular-intersection', _type='right_on_red', traffic_level_configuration='light_light_light_light', 
+    #frap = Frap()
+    
+    #frap.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___09_22_22_10_21_10__e95b402f-7307-416e-9152-dbb0c5981eaa',
+    #    plots='records_only', _round=370)
+    
+    #frap.visualize_policy_behavior(scenario='0_regular-intersection', _type='right_on_red', traffic_level_configuration='light_light_light_light', 
     # experiment='0_regular-intersection__right_on_red__light_light_light_light___08_31_11_09_11_10__08ad4741-9654-4abe-b748-9f24702088e2')
-    frap.visualize_policy_behavior(scenario='0_regular-intersection', _type='right_on_red', traffic_level_configuration='light_light_light_light')
 
+    #frap.visualize_policy_behavior(scenario='0_regular-intersection', _type='right_on_red', traffic_level_configuration='custom_4_street_traffic', 
+    #    experiment='0_regular-intersection__right_on_red__custom_4_street_traffic___09_22_22_10_21_10__e95b402f-7307-416e-9152-dbb0c5981eaa', 
+    #    _round=370)
+    
     #_run(_type='right_on_red')
     #_run(_type='unregulated')
 
-    
+    '''
+    for _dir, folders, files in os.walk('/home/marcelo/code/urban-semaphore-optimization/scenario/test_i/0_regular-intersection/output/FRAP/right_on_red/'):
+
+        for folder in folders:
+            if '___' not in folder:
+                continue
+            
+            frap._consolidate_output_file(_dir + '/' + folder, folder)
+    '''

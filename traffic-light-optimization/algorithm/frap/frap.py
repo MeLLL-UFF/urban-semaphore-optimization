@@ -8,6 +8,7 @@ import pandas as pd
 import matplotlib as mlp
 mlp.use("agg")
 import matplotlib.pyplot as plt
+from matplotlib.ticker import (MultipleLocator, MaxNLocator, FormatStrFormatter)
 
 from algorithm.frap.internal.frap_pub import run_batch, replay, summary
 from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR as FRAP_ROOT_DIR
@@ -97,6 +98,9 @@ class Frap:
             if_gui=True,
             external_configurations=external_configurations)
 
+    def summary(self, experiment, plots='all', _round=None):
+        summary.single_experiment_summary('TransferDQN', 'records/TransferDQN/' + experiment, plots=plots, _round=_round)
+
     def _consolidate_output_file(self, output_folder, experiment_name):
         
         duration_df = pd.DataFrame()
@@ -136,36 +140,12 @@ class Frap:
     def _plot_consolidate_output(self, output_folder, experiment_name, duration_list,
                                  scenario, traffic_level_configuration):
         
-        num_rounds = len(duration_list)
-        NAN_LABEL = -1
-
-        min_duration = float('inf')
-        min_duration_id = 0
-
-        validation_duration_length = 10
-        minimum_round = 50 if num_rounds > 50 else 0
         duration_list = np.array(duration_list)
 
-        nan_count = len(np.where(duration_list == NAN_LABEL)[0])
-        validation_duration = duration_list[-validation_duration_length:]
-        final_duration = np.round(np.mean(validation_duration[validation_duration > 0]), decimals=2)
-
-        if nan_count == 0:
-            convergence = {1.2: len(duration_list) - 1, 1.1: len(duration_list) - 1}
-            for j in range(minimum_round, len(duration_list)):
-                for level in [1.2, 1.1]:
-                    if max(duration_list[j:]) <= level * final_duration:
-                        if convergence[level] > j:
-                            convergence[level] = j
-            conv_12 = convergence[1.2]
-            conv_11 = convergence[1.1]
-        else:
-            conv_12, conv_11 = 0, 0
-
-        
         right_on_red_output_folder = ROOT_DIR + os.path.join(
             config.SCENARIO_PATH, 'test_i', scenario, 'output', 'None', 'right_on_red',
             scenario + '__' + 'right_on_red' + '__' + traffic_level_configuration)
+        
         unregulated_output_folder = ROOT_DIR + os.path.join(
             config.SCENARIO_PATH, 'test_i', scenario, 'output', 'None', 'unregulated',
             scenario + '__' + 'unregulated' + '__' + traffic_level_configuration)
@@ -176,26 +156,38 @@ class Frap:
         unregulated_result_file = unregulated_output_folder + '/' + scenario + '__' + 'unregulated' + '__' + \
                                   traffic_level_configuration + '_result.csv'
 
+        validation_duration_length = 10
+        validation_duration = duration_list[-validation_duration_length:]
+        final_duration = np.round(np.mean(validation_duration[validation_duration > 0]), decimals=2)
+
         # simple plot for each training instance
         f, ax = plt.subplots(1, 1, figsize=(20, 9), dpi=100)
-        ax.plot(duration_list, linewidth=2, color='k')
-        ax.plot([0, len(duration_list)], [final_duration, final_duration], linewidth=2, color="g")
-        ax.plot([conv_12, conv_12], [duration_list[conv_12], duration_list[conv_12] * 3], linewidth=2, color="b")
-        ax.plot([conv_11, conv_11], [duration_list[conv_11], duration_list[conv_11] * 3], linewidth=2, color="b")
-        ax.plot([0, len(duration_list)], [min_duration, min_duration], linewidth=2, color="r")
-        ax.plot([min_duration_id, min_duration_id], [min_duration, min_duration * 3], linewidth=2, color="r")
+        ax.plot(duration_list, linewidth=2, color='k', label='frap' + ' ' + '(' + str(final_duration) + ')')
 
         if os.path.isfile(right_on_red_result_file):
             right_on_red_df = pd.read_csv(right_on_red_result_file)
             ax.plot([0, len(duration_list)], [right_on_red_df['test'], right_on_red_df['test']],
-                    linewidth=2, linestyle=':', color='r')
+                    linewidth=2, linestyle=':', color='r', label='right on red' + ' ' + '(' + str(right_on_red_df['test'][0]) + ')')
         
         if os.path.isfile(unregulated_result_file):
             unregulated_df = pd.read_csv(unregulated_result_file)
             ax.plot([0, len(duration_list)], [unregulated_df['test'], unregulated_df['test']],
-                    linewidth=2, linestyle=':', color='g')
+                    linewidth=2, linestyle=':', color='g', label='unregulated' + ' ' + '(' + str(unregulated_df['test'][0]) + ')')
 
-        ax.set_title(experiment_name.split('___')[0]  + "-" + str(final_duration))
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+        ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
+        ax.yaxis.set_minor_locator(MultipleLocator(10))
+
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=12))
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
+        ax.xaxis.set_minor_locator(MultipleLocator(10))
+
+        ax.set_axisbelow(True)
+        ax.grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
+
+        ax.legend()
+
+        ax.set_title('average trip duration')
         plt.savefig(os.path.join(output_folder, experiment_name + '_' + 'result' + '.png'))
         plt.close()
 
@@ -252,7 +244,3 @@ class Frap:
         }
 
         return external_configurations
-
-
-    def summary(self, experiment, plots='all', _round=None):
-        summary.single_experiment_summary('TransferDQN', 'records/TransferDQN/' + experiment, plots=plots, _round=_round)

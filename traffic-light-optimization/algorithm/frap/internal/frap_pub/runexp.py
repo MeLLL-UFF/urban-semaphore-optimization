@@ -1,16 +1,15 @@
-import algorithm.frap.internal.frap_pub.config as config
-import copy
-from algorithm.frap.internal.frap_pub.pipeline import Pipeline
 import os
 import time
+import copy
 from multiprocessing import Process
 
-from sympy import Point2D, Segment2D
 from lxml import etree
 
+from utils import sumo_util
+
+import algorithm.frap.internal.frap_pub.config as config
+from algorithm.frap.internal.frap_pub.pipeline import Pipeline
 from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
-from algorithm.frap.internal.utils.bidict import bidict
-from algorithm.frap.internal.frap_pub.sumo_env import get_intersection_edge_ids, get_connections, get_intersections_ids
 
 
 def memo_rename(traffic_file_list):
@@ -265,7 +264,7 @@ def main(args=None, memo=None, external_configurations={}):
         net_xml = etree.parse(net_file, parser)
 
         movements, movement_to_connection = \
-            _detect_movements(net_xml, use_sumo_directions_in_movement_detection)
+            sumo_util.detect_movements(net_xml, use_sumo_directions_in_movement_detection)
         dic_traffic_env_conf_extra['list_lane_order'] = movements
 
         serializable_movement_to_connection = dict(copy.deepcopy(movement_to_connection))
@@ -273,11 +272,11 @@ def main(args=None, memo=None, external_configurations={}):
             serializable_movement_to_connection[movement] = dict(serializable_movement_to_connection[movement].attrib)
         dic_traffic_env_conf_extra['movement_to_connection'] = serializable_movement_to_connection
 
-        conflicts = _detect_movement_conflicts(net_xml, movement_to_connection)
-        phases = _detect_phases(movements, conflicts)
+        conflicts = sumo_util.detect_movement_conflicts(net_xml, movement_to_connection)
+        phases = sumo_util.detect_phases(movements, conflicts)
         dic_traffic_env_conf_extra['PHASE'] = phases
 
-        phase_expansion = _build_phase_expansions(movements, phases)
+        phase_expansion = sumo_util.build_phase_expansions(movements, phases)
         dic_traffic_env_conf_extra["phase_expansion"] = phase_expansion
 
         deploy_dic_exp_conf = merge(config.DIC_EXP_CONF, dic_exp_conf_extra)
@@ -326,251 +325,6 @@ def main(args=None, memo=None, external_configurations={}):
             p.join()
 
     return memo, deploy_dic_path
-
-
-def _detect_movements(net_xml, use_sumo_directions=False, is_right_on_red=True):
-
-    incoming_edges, _ = get_intersection_edge_ids(net_xml)
-
-    movement_to_connection = bidict()
-
-    movements = []
-    for edge_index, edge in enumerate(incoming_edges):
-
-        connections = get_connections(net_xml, from_edge=edge)
-
-        sorted_connections = list(reversed(connections))
-
-        if use_sumo_directions:
-            dir_to_from_lane = {}
-            for connection in sorted_connections:
-
-                from_lane = connection.get('fromLane')
-                dir = connection.get('dir').lower()
-                if dir in dir_to_from_lane:
-                    dir_to_from_lane[dir].append(from_lane)
-                else:
-                    dir_to_from_lane[dir] = [from_lane]
-
-            for connection in sorted_connections:
-
-                dir = connection.get('dir').lower()
-                from_lane = connection.get('fromLane')
-
-                dir_from_lane = dir_to_from_lane[dir]
-                if len(dir_from_lane) == 1:
-                    dir_label = dir.upper()
-                else:
-                    dir_label = dir.upper() + str(dir_to_from_lane[dir].index(from_lane) + 1)
-
-                movement = str(edge_index) + dir_label
-
-                movements.append(movement)
-
-                movement_to_connection[movement] = connection
-
-        else:
-            dir_labels = [None]*len(sorted_connections)
-            if sorted_connections[0].get('dir').lower() == 'l':
-                dir_labels[0] = 'L'
-            if sorted_connections[len(sorted_connections) - 1].get('dir').lower() == 'r':
-                dir_labels[len(sorted_connections) - 1] = 'R'
-            count = 0
-            for index, dir_label in enumerate(dir_labels):
-                if dir_label is None:
-                    if count == 0:
-                        dir_labels[index] = 'S'
-                    else:
-                        dir_labels[index] = 'S' + str(count)
-                    count += 1
-
-            for index, connection in enumerate(sorted_connections):
-
-                movement = str(edge_index) + dir_labels[index]
-
-                if is_right_on_red and dir_labels[index] != 'R':
-                    movements.append(movement)
-
-                movement_to_connection[movement] = connection
-
-    return movements, movement_to_connection
-
-def _detect_movement_conflicts(net_xml, movement_to_connection):
-
-    conflicts = {}
-
-    incoming_edges, outgoing_edges = get_intersection_edge_ids(net_xml)
-    connections = get_connections(net_xml)
-
-    all_edges = incoming_edges + outgoing_edges
-
-    intersection_id = get_intersections_ids(net_xml)[0]
-    intersection = net_xml.find(".//junction[@id='" + intersection_id + "']")
-    intersection_point = Point2D(intersection.get('x'), intersection.get('y'))
-
-    lane_to_movement_point = {}
-
-    for edge in all_edges:
-
-        lanes = net_xml.findall(".//edge[@id='" + edge + "']/lane")
-
-        for lane in lanes:
-
-            lane_id = lane.get('id')
-
-            lane_points = lane.get('shape').split()
-            first_lane_point = Point2D(lane_points[0].split(','))
-            last_lane_point = Point2D(lane_points[-1].split(','))
-
-            if intersection_point.distance(first_lane_point) < intersection_point.distance(last_lane_point):
-                movement_lane_point = first_lane_point
-            else:
-                movement_lane_point = last_lane_point
-
-            lane_to_movement_point[lane_id] = movement_lane_point
-
-    same_lane_origin_movements = {}
-    for index_1 in range(0, len(connections)):
-        for index_2 in range(index_1 + 1, len(connections)):
-
-            connection_1 = connections[index_1]
-            connection_2 = connections[index_2]
-
-            connection_1_from_lane = connection_1.get('from') + '_' + connection_1.get('fromLane')
-            connection_1_to_lane = connection_1.get('to') + '_' + connection_1.get('toLane')
-
-            connection_2_from_lane = connection_2.get('from') + '_' + connection_2.get('fromLane')
-            connection_2_to_lane = connection_2.get('to') + '_' + connection_2.get('toLane')
-
-            connection_1_line = \
-                Segment2D(lane_to_movement_point[connection_1_from_lane], lane_to_movement_point[connection_1_to_lane])
-
-            connection_2_line = \
-                Segment2D(lane_to_movement_point[connection_2_from_lane], lane_to_movement_point[connection_2_to_lane])
-
-            line_intersections = connection_1_line.intersection(connection_2_line)
-
-            movement_1 = movement_to_connection.inverse[connection_1][0]
-            movement_2 = movement_to_connection.inverse[connection_2][0]
-            if connection_1_line.p1 == connection_2_line.p1:
-                if movement_1 in same_lane_origin_movements:
-                    same_lane_origin_movements[movement_1].append(movement_2)
-                else:
-                    same_lane_origin_movements[movement_1] = [movement_2]
-
-                if movement_2 in same_lane_origin_movements:
-                    same_lane_origin_movements[movement_2].append(movement_1)
-                else:
-                    same_lane_origin_movements[movement_2] = [movement_1]
-
-            elif len(line_intersections) > 0:
-                if movement_1 in conflicts:
-                    conflicts[movement_1].append(movement_2)
-                else:
-                    conflicts[movement_1] = [movement_2]
-
-                if movement_2 in conflicts:
-                    conflicts[movement_2].append(movement_1)
-                else:
-                    conflicts[movement_2] = [movement_1]
-            else:
-                if movement_1 not in conflicts:
-                    conflicts[movement_1] = []
-
-                if movement_2 not in conflicts:
-                    conflicts[movement_2] = []
-
-    for key, values in same_lane_origin_movements.items():
-        original_conflicts = set(conflicts[key])
-
-        for value in values:
-
-            inherited_conflicts = conflicts[value]
-
-            original_conflicts.update(set(inherited_conflicts))
-
-            for inherited_conflict in inherited_conflicts:
-                original_conflicts.update(set(same_lane_origin_movements[inherited_conflict]))
-
-        conflicts[key] = list(original_conflicts)
-
-    return conflicts
-
-def _detect_phases(movements, conflicts, is_right_on_red=True):
-
-    if is_right_on_red:
-        movements = [movement for movement in movements if 'R' not in movement]
-
-    phases = []
-
-    depth_first_search_tracking = [copy.deepcopy(movements)]
-    movements_left_list = [movements]
-    elements_tracking = []
-
-    i = [-1]
-    while len(depth_first_search_tracking) != 0:
-
-        while len(depth_first_search_tracking[0]) != 0:
-            i[0] += 1
-
-            element = depth_first_search_tracking[0].pop(0)
-            elements_tracking.append(element)
-
-            movements_left = [movement for movement in movements[i[0]+1:]
-                              if movement not in conflicts[element] + [element] and
-                              movement in movements_left_list[-1]]
-
-            movements_left_list.append(movements_left)
-
-            if movements_left:
-                depth_first_search_tracking = [movements_left] + depth_first_search_tracking
-                i = [i[0]] + i
-            else:
-                phases.append('_'.join(elements_tracking))
-                elements_tracking.pop()
-                movements_left_list.pop()
-
-        depth_first_search_tracking.pop(0)
-        if elements_tracking:
-            elements_tracking.pop()
-            i.pop(0)
-        movements_left_list.pop()
-
-    phase_sets = [set(phase.split('_')) for phase in phases]
-
-    indices_to_remove = set()
-    for i in range(0, len(phase_sets)):
-        for j in range(i+1, len(phase_sets)):
-
-            phase_i = phase_sets[i]
-            phase_j = phase_sets[j]
-
-            if phase_i.issubset(phase_j):
-                indices_to_remove.add(i)
-            elif phase_j.issubset(phase_i):
-                indices_to_remove.add(j)
-
-    indices_to_remove = sorted(indices_to_remove, reverse=True)
-    for index_to_remove in indices_to_remove:
-        phases.pop(index_to_remove)
-        phase_sets.pop(index_to_remove)
-
-    return phases
-
-def _build_phase_expansions(movements, phases):
-
-    phase_expansion = {}
-    for i, phase in enumerate(phases):
-        phase_movements = phase.split("_")
-        zeros = [0] * len(movements)
-
-        for phase_movement in phase_movements:
-            zeros[movements.index(phase_movement)] = 1
-
-        phase_expansion[i + 1] = zeros
-
-    return phase_expansion
-
 
 if __name__ == "__main__":
 
