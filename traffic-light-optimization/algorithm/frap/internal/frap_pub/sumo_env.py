@@ -3,6 +3,7 @@ import sys
 import shutil
 import pickle
 import json
+import copy
 from sys import platform
 
 import numpy as np
@@ -13,6 +14,7 @@ from sumolib import checkBinary
 from utils import sumo_traci_util, sumo_util
 
 from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
+
 
 # ================
 # initialization checked
@@ -123,15 +125,13 @@ class Intersection:
         self.length_grid = 5
         self.num_grid = int(self.length_lane//self.length_grid)
 
-        connections = sumo_util.get_connections(self.net_file_xml)
-
-        movement_to_connection = dic_sumo_env_conf['movement_to_connection']
+        self.movement_to_connection = dic_sumo_env_conf['movement_to_connection']
 
         self.list_entering_lanes = [connection.get('from') + '_' + connection.get('fromLane') 
-                                    for _, connection in movement_to_connection.items() 
+                                    for _, connection in self.movement_to_connection.items() 
                                     if connection.get('dir') != 'r']
         self.list_exiting_lanes = [connection.get('to') + '_' + connection.get('toLane')
-                                   for _, connection in movement_to_connection.items()
+                                   for _, connection in self.movement_to_connection.items()
                                    if connection.get('dir') != 'r']
         self.list_lanes = self.list_entering_lanes + self.list_exiting_lanes
 
@@ -527,6 +527,45 @@ class Intersection:
             return None, None
 
 
+    def select_action_based_on_time_restriction(self, threshold=120):
+        # order movements by the waiting time of the first car
+        # select all phases, covering all movements in order
+        # p4 + 40; p3 + 30; p2 + 20; p1 + 10 >= 120    
+
+        lane_waiting_time_dict = sumo_traci_util.get_lane_first_stopped_car_waiting_times(
+            self.list_entering_lanes, self.dic_lane_vehicle_sub_current_step)
+
+        movements_waiting_time_dict = {}
+        for movement in self.movements:
+
+            connection = self.movement_to_connection[movement]
+            lane = connection['from'] + '_' + connection['fromLane']
+            waiting_time = lane_waiting_time_dict[lane]
+
+            movements_waiting_time_dict[movement] = waiting_time
+
+        movements_waiting_time_dict = {k: v for k, v in sorted(
+            movements_waiting_time_dict.items(), key=lambda x: x[1], reverse=True)}
+
+        ordered_movements = list(movements_waiting_time_dict.keys())
+
+        selected_phases = sumo_util.match_ordered_movements_to_phases(ordered_movements, self.phases)
+
+        for index, phase in enumerate(selected_phases):
+            
+            movements = phase.split('_')
+            
+            waiting_times = []
+            for movement in movements:
+
+                if movement in ordered_movements:
+                    waiting_times.append(movements_waiting_time_dict[movement])
+                    ordered_movements.remove(movement)
+
+            if max(waiting_times) + (index + 1)*10 >= threshold:
+                return self.phases.index(selected_phases[0])
+
+        return -1
 
 class SumoEnv:
 
@@ -811,7 +850,20 @@ class SumoEnv:
                     "action": action[inter_ind],
                     "reward": reward})
 
+    def check_for_time_restricted_actions(self, action):
+
+        for inter_ind, inter in enumerate(self.list_intersection):
+
+            time_restricted_action = inter.select_action_based_on_time_restriction()
+            
+            if time_restricted_action != -1:
+                action[inter_ind] = time_restricted_action
+
+        return action
+
     def step(self, action):
+
+        action = self.check_for_time_restricted_actions(action)
 
         list_action_in_sec = [action]
         list_action_in_sec_display = [action]

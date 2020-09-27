@@ -1,7 +1,9 @@
 import os
 import ast
 import copy
+import itertools
 
+import numpy as np
 from sumolib import checkBinary
 import lxml.etree as etree
 from sympy.geometry.line import Point
@@ -340,7 +342,7 @@ def detect_movements(net_xml, use_sumo_directions=False, is_right_on_red=True):
                 movement_to_connection[movement] = connection
 
         else:
-            direction_labels = ['']*len(sorted_connections)
+            direction_labels = [None]*len(sorted_connections)
             if sorted_connections[0].get('dir').lower() == 'l':
                 direction_labels[0] = 'L'
             if sorted_connections[len(sorted_connections) - 1].get('dir').lower() == 'r':
@@ -543,3 +545,58 @@ def build_phase_expansions(movements, phases):
         phase_expansion[i + 1] = zeros
 
     return phase_expansion
+
+def match_ordered_movements_to_phases(ordered_movements, phases):
+
+    movements = copy.deepcopy(ordered_movements)
+    number_of_movements_per_phase = len(phases[0].split('_'))
+
+    phase_sets = [set(phase.split('_')) for phase in phases]
+    phase_sets_tracking = copy.deepcopy(phase_sets)
+
+    selected_phases_indices = []
+
+    done = False
+    while not done:
+
+        done = True
+
+        combination_generator = itertools.combinations(movements, number_of_movements_per_phase)
+
+        for phase_movements in combination_generator:
+
+            possible_phase = set(phase_movements)
+            if possible_phase in phase_sets_tracking:
+                for movement in phase_movements:
+                    movements.remove(movement)
+
+                selected_phases_indices.append(phase_sets.index(possible_phase))
+
+                phase_sets_tracking.remove(possible_phase)
+
+                done = False
+                break
+
+    i = len(movements)
+    while len(movements) > 0:
+
+        combination_generator = itertools.combinations(movements, i)
+
+        for phase_movements in combination_generator:
+
+            possible_phase = set(phase_movements)
+            for phase in phase_sets_tracking:
+                if possible_phase.issubset(phase):
+                    for movement in phase_movements:
+                        movements.remove(movement)
+
+                    selected_phases_indices.append(phase_sets.index(phase))
+                    
+                    phase_sets_tracking.remove(phase)
+                    break
+
+        i -= 1
+
+    selected_phases = np.array(phases)[selected_phases_indices]
+
+    return selected_phases

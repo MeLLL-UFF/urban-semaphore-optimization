@@ -11,6 +11,17 @@ def set_traffic_light_state(intersection, state):
     traci.trafficlight.setRedYellowGreenState(intersection, state)
 
 
+def get_lane_first_stopped_car_waiting_times(lanes, lane_vehicle_subscription_data):
+
+    result = {lane: 0 for lane in lanes}
+
+    for lane_id, subscription_data in lane_vehicle_subscription_data.items():
+        vehicle_id, vehicle = next(iter(subscription_data.items()))
+        result[lane_id] = vehicle[tc.VAR_WAITING_TIME]
+
+    return result
+
+
 def get_traffic_light_state(intersection):
     return traci.trafficlight.getRedYellowGreenState(intersection)
 
