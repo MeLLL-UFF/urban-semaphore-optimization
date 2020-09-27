@@ -14,6 +14,8 @@ def set_traffic_light_state(intersection, state):
 def get_traffic_light_state(intersection):
     return traci.trafficlight.getRedYellowGreenState(intersection)
 
+def get_lane_number_of_vehicles(lanes, lane_subscription_data):
+    return [lane_subscription_data[lane][tc.LAST_STEP_VEHICLE_NUMBER] for lane in lanes]
 
 def get_time_loss(vehicle_subscription_data):
 

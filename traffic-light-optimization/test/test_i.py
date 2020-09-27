@@ -20,7 +20,7 @@ else:
 import lxml.etree as etree
 
 from algorithm.frap.frap import Frap
-from algorithm.sumo_based.sumo_base import SumoBase
+from algorithm.sumo_based.sumo_based import SumoBased
 import definitions
 from utils.traffic_util import generate_unique_traffic_level_configurations
 from utils.sumo_util import get_intersection_edge_ids, get_connections, map_connection_direction, \
@@ -240,8 +240,7 @@ def run_experiment(arguments):
 
         begin = time.time()
 
-        frap = Frap()
-        frap.run(net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
+        Frap.run(net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
 
         end = time.time()
         timing = end - begin
@@ -250,8 +249,8 @@ def run_experiment(arguments):
             handle.write(str(timing))
     else:
 
-        sumo = SumoBase(net_file, scenario, _type, traffic_level_configuration)
-        sumo.run(net_file, route_file, output_file)
+        sumo = SumoBased(net_file, route_file, output_file, scenario, _type, traffic_level_configuration)
+        sumo.run()
 
     sys.stdout.flush()
 
@@ -266,7 +265,7 @@ def _run(_type='regular', algorithm=None):
     if algorithm == 'FRAP':
         NUMBER_OF_PROCESSES = 4
     else:
-        NUMBER_OF_PROCESSES = 1
+        NUMBER_OF_PROCESSES = 32
 
     with NoDaemonPool(processes=NUMBER_OF_PROCESSES) as pool:
         pool.map(run_experiment, experiment_generator)
@@ -282,15 +281,15 @@ if __name__ == "__main__":
     #_build_experiment_i_routes()
     run()
 
-    #frap = Frap()
-    
-    #frap.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___09_22_22_10_21_10__e95b402f-7307-416e-9152-dbb0c5981eaa',
-    #    plots='records_only', _round=370)
-    
-    #frap.visualize_policy_behavior(scenario='0_regular-intersection', _type='right_on_red', traffic_level_configuration='light_light_light_light', 
+    #Frap.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___09_22_22_10_21_10__e95b402f-7307-416e-9152-dbb0c5981eaa',
+    #             plots='records_only', _round=370, baseline_comparison=True, scenario='0_regular-intersection',
+    #             traffic_level_configuration='light_light_light_light')
+
+    #Frap.visualize_policy_behavior(scenario='0_regular-intersection', _type='right_on_red', traffic_level_configuration='light_light_light_light',
     # experiment='0_regular-intersection__right_on_red__light_light_light_light___08_31_11_09_11_10__08ad4741-9654-4abe-b748-9f24702088e2')
 
-    #frap.visualize_policy_behavior(scenario='0_regular-intersection', _type='right_on_red', traffic_level_configuration='custom_4_street_traffic', 
+    #Frap.visualize_policy_behavior(
+    #    scenario='0_regular-intersection', _type='right_on_red', traffic_level_configuration='custom_4_street_traffic',
     #    experiment='0_regular-intersection__right_on_red__custom_4_street_traffic___09_22_22_10_21_10__e95b402f-7307-416e-9152-dbb0c5981eaa', 
     #    _round=370)
     
@@ -304,5 +303,5 @@ if __name__ == "__main__":
             if '___' not in folder:
                 continue
             
-            frap._consolidate_output_file(_dir + '/' + folder, folder)
+            Frap._consolidate_output_file(_dir + '/' + folder, folder)
     '''

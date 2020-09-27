@@ -13,27 +13,30 @@ from matplotlib.ticker import (MultipleLocator, MaxNLocator, FormatStrFormatter)
 from algorithm.frap.internal.frap_pub import run_batch, replay, summary
 from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR as FRAP_ROOT_DIR
 
-from utils.sumo_util import get_intersections_ids, get_intersection_edge_ids, get_average_duration_statistic, get_sumo_binary
+from utils import sumo_util
 from config import Config as config
 from definitions import ROOT_DIR
 
 
 class Frap:
 
-    def run(self, net_file, route_file, sumocfg_file, output_file, traffic_level_configuration):
+    @staticmethod
+    def run(net_file, route_file, sumocfg_file, output_file, traffic_level_configuration):
 
-        external_configurations = self._create_external_configurations_dict(
+        external_configurations = Frap._create_external_configurations_dict(
             net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
 
         experiment_name = run_batch.run(external_configurations)
 
         output_folder = output_file.rsplit('/', 1)[0] + '/' + experiment_name        
 
-        self._consolidate_output_file(output_folder, experiment_name)
+        Frap._consolidate_output_file(output_folder, experiment_name)
 
         return experiment_name
 
-    def visualize_policy_behavior(self, scenario, _type, traffic_level_configuration, experiment='last', _round='best_time_loss'):
+    @staticmethod
+    def visualize_policy_behavior(scenario, _type, traffic_level_configuration, experiment='last',
+                                  _round='best_time_loss'):
         # experiment: 'last' or actual name
         # _round: 'last', 'best_time_loss', 'best_average_trip_duration', 'best_reward' or number
 
@@ -87,7 +90,7 @@ class Frap:
         if not os.path.isfile(route_file):
             raise ValueError("Route file does not exist")
 
-        external_configurations = self._create_external_configurations_dict(
+        external_configurations = Frap._create_external_configurations_dict(
             net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
 
         replay.run(
@@ -98,10 +101,14 @@ class Frap:
             if_gui=True,
             external_configurations=external_configurations)
 
-    def summary(self, experiment, plots='all', _round=None):
-        summary.single_experiment_summary('TransferDQN', 'records/TransferDQN/' + experiment, plots=plots, _round=_round)
+    @staticmethod
+    def summary(experiment, plots='all', _round=None, baseline_comparison=True, scenario=None,
+                traffic_level_configuration=None):
+        summary.single_experiment_summary('TransferDQN', 'records/TransferDQN/' + experiment,
+                                          plots, _round, baseline_comparison, scenario, traffic_level_configuration)
 
-    def _consolidate_output_file(self, output_folder, experiment_name):
+    @staticmethod
+    def _consolidate_output_file(output_folder, experiment_name):
         
         duration_df = pd.DataFrame()
         for _file in os.listdir(output_folder):
@@ -110,7 +117,7 @@ class Frap:
                 continue
             
             try:
-                duration = get_average_duration_statistic(os.path.join(output_folder,  _file))
+                duration = sumo_util.get_average_duration_statistic(os.path.join(output_folder,  _file))
             except:
                 duration = np.NaN
 
@@ -133,11 +140,12 @@ class Frap:
         traffic_level_configuration = split_experiment_name[2]
 
         if 'test' in duration_df:
-            self._plot_consolidate_output(output_folder, experiment_name, duration_df['test'], 
+            Frap._plot_consolidate_output(output_folder, experiment_name, duration_df['test'],
                 scenario, traffic_level_configuration)
 
 
-    def _plot_consolidate_output(self, output_folder, experiment_name, duration_list,
+    @staticmethod
+    def _plot_consolidate_output(output_folder, experiment_name, duration_list,
                                  scenario, traffic_level_configuration):
         
         duration_list = np.array(duration_list)
@@ -167,12 +175,14 @@ class Frap:
         if os.path.isfile(right_on_red_result_file):
             right_on_red_df = pd.read_csv(right_on_red_result_file)
             ax.plot([0, len(duration_list)], [right_on_red_df['test'], right_on_red_df['test']],
-                    linewidth=2, linestyle=':', color='r', label='right on red' + ' ' + '(' + str(right_on_red_df['test'][0]) + ')')
+                    linewidth=2, linestyle=':', color='r',
+                    label='right on red' + ' ' + '(' + str(right_on_red_df['test'][0]) + ')')
         
         if os.path.isfile(unregulated_result_file):
             unregulated_df = pd.read_csv(unregulated_result_file)
             ax.plot([0, len(duration_list)], [unregulated_df['test'], unregulated_df['test']],
-                    linewidth=2, linestyle=':', color='g', label='unregulated' + ' ' + '(' + str(unregulated_df['test'][0]) + ')')
+                    linewidth=2, linestyle=':', color='g',
+                    label='unregulated' + ' ' + '(' + str(unregulated_df['test'][0]) + ')')
 
         ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
         ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
@@ -191,7 +201,8 @@ class Frap:
         plt.savefig(os.path.join(output_folder, experiment_name + '_' + 'result' + '.png'))
         plt.close()
 
-    def _create_external_configurations_dict(self, net_file, route_file, sumocfg_file, output_file,
+    @staticmethod
+    def _create_external_configurations_dict(net_file, route_file, sumocfg_file, output_file,
                                              traffic_level_configuration):
 
         input_data_path = os.path.join(FRAP_ROOT_DIR, 'data', 'template_ls')
@@ -219,10 +230,10 @@ class Frap:
 
         parser = etree.XMLParser(remove_blank_text=True)
         net_xml = etree.parse(net_file, parser)
-        intersection_id = get_intersections_ids(net_xml)[0]
+        intersection_id = sumo_util.get_intersections_ids(net_xml)[0]
         external_configurations['NODE_LIGHT'] = intersection_id
 
-        incoming_edges, _ = get_intersection_edge_ids(net_xml)
+        incoming_edges, _ = sumo_util.get_intersection_edge_ids(net_xml)
         external_configurations['N_LEG'] = len(incoming_edges)
 
         external_configurations['NUMBER_OF_LEGS_NETWORK_COMPATIBILITY'] = 5

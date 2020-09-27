@@ -1,3 +1,4 @@
+import os
 
 import numpy as np
 import pandas as pd
@@ -8,6 +9,9 @@ mlp.use("agg")
 import matplotlib.pyplot as plt
 from matplotlib.ticker import (MultipleLocator, MaxNLocator, FormatStrFormatter)
 from matplotlib.lines import Line2D
+
+from definitions import ROOT_DIR
+from algorithm.sumo_based.definitions import ROOT_DIR as SUMO_BASED_ROOT_DIR
 
 
 font = {'size': 24}
@@ -41,7 +45,8 @@ def consolidate_reward(reward_each_step, save_path, name_base):
     plt.close()
 
 
-def consolidate_time_loss(time_loss_each_step, save_path, name_base):
+def consolidate_time_loss(time_loss_each_step, save_path, name_base,
+                          baseline_comparison=False, scenario=None, traffic_level_configuration=None):
 
     time_loss_df = pd.DataFrame({'time_loss': time_loss_each_step})
     time_loss_df.to_csv(save_path + "/" + name_base + "-" + 'time_loss' + ".csv")
@@ -62,7 +67,33 @@ def consolidate_time_loss(time_loss_each_step, save_path, name_base):
     ax.set_axisbelow(True)
     ax.grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
 
-    ax.plot(time_loss_df, linewidth=2, color='k')
+    ax.plot(time_loss_df, linewidth=2, color='k', label='frap')
+
+    if baseline_comparison:
+
+        right_on_red_type = 'right_on_red'
+        right_on_red_name_base = scenario + '__' + right_on_red_type + '__' + traffic_level_configuration
+        right_on_red_records_folder = os.path.join(
+            SUMO_BASED_ROOT_DIR, 'records', right_on_red_type, right_on_red_name_base, 'test')
+
+        unregulated_type = 'unregulated'
+        unregulated_name_base = scenario + '__' + unregulated_type + '__' + traffic_level_configuration
+        unregulated_records_folder = os.path.join(
+            SUMO_BASED_ROOT_DIR, 'records', unregulated_type, unregulated_name_base, 'test')
+
+        right_on_red_result_file = right_on_red_records_folder + '/' + right_on_red_name_base + '-test-time_loss.csv'
+        unregulated_result_file = unregulated_records_folder + '/' + unregulated_name_base + '-test-time_loss.csv'
+
+        if os.path.isfile(right_on_red_result_file):
+            right_on_red_df = pd.read_csv(right_on_red_result_file)
+            ax.plot(right_on_red_df['time_loss'], linewidth=2, linestyle=':', color='r', label='right on red')
+
+        if os.path.isfile(unregulated_result_file):
+            unregulated_df = pd.read_csv(unregulated_result_file)
+            ax.plot(unregulated_df['time_loss'], linewidth=2, linestyle=':', color='g', label='unregulated')
+
+        ax.legend()
+
     ax.set_title('time loss' + ' - ' + str(np.round(time_loss_df.mean()[0], decimals=2)))
     plt.savefig(save_path + "/" + name_base + "-" + 'time_loss' + ".png")
     plt.close()

@@ -655,7 +655,8 @@ def summary_detail_baseline(memo):
     total_result.to_csv(os.path.join(ROOT_DIR, "summary", memo, "total_baseline_test_results.csv"))
 
 
-def single_experiment_summary(memo, records_dir, plots='all', _round=None):
+def single_experiment_summary(memo, records_dir, plots='all', _round=None,
+                              baseline_comparison=False, scenario=None, traffic_level_configuration=None):
     # plots: None, 'records_only 'summary_only', 'all'
 
     traffic_env_conf = open(os.path.join(ROOT_DIR, records_dir, "traffic_env.conf"), 'r')
@@ -721,7 +722,8 @@ def single_experiment_summary(memo, records_dir, plots='all', _round=None):
 
         if plots is not None and plots != 'summary_only':
 
-            summary_util.consolidate_time_loss(time_loss_each_step, save_path, name_base)
+            summary_util.consolidate_time_loss(time_loss_each_step, save_path, name_base,
+                                               baseline_comparison, scenario, traffic_level_configuration)
             summary_util.consolidate_reward(reward_each_step, save_path, name_base)
 
             summary_util.consolidate_occupancy_and_speed_inflow_outflow(
