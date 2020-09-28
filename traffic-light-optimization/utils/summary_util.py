@@ -46,7 +46,8 @@ def consolidate_reward(reward_each_step, save_path, name_base):
 
 
 def consolidate_time_loss(time_loss_each_step, save_path, name_base,
-                          baseline_comparison=False, scenario=None, traffic_level_configuration=None):
+                          baseline_comparison=False, scenario=None, traffic_level_configuration=None,
+                          mean=False):
 
     time_loss_df = pd.DataFrame({'time_loss': time_loss_each_step})
     time_loss_df.to_csv(save_path + "/" + name_base + "-" + 'time_loss' + ".csv")
@@ -67,7 +68,16 @@ def consolidate_time_loss(time_loss_each_step, save_path, name_base,
     ax.set_axisbelow(True)
     ax.grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
 
-    ax.plot(time_loss_df, linewidth=2, color='k', label='frap')
+    tail_length = 10
+    time_loss_tail = time_loss_df.iloc[-tail_length:]
+    final_time_loss = np.round(np.mean(time_loss_tail[time_loss_tail > 0]), decimals=2)[0]
+
+    if mean:
+        plot_label = 'frap' + ' ' + '(' + str(final_time_loss) + ')'
+    else:
+        plot_label = 'frap'
+
+    ax.plot(time_loss_df, linewidth=2, color='k', label=plot_label)
 
     if baseline_comparison:
 
@@ -86,11 +96,25 @@ def consolidate_time_loss(time_loss_each_step, save_path, name_base,
 
         if os.path.isfile(right_on_red_result_file):
             right_on_red_df = pd.read_csv(right_on_red_result_file)
-            ax.plot(right_on_red_df['time_loss'], linewidth=2, linestyle=':', color='r', label='right on red')
+            
+            if mean:
+                data = right_on_red_df['time_loss'].mean()
+                ax.plot([0, time_loss_df.shape[0]], [data, data], linewidth=2, linestyle=':', color='r',
+                        label='right on red' + ' ' + '(' + str(np.round(data, decimals=2)) + ')')
+            else:
+                data = right_on_red_df['time_loss']
+                ax.plot(data, linewidth=2, linestyle=':', color='r', label='right on red')
 
         if os.path.isfile(unregulated_result_file):
             unregulated_df = pd.read_csv(unregulated_result_file)
-            ax.plot(unregulated_df['time_loss'], linewidth=2, linestyle=':', color='g', label='unregulated')
+
+            if mean:
+                data = unregulated_df['time_loss'].mean()
+                ax.plot([0, time_loss_df.shape[0]], [data, data], linewidth=2, linestyle=':', color='g',
+                        label='unregulated' + ' ' + '(' + str(np.round(data, decimals=2)) + ')')
+            else:
+                data = unregulated_df['time_loss']
+                ax.plot(data, linewidth=2, linestyle=':', color='g', label='unregulated')
 
         ax.legend()
 
@@ -429,7 +453,7 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
         axs[i].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         axs[i].yaxis.set_minor_locator(MultipleLocator(0.05))
 
-        axs[i].xaxis.set_major_locator(MaxNLocator(nbins=12))
+        axs[i].xaxis.set_major_locator(MultipleLocator(120))
         axs[i].xaxis.set_major_formatter(FormatStrFormatter('%d'))
         axs[i].xaxis.set_minor_locator(MultipleLocator(10))
 
@@ -476,7 +500,7 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
         axs[i].yaxis.set_major_formatter(FormatStrFormatter('%d'))
         axs[i].yaxis.set_minor_locator(MultipleLocator(1))
 
-        axs[i].xaxis.set_major_locator(MaxNLocator(nbins=12))
+        axs[i].xaxis.set_major_locator(MultipleLocator(120))
         axs[i].xaxis.set_major_formatter(FormatStrFormatter('%d'))
         axs[i].xaxis.set_minor_locator(MultipleLocator(10))
 
@@ -499,6 +523,7 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
     plt.savefig(save_path + '/' + name_base + '-' +
                 'phase_and_demand' + '-' + 'absolute' + '-' + 'per_movement' + '.png')
     plt.close()
+
 
     f, ax = plt.subplots(1, 1, figsize=(40, 20), dpi=100)
     plt.subplots_adjust(left=0.1, right=0.9, bottom=0.05, top=0.90, wspace=0.05, hspace=0.05)

@@ -275,6 +275,7 @@ def main(args=None, memo=None, external_configurations={}):
         conflicts = sumo_util.detect_movement_conflicts(net_xml, movement_to_connection)
         phases = sumo_util.detect_phases(movements, conflicts)
         dic_traffic_env_conf_extra['PHASE'] = phases
+        dic_traffic_env_conf_extra['CONFLICTS'] = conflicts
 
         phase_expansion = sumo_util.build_phase_expansions(movements, phases)
         dic_traffic_env_conf_extra["phase_expansion"] = phase_expansion

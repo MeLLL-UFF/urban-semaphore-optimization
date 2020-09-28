@@ -549,7 +549,7 @@ def build_phase_expansions(movements, phases):
 def match_ordered_movements_to_phases(ordered_movements, phases):
 
     movements = copy.deepcopy(ordered_movements)
-    number_of_movements_per_phase = len(phases[0].split('_'))
+    number_of_movements_per_phase = max(map(lambda x: len(x.split('_')), phases))
 
     phase_sets = [set(phase.split('_')) for phase in phases]
     phase_sets_tracking = copy.deepcopy(phase_sets)

@@ -119,11 +119,15 @@ class Intersection:
         self.dic_exiting_approach_to_edge = {approach: self.outgoing_edges[index]
                                              for index, approach in enumerate(self.list_approaches)}
 
+        self.min_action_time = dic_sumo_env_conf['MIN_ACTION_TIME']
+
         # grid settings
         self.length_lane = 300
         self.length_terminal = 50
         self.length_grid = 5
         self.num_grid = int(self.length_lane//self.length_grid)
+
+        self.conflicts = dic_sumo_env_conf['CONFLICTS']
 
         self.movement_to_connection = dic_sumo_env_conf['movement_to_connection']
 
@@ -148,8 +152,15 @@ class Intersection:
                 if 'r' in m.lower():
                     list_default_str[i] = 'g'
 
-            for movement in phase.split('_'):
-                list_default_str[self.movements.index(movement)] = 'G'
+            phase_movements = phase.split('_')
+            for index, movement in enumerate(phase_movements):
+
+                movement_conflicts = self.conflicts[movement]
+
+                if len(set(phase_movements[0:index]).intersection(set(movement_conflicts))) > 0:
+                    list_default_str[self.movements.index(movement)] = 'g'
+                else:
+                    list_default_str[self.movements.index(movement)] = 'G'
 
             self.dic_phase_strs[phase] = "".join(list_default_str)
 
@@ -562,7 +573,7 @@ class Intersection:
                     waiting_times.append(movements_waiting_time_dict[movement])
                     ordered_movements.remove(movement)
 
-            if max(waiting_times) + (index + 1)*10 >= threshold:
+            if max(waiting_times) + (index + 1) * self.min_action_time >= threshold:
                 return self.phases.index(selected_phases[0])
 
         return -1

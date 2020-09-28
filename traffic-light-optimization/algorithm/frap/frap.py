@@ -164,9 +164,9 @@ class Frap:
         unregulated_result_file = unregulated_output_folder + '/' + scenario + '__' + 'unregulated' + '__' + \
                                   traffic_level_configuration + '_result.csv'
 
-        validation_duration_length = 10
-        validation_duration = duration_list[-validation_duration_length:]
-        final_duration = np.round(np.mean(validation_duration[validation_duration > 0]), decimals=2)
+        tail_length = 10
+        duration_tail = duration_list[-tail_length:]
+        final_duration = np.round(np.mean(duration_tail[duration_tail > 0]), decimals=2)
 
         # simple plot for each training instance
         f, ax = plt.subplots(1, 1, figsize=(20, 9), dpi=100)

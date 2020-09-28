@@ -109,7 +109,7 @@ class TransferDQNAgent(NetworkAgent):
     def build_network(self):
 
         phases = self.dic_traffic_env_conf["PHASE"]
-        number_of_movements_per_phase = len(phases[0].split('_'))
+        max_number_of_movements_per_phase = max(map(lambda x: len(x.split('_')), phases))
         number_of_phases = len(self.dic_traffic_env_conf["PHASE"])
         number_of_movements = len(self.dic_traffic_env_conf['list_lane_order'])
 
@@ -152,7 +152,7 @@ class TransferDQNAgent(NetworkAgent):
         constant = Lambda(relation, arguments={"dic_traffic_env_conf": self.dic_traffic_env_conf},
                         name="constant")(dic_input_node["lane_num_vehicle"])
         #relation_embedding = Embedding(2, 4, name="relation_embedding")(constant)
-        relation_embedding = Embedding(number_of_movements_per_phase, 4, name="relation_embedding")(constant)
+        relation_embedding = Embedding(max_number_of_movements_per_phase, 4, name="relation_embedding")(constant)
 
         # rotate the phase pressure
         if self.dic_agent_conf["ROTATION"]:

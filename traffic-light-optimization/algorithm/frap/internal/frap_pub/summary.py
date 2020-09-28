@@ -659,6 +659,14 @@ def single_experiment_summary(memo, records_dir, plots='all', _round=None,
                               baseline_comparison=False, scenario=None, traffic_level_configuration=None):
     # plots: None, 'records_only 'summary_only', 'all'
 
+    if _round is not None:
+        if plots == 'all':
+            print('Chaning plots to "records only"')
+            plots == 'records_only'
+        elif plots == 'summary_only':
+            raise ValueError('It is not possible to specify a round and choose summary_only at the same time')
+
+
     traffic_env_conf = open(os.path.join(ROOT_DIR, records_dir, "traffic_env.conf"), 'r')
     dic_traffic_env_conf = json.load(traffic_env_conf)
 
@@ -766,7 +774,9 @@ def single_experiment_summary(memo, records_dir, plots='all', _round=None,
 
     if plots is not None and plots != 'records_only':
 
-        summary_util.consolidate_time_loss(average_time_loss_each_round, save_path, name_base)
+        summary_util.consolidate_time_loss(
+            average_time_loss_each_round, save_path, name_base,
+            baseline_comparison, scenario, traffic_level_configuration, mean=True)
         summary_util.consolidate_reward(average_reward_each_round, save_path, name_base)
 
         summary_util.consolidate_occupancy_and_speed_inflow_outflow(
