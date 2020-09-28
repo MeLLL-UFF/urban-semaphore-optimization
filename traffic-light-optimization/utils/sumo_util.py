@@ -544,6 +544,8 @@ def build_phase_expansions(movements, phases):
 
         phase_expansion[i + 1] = zeros
 
+    phase_expansion[-1] = [0] * len(movements)
+
     return phase_expansion
 
 def match_ordered_movements_to_phases(ordered_movements, phases):
