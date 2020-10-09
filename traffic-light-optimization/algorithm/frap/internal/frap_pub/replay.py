@@ -36,7 +36,7 @@ def downsample(path_to_log):
         pickle.dump(subset_data, f_subset)
 
 
-def run(dir, round_number, run_cnt, execution_name, if_gui, external_configurations={}):
+def run(dir, round_number, run_cnt, execution_name, if_gui, rewrite_mode=False, external_configurations={}):
     model_dir = "model/" + dir
     records_dir = "records/" + dir
     model_round = 'round' + '_' + str(round_number)
@@ -81,7 +81,7 @@ def run(dir, round_number, run_cnt, execution_name, if_gui, external_configurati
                         path_to_work_directory=dic_path["PATH_TO_WORK_DIRECTORY"],
                         dic_traffic_env_conf=dic_traffic_env_conf,
                         external_configurations=external_configurations,
-                        mode='replay')
+                        mode='replay', write_mode=rewrite_mode)
 
     done = False
     state = env.reset(execution_name, dic_path, external_configurations=external_configurations)
@@ -100,11 +100,10 @@ def run(dir, round_number, run_cnt, execution_name, if_gui, external_configurati
         step_num += 1
     env.bulk_log()
     env.end_sumo()
-    if not __debug__:
+    
+    if rewrite_mode:
         path_to_log = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round", model_round)
-        # print("downsample", path_to_log)
         downsample(path_to_log)
-        # print("end down")
 
 
 

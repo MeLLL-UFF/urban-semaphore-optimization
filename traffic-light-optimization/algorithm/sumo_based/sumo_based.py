@@ -16,7 +16,7 @@ from algorithm.sumo_based.definitions import ROOT_DIR
 class SumoBased:
 
     # add more variables here if you need more measurements
-    LIST_LANE_VARIABLES_TO_SUB = [
+    LIST_LANE_VARIABLES_TO_SUBSCRIBE = [
         'LAST_STEP_VEHICLE_NUMBER',
         'LAST_STEP_VEHICLE_ID_LIST',
         'LAST_STEP_VEHICLE_HALTING_NUMBER',
@@ -27,18 +27,14 @@ class SumoBased:
         'VAR_LENGTH',
         'LAST_STEP_MEAN_SPEED',
         'VAR_MAXSPEED'
-
     ]
 
     # add more variables here if you need more measurements
-    LIST_VEHICLE_VARIABLES_TO_SUB = [
+    LIST_VEHICLE_VARIABLES_TO_SUBSCRIBE = [
         'VAR_POSITION',
         'VAR_SPEED',
-        # 'VAR_ACCELERATION',
-        # 'POSITION_LON_LAT',
         'VAR_WAITING_TIME',
         'VAR_ACCUMULATED_WAITING_TIME',
-        # 'VAR_LANEPOSITION_LAT',
         'VAR_LANEPOSITION',
 
         ### 'VAR_SPEED',
@@ -50,7 +46,18 @@ class SumoBased:
         # 'VAR_SECURE_GAP',  # Problems with subscription
         'VAR_LENGTH',
         'VAR_LANE_ID',
-        'VAR_DECEL'
+        'VAR_DECEL',
+
+        'VAR_WIDTH',
+        ### 'VAR_LENGTH',
+        ### 'VAR_POSITION',
+        'VAR_ANGLE',
+        ### 'VAR_SPEED',
+        'VAR_STOPSTATE',
+        ### 'VAR_LANE_ID',
+        ### 'VAR_WAITING_TIME',
+        'VAR_EDGES',
+        'VAR_ROUTE_INDEX'
     ]
 
     def __init__(self, net_file, route_file, output_file, scenario, _type, traffic_level_configuration):
@@ -85,7 +92,7 @@ class SumoBased:
 
         self.intersection_id = sumo_util.get_intersections_ids(self.net_file_xml)[0]
 
-        self.vehicle_variables_to_subscribe = self.LIST_VEHICLE_VARIABLES_TO_SUB
+        self.vehicle_variables_to_subscribe = self.LIST_VEHICLE_VARIABLES_TO_SUBSCRIBE
 
         # ===== sumo intersection settings =====
 
@@ -206,7 +213,9 @@ class SumoBased:
             '--collision.stoptime', str(10),
             '--collision.mingap-factor', str(0),
             '--collision.action', 'warn',
-            '--collision.check-junctions', str(True)
+            '--collision.check-junctions', str(True),
+            '--ignore-junction-blocker', str(10), # Currently not working
+            '--step-length', str(1)
         ])
 
     def _end_traci(self):
@@ -214,7 +223,7 @@ class SumoBased:
 
     def _subscribe_to_traci_info(self):
         for lane in self.lanes:
-            traci.lane.subscribe(lane, [getattr(tc, var) for var in self.LIST_LANE_VARIABLES_TO_SUB])
+            traci.lane.subscribe(lane, [getattr(tc, var) for var in self.LIST_LANE_VARIABLES_TO_SUBSCRIBE])
 
     def _run_simulation(self, max_time=float('inf'), visualize_only=False):
         while traci.simulation.getMinExpectedNumber() > 0 and \
@@ -230,6 +239,9 @@ class SumoBased:
                 self._update_current_measurements()
 
                 self._collect_simulation_data()
+
+                blocked_vehicles = sumo_traci_util.detect_deadlock(self.net_file_xml, self.current_step_vehicle_subscription_data)
+                sumo_traci_util.resolve_deadlock(blocked_vehicles, self.net_file_xml, self.current_step_vehicle_subscription_data)
 
     def _collect_simulation_data(self):
         

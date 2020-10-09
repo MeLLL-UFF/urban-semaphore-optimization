@@ -541,7 +541,7 @@ class Intersection:
     def select_action_based_on_time_restriction(self, threshold=120):
         # order movements by the waiting time of the first car
         # select all phases, covering all movements in order
-        # p4 + 40; p3 + 30; p2 + 20; p1 + 10 >= 120    
+        # check time necessary to avoid waiting time threshold value
 
         lane_waiting_time_dict = sumo_traci_util.get_lane_first_stopped_car_waiting_times(
             self.list_entering_lanes, self.dic_lane_vehicle_sub_current_step)
@@ -615,7 +615,18 @@ class SumoEnv:
         # "VAR_SECURE_GAP",  # Problems with subscription
         "VAR_LENGTH",
         "VAR_LANE_ID",
-        "VAR_DECEL"
+        "VAR_DECEL",
+
+        'VAR_WIDTH',
+        ### 'VAR_LENGTH',
+        ### 'VAR_POSITION',
+        'VAR_ANGLE',
+        ### 'VAR_SPEED',
+        'VAR_STOPSTATE',
+        ### 'VAR_LANE_ID',
+        ### 'VAR_WAITING_TIME',
+        'VAR_EDGES',
+        'VAR_ROUTE_INDEX'
     ]
 
     def _get_sumo_cmd(self, external_configurations={}):
@@ -652,9 +663,13 @@ class SumoEnv:
 
         if not sumocfg_parameters:
             sumocfg_parameters = {
-                '-c': r'{0}'.format(real_path_to_sumo_files),
-                '--step-length': str(self.dic_traffic_env_conf["INTERVAL"])
+                '-c': r'{0}'.format(real_path_to_sumo_files)
             }
+
+        sumocfg_parameters['--step-length'] = str(self.dic_traffic_env_conf["INTERVAL"])
+
+        if not self.write_mode:
+            sumocfg_parameters.pop('--log', None)
 
         sumocfg_parameters_list = [str(item)
                                    for key_value_pair in sumocfg_parameters.items()
@@ -670,12 +685,13 @@ class SumoEnv:
             return sumo_cmd_nogui
 
     def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf, external_configurations={},
-                 mode='train'):
+                 mode='train', write_mode=True):
         # mode: train, test, replay
 
         if mode != 'train' and mode != 'test' and mode != 'replay':
             raise ValueError("Mode must be either 'train', 'test', or replay, current value is " + mode)
         self.mode = mode
+        self.write_mode = write_mode
 
         self.path_to_log = path_to_log
         self.path_to_work_directory = path_to_work_directory
@@ -691,11 +707,12 @@ class SumoEnv:
             pass
             # raise ValueError
 
-        # touch new inter_{}.pkl (if exists, remove)
-        for inter_ind in range(self.dic_traffic_env_conf["NUM_INTERSECTIONS"]):
-            path_to_log_file = os.path.join(self.path_to_log, "inter_{0}.pkl".format(inter_ind))
-            f = open(ROOT_DIR + '/' + path_to_log_file, "wb")
-            f.close()
+        if self.write_mode:
+            # touch new inter_{}.pkl (if exists, remove)
+            for inter_ind in range(self.dic_traffic_env_conf["NUM_INTERSECTIONS"]):
+                path_to_log_file = os.path.join(self.path_to_log, "inter_{0}.pkl".format(inter_ind))
+                f = open(ROOT_DIR + '/' + path_to_log_file, "wb")
+                f.close()
 
     def reset(self, execution_name, dic_path, external_configurations={}):
 
@@ -771,30 +788,32 @@ class SumoEnv:
 
     def bulk_log(self):
 
-        valid_flag = {}
-        for inter_ind, inter in enumerate(self.list_intersection):
-            path_to_log_file = os.path.join(self.path_to_log, "vehicle_inter_{0}.csv".format(inter_ind))
-            dic_vehicle = self.list_intersection[inter_ind].get_dic_vehicle_arrive_leave_time()
-            df = self.convert_dic_to_df(dic_vehicle)
-            df.to_csv(ROOT_DIR + '/' + path_to_log_file, na_rep="nan")
+        if self.write_mode:
 
-            feature = inter.get_feature()
-            print(feature['lane_num_vehicle'])
-            if max(feature['lane_num_vehicle']) > self.dic_traffic_env_conf["VALID_THRESHOLD"]:
-                valid_flag[inter_ind] = 0
-            else:
-                valid_flag[inter_ind] = 1
-        json.dump(valid_flag, open(os.path.join(ROOT_DIR, self.path_to_log, "valid_flag.json"), "w"))
+            valid_flag = {}
+            for inter_ind, inter in enumerate(self.list_intersection):
+                path_to_log_file = os.path.join(self.path_to_log, "vehicle_inter_{0}.csv".format(inter_ind))
+                dic_vehicle = self.list_intersection[inter_ind].get_dic_vehicle_arrive_leave_time()
+                df = self.convert_dic_to_df(dic_vehicle)
+                df.to_csv(ROOT_DIR + '/' + path_to_log_file, na_rep="nan")
 
-        for inter_ind in range(len(self.list_inter_log)):
-            path_to_log_file = os.path.join(self.path_to_log, "inter_{0}.pkl".format(inter_ind))
-            f = open(ROOT_DIR + '/' + path_to_log_file, "wb")
-            pickle.dump(self.list_inter_log[inter_ind], f)
-            f.close()
+                feature = inter.get_feature()
+                print(feature['lane_num_vehicle'])
+                if max(feature['lane_num_vehicle']) > self.dic_traffic_env_conf["VALID_THRESHOLD"]:
+                    valid_flag[inter_ind] = 0
+                else:
+                    valid_flag[inter_ind] = 1
+            json.dump(valid_flag, open(os.path.join(ROOT_DIR, self.path_to_log, "valid_flag.json"), "w"))
 
-            if self.mode == 'test':
-                detailed_copy = os.path.join(self.path_to_log, "inter_{0}_detailed.pkl".format(inter_ind))
-                shutil.copy(ROOT_DIR + '/' + path_to_log_file, ROOT_DIR + '/' + detailed_copy)
+            for inter_ind in range(len(self.list_inter_log)):
+                path_to_log_file = os.path.join(self.path_to_log, "inter_{0}.pkl".format(inter_ind))
+                f = open(ROOT_DIR + '/' + path_to_log_file, "wb")
+                pickle.dump(self.list_inter_log[inter_ind], f)
+                f.close()
+
+                if self.mode == 'test':
+                    detailed_copy = os.path.join(self.path_to_log, "inter_{0}_detailed.pkl".format(inter_ind))
+                    shutil.copy(ROOT_DIR + '/' + path_to_log_file, ROOT_DIR + '/' + detailed_copy)
 
     def end_sumo(self):
         traci.close()
@@ -950,6 +969,9 @@ class SumoEnv:
         # get new measurements
         for inter in self.list_intersection:
             inter.update_current_measurements()
+
+            blocked_vehicles = sumo_traci_util.detect_deadlock(inter.net_file_xml, inter.dic_vehicle_sub_current_step)
+            sumo_traci_util.resolve_deadlock(blocked_vehicles, inter.net_file_xml, inter.dic_vehicle_sub_current_step)
 
     def _check_episode_done(self, list_state):
 

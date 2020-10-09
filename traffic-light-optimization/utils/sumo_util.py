@@ -548,6 +548,7 @@ def build_phase_expansions(movements, phases):
 
     return phase_expansion
 
+
 def match_ordered_movements_to_phases(ordered_movements, phases):
 
     movements = copy.deepcopy(ordered_movements)
@@ -602,3 +603,65 @@ def match_ordered_movements_to_phases(ordered_movements, phases):
     selected_phases = np.array(phases)[selected_phases_indices]
 
     return selected_phases
+
+
+def get_internal_lanes(net_xml):
+
+    lanes = net_xml.findall('.//edge[@function="internal"]/lane')
+
+    lane_ids = [lane.get('id') for lane in lanes]
+
+    return lane_ids
+
+
+def get_internal_lane_paths(net_xml):
+    
+    lanes = net_xml.findall('.//edge[@function="internal"]/lane')
+
+    lanes_by_id = {lane.get('id'): lane for lane in lanes}
+
+    connections = get_connections(net_xml)
+
+    all_connections_from_lane = {connection.get('from') + '_' + connection.get('fromLane'): connection 
+                                 for connection in net_xml.findall(".//connection")}
+
+    lane_path = {}
+    for connection in connections:
+        via_lane = connection.get('via')
+
+        polyline_lane_ids = []
+        polylines = []
+        while via_lane is not None:
+
+            polyline_lane_ids.append(via_lane)
+            polylines.append([])
+            
+            shape = lanes_by_id[via_lane].get('shape')
+
+            via_lane_polyline = [list(map(float, point.split(','))) for point in shape.split()]
+            
+            for polyline in polylines:
+
+                if polyline:
+                    polyline_extension_start_index = 1
+                else:
+                    polyline_extension_start_index = 0
+                
+                polyline.extend(via_lane_polyline[polyline_extension_start_index:])
+
+            via_lane = all_connections_from_lane[via_lane].get('via')
+
+        for index, lane_id in enumerate(polyline_lane_ids):
+            lane_path[lane_id] = polylines[index]
+
+    return lane_path
+
+
+def convert_sumo_angle_to_canonical_angle(sumo_angle):
+
+    if sumo_angle <= 90:
+        canonical_angle = 90 - sumo_angle
+    elif sumo_angle > 90:
+        canonical_angle = 90 - (sumo_angle - 360)
+
+    return canonical_angle

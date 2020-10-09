@@ -57,6 +57,14 @@ class Frap:
             column_label = 'time_loss'
             
             _round = result_df[column_label].idxmin()
+        
+        elif _round == 'worst_time_loss':
+            result_df = pd.read_csv(os.path.join(frap_summary_folder, experiment + '-test-time_loss.csv'))
+            result_df.set_index(result_df.columns[0], inplace=True)
+
+            column_label = 'time_loss'
+            
+            _round = result_df[column_label].idxmax()
 
         elif _round == 'best_average_trip_duration':
             result_df = pd.read_csv(os.path.join(output_folder, experiment + '_result.csv'))
@@ -251,7 +259,8 @@ class Frap:
             '--collision.mingap-factor': 0,
             '--collision.action': 'warn',
             '--collision.check-junctions': True,
-            '--device.rerouting.threads': 4
+            '--device.rerouting.threads': 4,
+            '--ignore-junction-blocker': 10  # Currently not working
         }
 
         return external_configurations

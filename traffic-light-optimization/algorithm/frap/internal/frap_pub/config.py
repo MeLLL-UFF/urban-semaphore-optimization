@@ -35,7 +35,7 @@ dic_traffic_env_conf = {
     "ACTION_PATTERN": "set",
     "NUM_INTERSECTIONS": 1,
     "MIN_ACTION_TIME": 10,
-    "YELLOW_TIME": 5,
+    "YELLOW_TIME": 3,
     "ALL_RED_TIME": 0,
     "NUM_PHASES": 2,
     "NUM_LANES": 1,
