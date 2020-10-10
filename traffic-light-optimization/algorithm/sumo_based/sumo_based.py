@@ -69,6 +69,8 @@ class SumoBased:
         self._type = _type
         self.traffic_level_configuration = traffic_level_configuration
 
+        self.step_length = 1
+
         self.name_base = scenario + '__' + _type + '__' + '_'.join(traffic_level_configuration)
 
 
@@ -215,7 +217,7 @@ class SumoBased:
             '--collision.action', 'warn',
             '--collision.check-junctions', str(True),
             '--ignore-junction-blocker', str(10), # Currently not working
-            '--step-length', str(1)
+            '--step-length', str(self.step_length)
         ])
 
     def _end_traci(self):
@@ -230,11 +232,16 @@ class SumoBased:
                 traci.simulation.getTime() < max_time:
 
             if visualize_only:
-                traci.simulationStep()
+                for i in range(int(1/self.step_length)):
+                    traci.simulationStep()
+
+                blocked_vehicles = sumo_traci_util.detect_deadlock(self.net_file_xml, self.current_step_vehicle_subscription_data)
+                sumo_traci_util.resolve_deadlock(blocked_vehicles, self.net_file_xml, self.current_step_vehicle_subscription_data)
             else:
                 self._update_previous_measurements()
 
-                traci.simulationStep()
+                for i in range(int(1/self.step_length)):
+                    traci.simulationStep()
 
                 self._update_current_measurements()
 

@@ -91,8 +91,8 @@ def consolidate_time_loss(time_loss_each_step, save_path, name_base,
         unregulated_records_folder = os.path.join(
             SUMO_BASED_ROOT_DIR, 'records', unregulated_type, unregulated_name_base, 'test')
 
-        right_on_red_result_file = right_on_red_records_folder + '/' + right_on_red_name_base + '-test-time_loss.csv'
-        unregulated_result_file = unregulated_records_folder + '/' + unregulated_name_base + '-test-time_loss.csv'
+        right_on_red_result_file = right_on_red_records_folder + '/' + right_on_red_name_base + '-time_loss.csv'
+        unregulated_result_file = unregulated_records_folder + '/' + unregulated_name_base + '-time_loss.csv'
 
         if os.path.isfile(right_on_red_result_file):
             right_on_red_df = pd.read_csv(right_on_red_result_file)

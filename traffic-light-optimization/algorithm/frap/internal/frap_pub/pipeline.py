@@ -117,7 +117,8 @@ class Pipeline:
                                os.path.join(path, sumocfg_file),
                                self.dic_exp_conf["TRAFFIC_FILE"])
 
-    def __init__(self, dic_exp_conf, dic_agent_conf, dic_traffic_env_conf, dic_path, external_configurations={}):
+    def __init__(self, dic_exp_conf, dic_agent_conf, dic_traffic_env_conf, dic_path, 
+                 external_configurations={}, existing_experiment=None):
 
         # load configurations
         self.dic_exp_conf = dic_exp_conf
@@ -126,18 +127,22 @@ class Pipeline:
         self.dic_path = dic_path
         self.external_configurations = external_configurations
 
-        # do file operations
-        self._path_check()
-        self._copy_conf_file()
-        if self.dic_traffic_env_conf["SIMULATOR_TYPE"] == 'sumo':
-            _list_sumo_files = self.external_configurations['_LIST_SUMO_FILES']
-            sumocfg_file = self.external_configurations['SUMOCFG_FILE']
-            self._copy_sumo_file(_list_sumo_files=_list_sumo_files)
-            self._modify_sumo_file(sumocfg_file=sumocfg_file)
-        elif self.dic_traffic_env_conf["SIMULATOR_TYPE"] == 'anon':
-            self._copy_anon_file()
-        # test_duration
-        self.test_duration = []
+        self.existing_experiment = existing_experiment
+
+        if self.existing_experiment is None:
+            # do file operations
+            self._path_check()
+            self._copy_conf_file()
+            if self.dic_traffic_env_conf["SIMULATOR_TYPE"] == 'sumo':
+                _list_sumo_files = self.external_configurations['_LIST_SUMO_FILES']
+                sumocfg_file = self.external_configurations['SUMOCFG_FILE']
+                self._copy_sumo_file(_list_sumo_files=_list_sumo_files)
+                self._modify_sumo_file(sumocfg_file=sumocfg_file)
+            elif self.dic_traffic_env_conf["SIMULATOR_TYPE"] == 'anon':
+                self._copy_anon_file()
+            # test_duration
+            self.test_duration = []
+
 
     def early_stopping(self, dic_path, cnt_round):
         print("decide whether to stop")
@@ -315,8 +320,17 @@ class Pipeline:
         self.dic_exp_conf["PRETRAIN"] = False
         self.dic_exp_conf["AGGREGATE"] = False
 
+        round_ = 0
+        if self.existing_experiment is not None:
+            test_dir = os.path.join(ROOT_DIR, self.dic_path["PATH_TO_WORK_DIRECTORY"], "test_round")
+
+            round_folders = next(os.walk(test_dir))[1]
+            round_folders.sort(key=lambda x: int(x.split('_')[1]))
+            last_round = round_folders[-1]
+            round_ = int(last_round.split('_')[1])
+
         # train
-        for cnt_round in range(self.dic_exp_conf["NUM_ROUNDS"]):
+        for cnt_round in range(round_, self.dic_exp_conf["NUM_ROUNDS"]):
             print("round %d starts" % cnt_round)
 
             round_start_t = time.time()

@@ -35,6 +35,16 @@ class Frap:
         return experiment_name
 
     @staticmethod
+    def continue_(experiment, net_file, route_file, sumocfg_file, output_file, traffic_level_configuration):
+
+        external_configurations = Frap._create_external_configurations_dict(
+            net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
+
+        experiment_name = run_batch.continue_(experiment, external_configurations)
+
+        return experiment_name
+
+    @staticmethod
     def visualize_policy_behavior(scenario, _type, traffic_level_configuration, experiment='last',
                                   _round='best_time_loss'):
         # experiment: 'last' or actual name

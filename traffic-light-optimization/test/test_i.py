@@ -256,7 +256,29 @@ def run_experiment(arguments):
 
     os.remove(route_file)
 
-def _run(_type='regular', algorithm=None):
+def continue_experiment(arguments):
+
+    scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, sumocfg_file, \
+        output_folder, experiment = arguments
+
+    route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
+    #route_file = scenario_folder + '/' + 'temp' + '/' + 'routes' + '/' + scenario + '_' + '_'.join(traffic_level_configuration) + '.rou.xml'
+    output_file = output_folder + experiment_name + '.out.txt'
+
+    if not os.path.isdir(output_folder):
+        os.makedirs(output_folder)
+
+    if algorithm == 'FRAP':
+        Frap.continue_(experiment, net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
+
+    else:
+        raise ValueError('please specify algorithm that can be continued')
+
+    sys.stdout.flush()
+
+    os.remove(route_file)
+
+def _run(_type='regular', algorithm=None, experiment=None):
     
     experiment_generator = create_experiment_generator(_type=_type, algorithm=algorithm)
 
@@ -267,8 +289,18 @@ def _run(_type='regular', algorithm=None):
     else:
         NUMBER_OF_PROCESSES = 32
 
-    with NoDaemonPool(processes=NUMBER_OF_PROCESSES) as pool:
-        pool.map(run_experiment, experiment_generator)
+    if experiment is None:
+
+        with NoDaemonPool(processes=NUMBER_OF_PROCESSES) as pool:
+            pool.map(run_experiment, experiment_generator)
+
+    else:
+        experiment_arguments = [
+            (scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder,  
+                sumocfg_file, output_folder, experiment)]
+
+        with NoDaemonPool(processes=NUMBER_OF_PROCESSES) as pool:
+            pool.map(continue_experiment, experiment_arguments)
 
 def run():
     #'OFF', STATIC, and FRAP
@@ -281,21 +313,27 @@ if __name__ == "__main__":
     #_build_experiment_i_routes()
     run()
 
-    #Frap.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___09_22_22_10_21_10__e95b402f-7307-416e-9152-dbb0c5981eaa',
-    #             plots='records_only', _round=370, baseline_comparison=True, scenario='0_regular-intersection',
-    #             traffic_level_configuration='light_light_light_light')
-
-    #Frap.visualize_policy_behavior(scenario='0_regular-intersection', _type='right_on_red', traffic_level_configuration='light_light_light_light',
-    # experiment='0_regular-intersection__right_on_red__light_light_light_light___08_31_11_09_11_10__08ad4741-9654-4abe-b748-9f24702088e2')
-
-    #Frap.visualize_policy_behavior(
-    #    scenario='0_regular-intersection', _type='right_on_red', traffic_level_configuration='custom_4_street_traffic',
-    #    experiment='0_regular-intersection__right_on_red__custom_4_street_traffic___09_22_22_10_21_10__e95b402f-7307-416e-9152-dbb0c5981eaa', 
-    #    _round=370)
-    
     #_run(_type='right_on_red')
     #_run(_type='unregulated')
 
+    '''
+    Frap.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___10_06_15_35_28_10__a05adcb1-1e85-4639-bffa-5f97e40f92a9',
+                 plots='summary_only', baseline_comparison=True, scenario='0_regular-intersection',
+                 traffic_level_configuration='custom_4_street_traffic')
+
+    Frap.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___10_06_15_35_28_10__a05adcb1-1e85-4639-bffa-5f97e40f92a9',
+                 plots='records_only', _round=265, baseline_comparison=True, scenario='0_regular-intersection',
+                 traffic_level_configuration='custom_4_street_traffic')
+    '''
+
+    '''
+    _round = 'worst_time_loss'
+    #_round = 0
+
+    Frap.visualize_policy_behavior(
+        scenario='0_regular-intersection', _type='right_on_red', traffic_level_configuration='custom_4_street_traffic',
+        experiment=experiment, _round=_round)
+    '''
     '''
     for _dir, folders, files in os.walk('/home/marcelo/code/urban-semaphore-optimization/scenario/test_i/0_regular-intersection/output/FRAP/right_on_red/'):
 

@@ -65,5 +65,19 @@ def run(external_configurations={}):
 
     return experiment_name
 
+def continue_(experiment, external_configurations={}):
+    # python run_batch.py - -num_phase = 8 - -algorithm = TransferDQN - -workers = 12 - -memo = TransferDQN
+    args = parse_args()
+    memo = args.memo
+
+    _, dic_path = runexp.continue_(experiment, args, memo, external_configurations)
+    print("****************************** runexp ends (generate, train, test)!! ******************************")
+    records_dir = dic_path["PATH_TO_WORK_DIRECTORY"]
+    summary.single_experiment_summary(memo, records_dir, plots='summary_only')
+    print("****************************** summary_detail ends ******************************")
+    experiment_name = dic_path["EXECUTION_BASE"]
+
+    return experiment_name
+
 if __name__ == "__main__":
     run()

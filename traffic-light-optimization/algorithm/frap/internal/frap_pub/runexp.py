@@ -1,6 +1,7 @@
 import os
 import time
 import copy
+import json
 from multiprocessing import Process
 
 from lxml import etree
@@ -43,12 +44,14 @@ def check_all_workers_working(list_cur_p):
     return -1
 
 
-def pipeline_wrapper(dic_exp_conf, dic_agent_conf, dic_traffic_env_conf, dic_path, external_configurations={}):
+def pipeline_wrapper(dic_exp_conf, dic_agent_conf, dic_traffic_env_conf, dic_path, 
+                     external_configurations={}, existing_experiment=None):
     ppl = Pipeline(dic_exp_conf=dic_exp_conf,
                    dic_agent_conf=dic_agent_conf,
                    dic_traffic_env_conf=dic_traffic_env_conf,
                    dic_path=dic_path,
-                   external_configurations=external_configurations
+                   external_configurations=external_configurations,
+                   existing_experiment=existing_experiment
                    )
     ppl.run(multi_process=True)
 
@@ -57,11 +60,6 @@ def pipeline_wrapper(dic_exp_conf, dic_agent_conf, dic_traffic_env_conf, dic_pat
 
 
 def main(args=None, memo=None, external_configurations={}):
-
-    #traffic_file_list = [
-    #    "0_regular-intersection.rou.xml"
-    #    #"inter_0_1786.json",
-    #]
 
     traffic_file_list = external_configurations['TRAFFIC_FILE_LIST']
     roadnet_file = external_configurations['ROADNET_FILE']
@@ -78,8 +76,6 @@ def main(args=None, memo=None, external_configurations={}):
     multi_process = True
 
 
-    # ind_arg = int(sys.argv[1])
-
     if not memo:
         memo = "headway_test"
 
@@ -88,17 +84,6 @@ def main(args=None, memo=None, external_configurations={}):
         postfix = "_" + str(args.min_action_time)
 
         template = "template_ls"
-
-        # if dic_traffic_env_conf_extra["N_LEG"] == 5 or dic_traffic_env_conf_extra["N_LEG"] == 6:
-        #    template = "template_{0}_leg".format(dic_traffic_env_conf_extra["N_LEG"])
-        # else:
-        #    ## ==================== multi_phase ====================
-        #    if dic_traffic_env_conf_extra["LANE_NUM"] == config._LS:
-        #        template = "template_ls"
-        #    elif dic_traffic_env_conf_extra["LANE_NUM"] == config._S:
-        #        template = "template_s"
-        #    else:
-        #        raise ValueError
 
         suffix = time.strftime('%m_%d_%H_%M_%S', time.localtime(time.time())) + postfix + '__' + unique_id
 
@@ -127,7 +112,6 @@ def main(args=None, memo=None, external_configurations={}):
         execution_base = split_output_filename[0].rsplit('/', 1)[1]
         dic_path_extra["EXECUTION_BASE"] = execution_base
 
-        #model_name = "SimpleDQN"
         model_name = args.algorithm
         ratio = 1
         dic_exp_conf_extra = {
@@ -135,7 +119,6 @@ def main(args=None, memo=None, external_configurations={}):
             "TEST_RUN_COUNTS": args.test_run_counts,
             "MODEL_NAME": model_name,
             "TRAFFIC_FILE": [traffic_file], # here: change to multi_traffic
-            #"ROADNET_FILE": "roadnet_1_1.json",
             "ROADNET_FILE": roadnet_file,
 
             "NUM_ROUNDS": args.run_round,
@@ -198,7 +181,6 @@ def main(args=None, memo=None, external_configurations={}):
             "NUM_COL": 1,
 
             "TRAFFIC_FILE": traffic_file,
-            #"ROADNET_FILE": "roadnet_1_1.json",
             "ROADNET_FILE": roadnet_file,
 
             "LIST_STATE_FEATURE": [
@@ -326,6 +308,73 @@ def main(args=None, memo=None, external_configurations={}):
             p.join()
 
     return memo, deploy_dic_path
+
+def continue_(existing_experiment, args=None, memo=None, external_configurations={}):
+
+    n_workers = args.workers #len(traffic_file_list)
+
+    multi_process = True
+
+    dir_ = os.path.join('TransferDQN', existing_experiment)
+
+    model_dir = "model/" + dir_
+    records_dir = "records/" + dir_
+    dic_path = {}
+    dic_path["PATH_TO_MODEL"] = model_dir
+    dic_path["PATH_TO_WORK_DIRECTORY"] = records_dir
+
+    with open(os.path.join(ROOT_DIR, records_dir, "agent.conf"), "r") as f:
+        dic_agent_conf = json.load(f)
+    with open(os.path.join(ROOT_DIR, records_dir, "exp.conf"), "r") as f:
+        dic_exp_conf = json.load(f)
+    with open(os.path.join(ROOT_DIR, records_dir, "traffic_env.conf"), "r") as f:
+        dic_traffic_env_conf = json.load(f)
+
+    dic_traffic_env_conf['phase_expansion'] = {int(key): value for key, value in dic_traffic_env_conf['phase_expansion'].items()}
+
+    if multi_process:
+        ppl = Process(target=pipeline_wrapper,
+                        args=(dic_exp_conf,
+                            dic_agent_conf,
+                            dic_traffic_env_conf,
+                            dic_path,
+                            external_configurations,
+                            existing_experiment))
+        process_list.append(ppl)
+    else:
+        pipeline_wrapper(dic_exp_conf=dic_exp_conf,
+                            dic_agent_conf=dic_agent_conf,
+                            dic_traffic_env_conf=dic_traffic_env_conf,
+                            dic_path=dic_path,
+                            external_configurations=external_configurations,
+                            existing_experiment=existing_experiment)
+
+    if multi_process:
+        i = 0
+        list_cur_p = []
+        for p in process_list:
+            if len(list_cur_p) < n_workers:
+                print(i)
+                p.start()
+                list_cur_p.append(p)
+                i += 1
+            if len(list_cur_p) < n_workers:
+                continue
+
+            idle = check_all_workers_working(list_cur_p)
+
+            while idle == -1:
+                time.sleep(1)
+                idle = check_all_workers_working(
+                    list_cur_p)
+            del list_cur_p[idle]
+
+        for i in range(len(list_cur_p)):
+            p = list_cur_p[i]
+            p.join()
+
+    return memo, dic_path
+
 
 if __name__ == "__main__":
 
