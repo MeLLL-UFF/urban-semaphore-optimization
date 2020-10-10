@@ -311,6 +311,7 @@ def main(args=None, memo=None, external_configurations={}):
 
 def continue_(existing_experiment, args=None, memo=None, external_configurations={}):
 
+    process_list = []
     n_workers = args.workers #len(traffic_file_list)
 
     multi_process = True
