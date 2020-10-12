@@ -320,17 +320,23 @@ class Pipeline:
         self.dic_exp_conf["PRETRAIN"] = False
         self.dic_exp_conf["AGGREGATE"] = False
 
-        round_ = 0
+        round_start = 0
+        round_end = self.dic_exp_conf["NUM_ROUNDS"]
+
         if self.existing_experiment is not None:
             test_dir = os.path.join(ROOT_DIR, self.dic_path["PATH_TO_WORK_DIRECTORY"], "test_round")
 
-            round_folders = next(os.walk(test_dir))[1]
-            round_folders.sort(key=lambda x: int(x.split('_')[1]))
-            last_round = round_folders[-1]
-            round_ = int(last_round.split('_')[1])
+            if round_ == 'FROM_THE_LAST':
+                round_folders = next(os.walk(test_dir))[1]
+                round_folders.sort(key=lambda x: int(x.split('_')[1]))
+                last_round = round_folders[-1]
+                round_start = int(last_round.split('_')[1])
+            else:
+                round_start = round_
+                round_end = round_ + 1
 
         # train
-        for cnt_round in range(round_, self.dic_exp_conf["NUM_ROUNDS"]):
+        for cnt_round in range(round_start, round_end):
             print("round %d starts" % cnt_round)
 
             round_start_t = time.time()

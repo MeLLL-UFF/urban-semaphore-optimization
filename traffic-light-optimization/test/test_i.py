@@ -227,7 +227,7 @@ def create_experiment_generator(_type='regular', algorithm=None):
 def run_experiment(arguments):
 
     scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, sumocfg_file, \
-        output_folder = arguments
+        output_folder, step_length = arguments
 
     route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
     #route_file = scenario_folder + '/' + 'temp' + '/' + 'routes' + '/' + scenario + '_' + '_'.join(traffic_level_configuration) + '.rou.xml'
@@ -249,7 +249,7 @@ def run_experiment(arguments):
             handle.write(str(timing))
     else:
 
-        sumo = SumoBased(net_file, route_file, output_file, scenario, _type, traffic_level_configuration)
+        sumo = SumoBased(net_file, route_file, output_file, scenario, _type, traffic_level_configuration, step_length)
         sumo.run()
 
     sys.stdout.flush()
@@ -278,7 +278,35 @@ def continue_experiment(arguments):
 
     os.remove(route_file)
 
-def _run(_type='regular', algorithm=None, experiment=None):
+def re_run(arguments):
+
+    scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, sumocfg_file, \
+        output_folder, experiment = arguments
+
+    route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
+    #route_file = scenario_folder + '/' + 'temp' + '/' + 'routes' + '/' + scenario + '_' + '_'.join(traffic_level_configuration) + '.rou.xml'
+    output_file = output_folder + experiment_name + '.out.txt'
+
+    if not os.path.isdir(output_folder):
+        os.makedirs(output_folder)
+
+    if algorithm == 'FRAP':
+        Frap.retrain(
+            experiment='0_regular-intersection__right_on_red__custom_4_street_traffic___10_10_07_54_05_10__74168e65-8cce-41de-927d-1a64cbe6b929', 
+            _round=3, 
+            net_file=net_file, 
+            route_file=route_file, 
+            sumocfg_file=sumocfg_file, 
+            output_file=output_file, 
+            traffic_level_configuration=traffic_level_configuration)
+    else:
+        raise ValueError('please specify algorithm that can be retrained')
+
+    sys.stdout.flush()
+
+    os.remove(route_file)
+
+def _run(_type='regular', algorithm=None, experiment=None, step_length=1):
     
     experiment_generator = create_experiment_generator(_type=_type, algorithm=algorithm)
 
@@ -313,20 +341,22 @@ if __name__ == "__main__":
     #_build_experiment_i_routes()
     run()
 
-    #_run(_type='right_on_red')
-    #_run(_type='unregulated')
+    #_run(_type='right_on_red', step_length=1)
+    #_run(_type='unregulated', step_length=1)
 
     '''
-    Frap.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___10_06_15_35_28_10__a05adcb1-1e85-4639-bffa-5f97e40f92a9',
+    Frap.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___10_09_17_41_52_10__eabb03b9-3291-42c1-9ab2-7e9ca95f6795',
                  plots='summary_only', baseline_comparison=True, scenario='0_regular-intersection',
                  traffic_level_configuration='custom_4_street_traffic')
 
-    Frap.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___10_06_15_35_28_10__a05adcb1-1e85-4639-bffa-5f97e40f92a9',
-                 plots='records_only', _round=265, baseline_comparison=True, scenario='0_regular-intersection',
+    Frap.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___10_09_17_41_52_10__eabb03b9-3291-42c1-9ab2-7e9ca95f6795',
+                 plots='records_only', _round=322, baseline_comparison=True, scenario='0_regular-intersection',
                  traffic_level_configuration='custom_4_street_traffic')
     '''
 
     '''
+    experiment = '0_regular-intersection__right_on_red__custom_4_street_traffic___10_04_21_00_35_10__4ff3043f-4ccb-4877-be7f-f47b2f7291e6'
+
     _round = 'worst_time_loss'
     #_round = 0
 

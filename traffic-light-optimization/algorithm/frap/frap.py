@@ -116,8 +116,20 @@ class Frap:
             round_number=_round, 
             run_cnt=3600,
             execution_name=execution_name,
-            if_gui=True,
+            rewrite_mode=False,
             external_configurations=external_configurations)
+
+
+    @staticmethod
+    def retrain(experiment, _round, net_file, route_file, sumocfg_file, output_file, traffic_level_configuration):
+
+        external_configurations = Frap._create_external_configurations_dict(
+            net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
+
+        experiment_name = run_batch.continue_(experiment, _round, external_configurations)
+
+        return experiment_name
+
 
     @staticmethod
     def summary(experiment, plots='all', _round=None, baseline_comparison=True, scenario=None,

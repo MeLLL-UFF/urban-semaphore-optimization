@@ -70,14 +70,23 @@ def continue_(experiment, external_configurations={}):
     args = parse_args()
     memo = args.memo
 
-    _, dic_path = runexp.continue_(experiment, args, memo, external_configurations)
+    _, dic_path = runexp.continue_(experiment, 'FROM_THE_LAST', args, memo, external_configurations)
     print("****************************** runexp ends (generate, train, test)!! ******************************")
     records_dir = dic_path["PATH_TO_WORK_DIRECTORY"]
     summary.single_experiment_summary(memo, records_dir, plots='summary_only')
     print("****************************** summary_detail ends ******************************")
-    experiment_name = dic_path["EXECUTION_BASE"]
 
-    return experiment_name
+    return experiment
+
+def re_run(experiment, round_, external_configurations={}):
+    # python run_batch.py - -num_phase = 8 - -algorithm = TransferDQN - -workers = 12 - -memo = TransferDQN
+    args = parse_args()
+    memo = args.memo
+
+    _, dic_path = runexp.continue_(experiment, round_, args, memo, external_configurations)
+    print("****************************** runexp ends (generate, train, test)!! ******************************")
+
+    return experiment
 
 if __name__ == "__main__":
     run()

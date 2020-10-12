@@ -45,15 +45,15 @@ def check_all_workers_working(list_cur_p):
 
 
 def pipeline_wrapper(dic_exp_conf, dic_agent_conf, dic_traffic_env_conf, dic_path, 
-                     external_configurations={}, existing_experiment=None):
+                     external_configurations={}, existing_experiment=None, round_='FROM_THE_LAST'):
     ppl = Pipeline(dic_exp_conf=dic_exp_conf,
                    dic_agent_conf=dic_agent_conf,
                    dic_traffic_env_conf=dic_traffic_env_conf,
                    dic_path=dic_path,
                    external_configurations=external_configurations,
-                   existing_experiment=existing_experiment
+                   existing_experiment=existing_experiment,
                    )
-    ppl.run(multi_process=True)
+    ppl.run(multi_process=True, round_=round_)
 
     print("pipeline_wrapper end")
     return
@@ -309,7 +309,7 @@ def main(args=None, memo=None, external_configurations={}):
 
     return memo, deploy_dic_path
 
-def continue_(existing_experiment, args=None, memo=None, external_configurations={}):
+def continue_(existing_experiment, round_='FROM_THE_LAST', args=None, memo=None, external_configurations={}):
 
     process_list = []
     n_workers = args.workers #len(traffic_file_list)
@@ -340,7 +340,8 @@ def continue_(existing_experiment, args=None, memo=None, external_configurations
                             dic_traffic_env_conf,
                             dic_path,
                             external_configurations,
-                            existing_experiment))
+                            existing_experiment, 
+                            round_))
         process_list.append(ppl)
     else:
         pipeline_wrapper(dic_exp_conf=dic_exp_conf,
@@ -348,7 +349,8 @@ def continue_(existing_experiment, args=None, memo=None, external_configurations
                             dic_traffic_env_conf=dic_traffic_env_conf,
                             dic_path=dic_path,
                             external_configurations=external_configurations,
-                            existing_experiment=existing_experiment)
+                            existing_experiment=existing_experiment,
+                            round_=round_)
 
     if multi_process:
         i = 0

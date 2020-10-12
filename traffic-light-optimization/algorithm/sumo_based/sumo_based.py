@@ -60,7 +60,7 @@ class SumoBased:
         'VAR_ROUTE_INDEX'
     ]
 
-    def __init__(self, net_file, route_file, output_file, scenario, _type, traffic_level_configuration):
+    def __init__(self, net_file, route_file, output_file, scenario, _type, traffic_level_configuration, step_length):
 
         self.net_file = net_file
         self.route_file = route_file
@@ -69,7 +69,7 @@ class SumoBased:
         self._type = _type
         self.traffic_level_configuration = traffic_level_configuration
 
-        self.step_length = 1
+        self.step_length = step_length
 
         self.name_base = scenario + '__' + _type + '__' + '_'.join(traffic_level_configuration)
 
