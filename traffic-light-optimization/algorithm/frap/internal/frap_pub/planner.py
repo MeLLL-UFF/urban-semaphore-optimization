@@ -48,7 +48,7 @@ class Planner:
         step_num = 0
         stop_cnt = 0
 
-        test_run_counts = dic_exp_conf["TEST_RUN_COUNTS"] 
+        test_run_counts = self.dic_exp_conf["TEST_RUN_COUNTS"] 
         min_action_time = self.dic_traffic_env_conf["MIN_ACTION_TIME"]
 
         while not done and step_num < int(test_run_counts / min_action_time):

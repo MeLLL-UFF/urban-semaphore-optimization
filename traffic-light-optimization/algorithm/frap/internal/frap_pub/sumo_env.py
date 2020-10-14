@@ -100,7 +100,12 @@ class SumoEnv:
                 f = open(ROOT_DIR + '/' + path_to_log_file, "wb")
                 f.close()
 
+        self.execution_name = None
+        
+
     def reset(self, execution_name):
+
+        self.execution_name = execution_name
 
         # initialize intersections
         # self.list_intersection = [Intersection(i, self.LIST_VEHICLE_VARIABLES_TO_SUB)
@@ -272,7 +277,7 @@ class SumoEnv:
             os.makedirs(ROOT_DIR + '/' + self.environment_state_path)
 
         if name is None:
-            state_name = 'save_state' + '_' + str(self.get_current_time()) +  '.sbx'
+            state_name = self.execution_name + '_' + 'save_state' + '_' + str(self.get_current_time()) +  '.sbx'
 
         filepath = os.path.join(ROOT_DIR, self.environment_state_path, state_name)
 
@@ -282,7 +287,7 @@ class SumoEnv:
 
     def get_save_state_filepath(self, time):
         
-        state_filename = 'save_state' + '_' + str(time) +  '.sbx'
+        state_filename = self.execution_name + '_' + 'save_state' + '_' + str(time) +  '.sbx'
 
         filepath = os.path.join(ROOT_DIR, self.environment_state_path, state_filename)
 

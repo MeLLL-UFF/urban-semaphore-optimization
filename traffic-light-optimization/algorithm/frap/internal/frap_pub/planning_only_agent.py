@@ -27,19 +27,17 @@ class PlanningOnlyAgent(Agent):
 
         save_state_filepath = self.env.save_state()
 
-        test_run_counts = self.dic_agent_conf["PLANNING_TIME_MULTIPLIER"]*self.dic_traffic_env_conf["MIN_ACTION_TIME"]
-
         kwargs = {
             'initial_step': initial_step,
             'path_to_log': copy.deepcopy(self.env.path_to_log),
             'path_to_work_directory': copy.deepcopy(self.env.path_to_work_directory),
+            'dic_agent_conf': copy.deepcopy(self.dic_agent_conf),
             'dic_traffic_env_conf': copy.deepcopy(self.env.dic_traffic_env_conf),
             'dic_path': copy.deepcopy(self.env.dic_path),
             'dic_exp_conf': copy.deepcopy(self.dic_exp_conf),
             'external_configurations': copy.deepcopy(self.env.external_configurations),
             'save_state_filepath': save_state_filepath,
-            'env_mode': self.env.mode,
-            'test_run_counts': test_run_counts
+            'env_mode': self.env.mode
         }
 
         pool = multiprocessing.Pool(processes=4)
@@ -60,13 +58,13 @@ class PlanningOnlyAgent(Agent):
             initial_step, 
             path_to_log,
             path_to_work_directory,
+            dic_agent_conf,
             dic_traffic_env_conf,
             dic_path,
             dic_exp_conf,
             external_configurations,
             save_state_filepath, 
-            env_mode,
-            test_run_counts):
+            env_mode):
             
         
         external_configurations['SUMOCFG_PARAMETERS'].update(
@@ -75,9 +73,11 @@ class PlanningOnlyAgent(Agent):
                 '--load-state': save_state_filepath
             }
         )
+
+        test_run_counts = dic_agent_conf["PLANNING_TIME_MULTIPLIER"] * dic_traffic_env_conf["MIN_ACTION_TIME"]
         dic_exp_conf["TEST_RUN_COUNTS"] = test_run_counts
 
-        from algorithm.frap.internal.frap_pub.config import DIC_ENVS
+        from algorithm.frap.internal.frap_pub.config import DIC_AGENTS, DIC_ENVS
         
         env = DIC_ENVS[dic_traffic_env_conf["SIMULATOR_TYPE"]](
             path_to_log=path_to_log,
@@ -87,13 +87,22 @@ class PlanningOnlyAgent(Agent):
             external_configurations=external_configurations,
             mode=env_mode)
 
+        agent_name = dic_exp_conf["MODEL_NAME"]
+        agent = DIC_AGENTS[agent_name](
+            dic_agent_conf=dic_agent_conf,
+            dic_traffic_env_conf=dic_traffic_env_conf,
+            dic_path=dic_path,
+            dic_exp_conf=dic_exp_conf,
+            env=env
+        )
+
         done = False
         execution_name = 'planning' + '_' + 'phase' + '_' + str(phase_index) + \
-            '_' + 'for step' + '_' + initial_step
+            '_' + 'for step' + '_' + str(initial_step)
         state = env.reset(execution_name)
         
-        test_run_counts = dic_exp_conf["TEST_RUN_COUNTS"] 
-        min_action_time = self.dic_traffic_env_conf["MIN_ACTION_TIME"]
+        test_run_counts = dic_exp_conf["TEST_RUN_COUNTS"]
+        min_action_time = dic_traffic_env_conf["MIN_ACTION_TIME"]
         
         step_num = 0
         stop_cnt = 0
@@ -105,7 +114,7 @@ class PlanningOnlyAgent(Agent):
                 if dic_agent_conf["PICK_ACTION_AND_KEEP_WITH_IT"] or step_num == 0:
                     action = phase_index
                 else:
-                    action = self.choose_action(initial_step + (step_num * min_action_time), one_state)
+                    action = agent.choose_action(initial_step + (step_num * min_action_time), one_state)
 
                 action_list.append(action)
 
