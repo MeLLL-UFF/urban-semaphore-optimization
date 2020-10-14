@@ -1,12 +1,14 @@
-import json
 import os
+import json
 import pickle
-from algorithm.frap.internal.frap_pub.config import DIC_AGENTS, DIC_ENVS
-import numpy as np
-import pandas as pd
 from math import isnan
 
+import numpy as np
+import pandas as pd
+
+from algorithm.frap.internal.frap_pub.config import DIC_AGENTS, DIC_ENVS
 from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
+
 
 
 def check_all_workers_working(list_cur_p):
@@ -133,12 +135,13 @@ def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_c
                                                                path_to_work_directory=dic_path[
                                                                    "PATH_TO_WORK_DIRECTORY"],
                                                                dic_traffic_env_conf=dic_traffic_env_conf,
+                                                               dic_path=dic_path,
                                                                external_configurations=external_configurations,
                                                                mode='test')
 
         done = False
         execution_name = 'test' + '_' + 'round' + '_' + str(cnt_round)
-        state = env.reset(execution_name, dic_path, external_configurations=external_configurations)
+        state = env.reset(execution_name)
         step_num = 0
         stop_cnt = 0
         while step_num < int(dic_exp_conf["TEST_RUN_COUNTS"] / dic_traffic_env_conf["MIN_ACTION_TIME"]):

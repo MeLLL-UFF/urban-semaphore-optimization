@@ -105,11 +105,12 @@ class ModelPool():
                              path_to_log=path_to_log,
                              path_to_work_directory=self.dic_path["PATH_TO_WORK_DIRECTORY"],
                              dic_traffic_env_conf=dic_traffic_env_conf,
+                             dic_path=dic_path,
                              external_configurations=external_configurations,
                              mode='train')
 
             done = False
-            state = env.reset({}, external_configurations=external_configurations)
+            state = env.reset()
             step_num = 0
 
             while not done and step_num < int(dic_exp_conf["RUN_COUNTS"] / dic_traffic_env_conf["MIN_ACTION_TIME"]):

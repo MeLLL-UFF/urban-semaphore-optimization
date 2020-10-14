@@ -45,11 +45,8 @@ def parse_args():
 
 
 def run(external_configurations={}):
-    # python run_batch.py - -num_phase = 8 - -algorithm = TransferDQN - -workers = 12 - -memo = TransferDQN
     args = parse_args()
-    # memo = "multi_phase/optimal_search_new/new_headway_anon"
     memo = args.memo
-    #os.environ["CUDA_VISIBLE_DEVICES"] = args.visible_gpu
 
     t1 = time.time()
     _, dic_path = runexp.main(args, memo, external_configurations)
@@ -66,7 +63,6 @@ def run(external_configurations={}):
     return experiment_name
 
 def continue_(experiment, external_configurations={}):
-    # python run_batch.py - -num_phase = 8 - -algorithm = TransferDQN - -workers = 12 - -memo = TransferDQN
     args = parse_args()
     memo = args.memo
 
@@ -79,7 +75,6 @@ def continue_(experiment, external_configurations={}):
     return experiment
 
 def re_run(experiment, round_, external_configurations={}):
-    # python run_batch.py - -num_phase = 8 - -algorithm = TransferDQN - -workers = 12 - -memo = TransferDQN
     args = parse_args()
     memo = args.memo
 

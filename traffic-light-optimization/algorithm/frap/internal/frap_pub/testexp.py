@@ -69,11 +69,12 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
         env = DIC_ENVS[dic_traffic_env_conf["SIMULATOR_TYPE"]](path_to_log=path_to_log,
                          path_to_work_directory=dic_path["PATH_TO_WORK_DIRECTORY"],
                          dic_traffic_env_conf=dic_traffic_env_conf,
+                         dic_path=dic_path,
                          external_configurations=external_configurations,
                          mode='test')
 
         done = False
-        state = env.reset(dic_path, external_configurations)
+        state = env.reset()
         step_num = 0
 
         while not done and step_num < int(dic_exp_conf["RUN_COUNTS"] / dic_traffic_env_conf["MIN_ACTION_TIME"]):

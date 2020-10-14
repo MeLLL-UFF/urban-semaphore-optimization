@@ -1,6 +1,7 @@
 # parameters and paths
 
 from algorithm.frap.internal.frap_pub.transfer_dqn_agent import TransferDQNAgent
+from algorithm.frap.internal.frap_pub.planning_only_agent import PlanningOnlyAgent
 from algorithm.frap.internal.frap_pub.sumo_env import SumoEnv
 from algorithm.frap.internal.frap_pub.anon_env import AnonEnv
 
@@ -190,6 +191,11 @@ DIC_TRANSFERDQN_AGENT_CONF = {
     "MERGE": "multiply"
 }
 
+DIC_PLANNINGONLY_AGENT_CONF = {
+    "PLANNING_TIME_MULTIPLIER": 3,
+    "PICK_ACTION_AND_KEEP_WITH_IT": True
+}
+
 DIC_PATH = {
     "PATH_TO_MODEL": "model/default",
     "PATH_TO_WORK_DIRECTORY": "records/default",
@@ -203,6 +209,7 @@ DIC_PATH = {
 
 DIC_AGENTS = {
     "TransferDQN": TransferDQNAgent,
+    "PlanningOnly": PlanningOnlyAgent
 }
 
 DIC_ENVS = {

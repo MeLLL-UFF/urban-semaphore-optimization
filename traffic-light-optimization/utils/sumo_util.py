@@ -665,3 +665,59 @@ def convert_sumo_angle_to_canonical_angle(sumo_angle):
         canonical_angle = 90 - (sumo_angle - 360)
 
     return canonical_angle
+
+
+def convert_flows_to_trips(route_file):
+    
+    parser = etree.XMLParser(remove_blank_text=True)
+    route_xml = etree.parse(route_file, parser)
+
+    flows = route_xml.findall('.//flow')
+
+    root = route_xml.getroot()
+
+    rng = np.random.Generator(np.random.MT19937(23423))
+
+    trips = []
+    for flow in flows:
+
+        id_ = flow.get('id')
+
+        begin = int(flow.get('begin'))
+        end = int(flow.get('end'))
+
+        probability = float(flow.get('probability'))
+
+        from_edge = flow.get('from')
+        to_edge = flow.get('to')
+        depart_lane = flow.get('departLane')
+        depart_speed = flow.get('departSpeed')
+
+        depart_times = np.where(rng.binomial(1, probability, end - begin) == 1)[0]
+
+        vehicle_count = 0
+
+        for depart_time in depart_times:
+
+            vehicle_count += 1
+
+            attributes = {
+                'id': id_ + '.' + str(vehicle_count),
+                'from': from_edge,
+                'to': to_edge,
+                'depart': str(depart_time),
+                'departLane': depart_lane,
+                'departSpeed': depart_speed
+            }
+
+            trip = etree.Element('trip', attributes)
+            trips.append(trip)
+
+        root.remove(flow)
+
+    trips.sort(key=lambda x: float(x.get('depart')))
+
+    root.extend(trips)
+
+    with open(route_file, 'wb') as handle:
+        route_xml.write(handle, pretty_print=True)

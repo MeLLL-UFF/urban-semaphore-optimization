@@ -231,24 +231,18 @@ class SumoBased:
         while traci.simulation.getMinExpectedNumber() > 0 and \
                 traci.simulation.getTime() < max_time:
 
-            if visualize_only:
-                for i in range(int(1/self.step_length)):
-                    traci.simulationStep()
+            self._update_previous_measurements()
 
-                blocked_vehicles = sumo_traci_util.detect_deadlock(self.net_file_xml, self.current_step_vehicle_subscription_data)
-                sumo_traci_util.resolve_deadlock(blocked_vehicles, self.net_file_xml, self.current_step_vehicle_subscription_data)
-            else:
-                self._update_previous_measurements()
+            for i in range(int(1/self.step_length)):
+                traci.simulationStep()
 
-                for i in range(int(1/self.step_length)):
-                    traci.simulationStep()
+            self._update_current_measurements()
 
-                self._update_current_measurements()
-
+            if not visualize_only:
                 self._collect_simulation_data()
 
-                blocked_vehicles = sumo_traci_util.detect_deadlock(self.net_file_xml, self.current_step_vehicle_subscription_data)
-                sumo_traci_util.resolve_deadlock(blocked_vehicles, self.net_file_xml, self.current_step_vehicle_subscription_data)
+            blocked_vehicles = sumo_traci_util.detect_deadlock(self.net_file_xml, self.current_step_vehicle_subscription_data)
+            sumo_traci_util.resolve_deadlock(blocked_vehicles, self.net_file_xml, self.current_step_vehicle_subscription_data)
 
     def _collect_simulation_data(self):
         

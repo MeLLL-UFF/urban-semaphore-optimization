@@ -1,121 +1,29 @@
-import json
 import os
+import sys
 import shutil
+import json
+import pickle
+import random
+import time
+from math import isnan
+from multiprocessing import Process
+
+import numpy as np
+import pandas as pd
 import xml.etree.ElementTree as ET
+
+from utils import sumo_util
+
 from algorithm.frap.internal.frap_pub.generator import Generator
+from algorithm.frap.internal.frap_pub.planner import Planner
 from algorithm.frap.internal.frap_pub.construct_sample import ConstructSample
 from algorithm.frap.internal.frap_pub.updater import Updater
-from multiprocessing import Process
 from algorithm.frap.internal.frap_pub.model_pool import ModelPool
-import random
-import pickle
 import algorithm.frap.internal.frap_pub.model_test as model_test
-import pandas as pd
-import numpy as np
-from math import isnan
-import sys
-import time
-
 from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
 
+
 class Pipeline:
-    #_LIST_SUMO_FILES = [
-    #    "0_regular-intersection__right_on_red.sumocfg",
-    #    "0_regular-intersection__right_on_red.net.xml"
-    #    #"cross.car.type.xml",
-    #    #"cross.con.xml",
-    #    #"cross.edg.xml",
-    #    #"cross.net.xml",
-    #    #"cross.netccfg",
-    #    #"cross.nod.xml",
-    #    #"cross.sumocfg",
-    #    #"cross.tll.xml",
-    #    #"cross.typ.xml"
-    #]
-
-    @staticmethod
-    def _set_traffic_file(sumo_config_file_tmp_name, sumo_config_file_output_name, list_traffic_file_name):
-
-        # update sumocfg
-        sumo_cfg = ET.parse(ROOT_DIR + '/' + sumo_config_file_tmp_name)
-        config_node = sumo_cfg.getroot()
-        input_node = config_node.find("input")
-        for route_files in input_node.findall("route-files"):
-            input_node.remove(route_files)
-        input_node.append(
-            ET.Element("route-files", attrib={"value": ",".join(list_traffic_file_name)}))
-        sumo_cfg.write(ROOT_DIR + '/' + sumo_config_file_output_name)
-
-    def _path_check(self):
-        # check path
-        if os.path.exists(ROOT_DIR + '/' + self.dic_path["PATH_TO_WORK_DIRECTORY"]):
-            if ROOT_DIR + '/' + self.dic_path["PATH_TO_WORK_DIRECTORY"] != "records/default":
-                raise FileExistsError
-            else:
-                pass
-        else:
-            os.makedirs(ROOT_DIR + '/' + self.dic_path["PATH_TO_WORK_DIRECTORY"])
-
-        if os.path.exists(ROOT_DIR + '/' + self.dic_path["PATH_TO_MODEL"]):
-            if ROOT_DIR + '/' + self.dic_path["PATH_TO_MODEL"] != "model/default":
-                raise FileExistsError
-            else:
-                pass
-        else:
-            os.makedirs(ROOT_DIR + '/' + self.dic_path["PATH_TO_MODEL"])
-
-        if self.dic_exp_conf["PRETRAIN"]:
-            if os.path.exists(ROOT_DIR + '/' + self.dic_path["PATH_TO_PRETRAIN_WORK_DIRECTORY"]):
-                pass
-            else:
-                os.makedirs(ROOT_DIR + '/' + self.dic_path["PATH_TO_PRETRAIN_WORK_DIRECTORY"])
-
-            if os.path.exists(ROOT_DIR + '/' + self.dic_path["PATH_TO_PRETRAIN_MODEL"]):
-                pass
-            else:
-                os.makedirs(ROOT_DIR + '/' + self.dic_path["PATH_TO_PRETRAIN_MODEL"])
-
-    def _copy_conf_file(self, path=None):
-        # write conf files
-        if path == None:
-            path = self.dic_path["PATH_TO_WORK_DIRECTORY"]
-        json.dump(self.dic_exp_conf, open(os.path.join(ROOT_DIR, path, "exp.conf"), "w"),
-                  indent=4)
-        json.dump(self.dic_agent_conf, open(os.path.join(ROOT_DIR, path, "agent.conf"), "w"),
-                  indent=4)
-        json.dump(self.dic_traffic_env_conf,
-                  open(os.path.join(ROOT_DIR, path, "traffic_env.conf"), "w"), indent=4)
-
-    def _copy_sumo_file(self, path=None, _list_sumo_files=[]):
-        if path == None:
-            path = self.dic_path["PATH_TO_WORK_DIRECTORY"]
-        # copy sumo files
-        for file_name in _list_sumo_files:
-            shutil.copy(os.path.join(ROOT_DIR, self.dic_path["PATH_TO_DATA"], file_name),
-                        os.path.join(ROOT_DIR, path, file_name))
-        for file_name in self.dic_exp_conf["TRAFFIC_FILE"]:
-            shutil.copy(os.path.join(ROOT_DIR, self.dic_path["PATH_TO_DATA"], file_name),
-                        os.path.join(ROOT_DIR, path, file_name))
-
-    def _copy_anon_file(self, path=None):
-        # hard code !!!
-        if path == None:
-            path = self.dic_path["PATH_TO_WORK_DIRECTORY"]
-        # copy sumo files
-
-        shutil.copy(os.path.join(ROOT_DIR, self.dic_path["PATH_TO_DATA"], self.dic_exp_conf["TRAFFIC_FILE"][0]),
-                        os.path.join(ROOT_DIR, path, self.dic_exp_conf["TRAFFIC_FILE"][0]))
-        shutil.copy(os.path.join(ROOT_DIR, self.dic_path["PATH_TO_DATA"], self.dic_exp_conf["ROADNET_FILE"]),
-                    os.path.join(ROOT_DIR, path, self.dic_exp_conf["ROADNET_FILE"]))
-
-    def _modify_sumo_file(self, path=None, sumocfg_file=''):
-        if path == None:
-            path = self.dic_path["PATH_TO_WORK_DIRECTORY"]
-        # modify sumo files
-        self._set_traffic_file(os.path.join(self.dic_path["PATH_TO_WORK_DIRECTORY"],
-                                            sumocfg_file),
-                               os.path.join(path, sumocfg_file),
-                               self.dic_exp_conf["TRAFFIC_FILE"])
 
     def __init__(self, dic_exp_conf, dic_agent_conf, dic_traffic_env_conf, dic_path, 
                  external_configurations={}, existing_experiment=None):
@@ -129,7 +37,13 @@ class Pipeline:
 
         self.existing_experiment = existing_experiment
 
+        if dic_exp_conf["MODEL_NAME"] == 'PlanningOnly':
+            self.execution_mode = 'planning_only'
+        else:
+            self.execution_mode = 'original'
+
         if self.existing_experiment is None:
+
             # do file operations
             self._path_check()
             self._copy_conf_file()
@@ -138,6 +52,12 @@ class Pipeline:
                 sumocfg_file = self.external_configurations['SUMOCFG_FILE']
                 self._copy_sumo_file(_list_sumo_files=_list_sumo_files)
                 self._modify_sumo_file(sumocfg_file=sumocfg_file)
+
+                if self.execution_mode == 'planning_only':
+                    route_file_name = dic_traffic_env_conf['TRAFFIC_FILE']
+                    route_filepath = os.path.join(ROOT_DIR, self.dic_path["PATH_TO_WORK_DIRECTORY"], route_file_name)
+                    sumo_util.convert_flows_to_trips(route_filepath)
+
             elif self.dic_traffic_env_conf["SIMULATOR_TYPE"] == 'anon':
                 self._copy_anon_file()
             # test_duration
@@ -170,7 +90,7 @@ class Pipeline:
 
 
     def generator_wrapper(self, cnt_round, cnt_gen, dic_path, dic_exp_conf, dic_agent_conf, dic_traffic_env_conf,
-                          best_round=None):
+                          best_round=None, external_configurations={}):
         generator = Generator(cnt_round=cnt_round,
                               cnt_gen=cnt_gen,
                               dic_path=dic_path,
@@ -178,12 +98,22 @@ class Pipeline:
                               dic_agent_conf=dic_agent_conf,
                               dic_traffic_env_conf=dic_traffic_env_conf,
                               best_round=best_round,
-                              external_configurations=self.external_configurations
+                              external_configurations=external_configurations
                               )
         print("make generator")
         generator.generate()
         print("generator_wrapper end")
-        return
+
+    def planner_wrapper(self, cnt_round, dic_path, dic_exp_conf, dic_agent_conf, dic_traffic_env_conf,
+                          external_configurations={}):
+        planner = Planner(cnt_round=cnt_round,
+                          dic_path=dic_path,
+                          dic_exp_conf=dic_exp_conf,
+                          dic_agent_conf=dic_agent_conf,
+                          dic_traffic_env_conf=dic_traffic_env_conf,
+                          external_configurations=external_configurations
+                          )
+        planner.plan()
 
     def updater_wrapper(self, cnt_round, dic_agent_conf, dic_exp_conf, dic_traffic_env_conf, dic_path, best_round=None, bar_round=None):
 
@@ -223,7 +153,30 @@ class Pipeline:
         pickle.dump(subset_data, f_subset)
         f_subset.close()
 
-    def run(self, multi_process=True):
+    def run(self, multi_process=True, round_='FROM_THE_LAST'):
+
+        round_start = 0
+        round_end = self.dic_exp_conf["NUM_ROUNDS"]
+
+        if self.existing_experiment is not None:
+            test_dir = os.path.join(ROOT_DIR, self.dic_path["PATH_TO_WORK_DIRECTORY"], "test_round")
+
+            if round_ == 'FROM_THE_LAST':
+                round_folders = next(os.walk(test_dir))[1]
+                round_folders.sort(key=lambda x: int(x.split('_')[1]))
+                last_round = round_folders[-1]
+                round_start = int(last_round.split('_')[1])
+            else:
+                round_start = round_
+                round_end = round_ + 1
+
+        if self.execution_mode == 'original':
+            self.run_original(round_start, round_end, multi_process)
+        elif self.execution_mode == 'planning_only':
+            self.run_planning_only(multi_process)
+
+
+    def run_original(self, round_start, round_end, multi_process=True):
 
         best_round, bar_round = None, None
         # pretrain for acceleration
@@ -244,7 +197,8 @@ class Pipeline:
                             for cnt_gen in range(self.dic_exp_conf["PRETRAIN_NUM_GENERATORS"]):
                                 p = Process(target=self.generator_wrapper,
                                             args=(cnt_round, cnt_gen, self.dic_path, self.dic_exp_conf,
-                                                  self.dic_agent_conf, self.dic_sumo_env_conf, best_round)
+                                                  self.dic_agent_conf, self.dic_sumo_env_conf, best_round,
+                                                  self.external_configurations)
                                             )
                                 print("before")
                                 p.start()
@@ -262,7 +216,8 @@ class Pipeline:
                                                        dic_exp_conf=self.dic_exp_conf,
                                                        dic_agent_conf=self.dic_agent_conf,
                                                        dic_sumo_env_conf=self.dic_sumo_env_conf,
-                                                       best_round=best_round)
+                                                       best_round=best_round,
+                                                       external_configurations=self.external_configurations)
 
                         # ==============  make samples =============
                         # make samples and determine which samples are good
@@ -320,21 +275,6 @@ class Pipeline:
         self.dic_exp_conf["PRETRAIN"] = False
         self.dic_exp_conf["AGGREGATE"] = False
 
-        round_start = 0
-        round_end = self.dic_exp_conf["NUM_ROUNDS"]
-
-        if self.existing_experiment is not None:
-            test_dir = os.path.join(ROOT_DIR, self.dic_path["PATH_TO_WORK_DIRECTORY"], "test_round")
-
-            if round_ == 'FROM_THE_LAST':
-                round_folders = next(os.walk(test_dir))[1]
-                round_folders.sort(key=lambda x: int(x.split('_')[1]))
-                last_round = round_folders[-1]
-                round_start = int(last_round.split('_')[1])
-            else:
-                round_start = round_
-                round_end = round_ + 1
-
         # train
         for cnt_round in range(round_start, round_end):
             print("round %d starts" % cnt_round)
@@ -348,7 +288,8 @@ class Pipeline:
                 for cnt_gen in range(self.dic_exp_conf["NUM_GENERATORS"]):
                     p = Process(target=self.generator_wrapper,
                                 args=(cnt_round, cnt_gen, self.dic_path, self.dic_exp_conf,
-                                      self.dic_agent_conf, self.dic_traffic_env_conf, best_round)
+                                      self.dic_agent_conf, self.dic_traffic_env_conf, best_round,
+                                      self.external_configurations)
                                 )
                     p.start()
                     process_list.append(p)
@@ -363,7 +304,8 @@ class Pipeline:
                                            dic_exp_conf=self.dic_exp_conf,
                                            dic_agent_conf=self.dic_agent_conf,
                                            dic_traffic_env_conf=self.dic_traffic_env_conf,
-                                           best_round=best_round)
+                                           best_round=best_round,
+                                           external_configurations=self.external_configurations)
 
             # ==============  make samples =============
             # make samples and determine which samples are good
@@ -472,3 +414,108 @@ class Pipeline:
             f_timing.write("round_{0}: {1}\n".format(cnt_round, round_end_t-round_start_t))
             f_timing.close()
 
+
+    def run_planning_only(self, multi_process=True):
+
+        cnt_round = 0
+
+        if multi_process:
+            p = Process(target=self.planner_wrapper,
+                        args=(cnt_round, self.dic_path, self.dic_exp_conf,
+                                self.dic_agent_conf, self.dic_traffic_env_conf,
+                                self.external_configurations)
+                        )
+            p.start()
+            p.join()
+        else:
+            self.planner_wrapper(cnt_round=cnt_round,
+                                 dic_path=self.dic_path,
+                                 dic_exp_conf=self.dic_exp_conf,
+                                 dic_agent_conf=self.dic_agent_conf,
+                                 dic_traffic_env_conf=self.dic_traffic_env_conf,
+                                 external_configurations=self.external_configurations)
+
+
+    @staticmethod
+    def _set_traffic_file(sumo_config_file_tmp_name, sumo_config_file_output_name, list_traffic_file_name):
+
+        # update sumocfg
+        sumo_cfg = ET.parse(ROOT_DIR + '/' + sumo_config_file_tmp_name)
+        config_node = sumo_cfg.getroot()
+        input_node = config_node.find("input")
+        for route_files in input_node.findall("route-files"):
+            input_node.remove(route_files)
+        input_node.append(
+            ET.Element("route-files", attrib={"value": ",".join(list_traffic_file_name)}))
+        sumo_cfg.write(ROOT_DIR + '/' + sumo_config_file_output_name)
+
+    def _path_check(self):
+        # check path
+        if os.path.exists(ROOT_DIR + '/' + self.dic_path["PATH_TO_WORK_DIRECTORY"]):
+            if ROOT_DIR + '/' + self.dic_path["PATH_TO_WORK_DIRECTORY"] != "records/default":
+                raise FileExistsError
+            else:
+                pass
+        else:
+            os.makedirs(ROOT_DIR + '/' + self.dic_path["PATH_TO_WORK_DIRECTORY"])
+
+        if os.path.exists(ROOT_DIR + '/' + self.dic_path["PATH_TO_MODEL"]):
+            if ROOT_DIR + '/' + self.dic_path["PATH_TO_MODEL"] != "model/default":
+                raise FileExistsError
+            else:
+                pass
+        else:
+            os.makedirs(ROOT_DIR + '/' + self.dic_path["PATH_TO_MODEL"])
+
+        if self.dic_exp_conf["PRETRAIN"]:
+            if os.path.exists(ROOT_DIR + '/' + self.dic_path["PATH_TO_PRETRAIN_WORK_DIRECTORY"]):
+                pass
+            else:
+                os.makedirs(ROOT_DIR + '/' + self.dic_path["PATH_TO_PRETRAIN_WORK_DIRECTORY"])
+
+            if os.path.exists(ROOT_DIR + '/' + self.dic_path["PATH_TO_PRETRAIN_MODEL"]):
+                pass
+            else:
+                os.makedirs(ROOT_DIR + '/' + self.dic_path["PATH_TO_PRETRAIN_MODEL"])
+
+    def _copy_conf_file(self, path=None):
+        # write conf files
+        if path == None:
+            path = self.dic_path["PATH_TO_WORK_DIRECTORY"]
+        json.dump(self.dic_exp_conf, open(os.path.join(ROOT_DIR, path, "exp.conf"), "w"),
+                  indent=4)
+        json.dump(self.dic_agent_conf, open(os.path.join(ROOT_DIR, path, "agent.conf"), "w"),
+                  indent=4)
+        json.dump(self.dic_traffic_env_conf,
+                  open(os.path.join(ROOT_DIR, path, "traffic_env.conf"), "w"), indent=4)
+
+    def _copy_sumo_file(self, path=None, _list_sumo_files=[]):
+        if path == None:
+            path = self.dic_path["PATH_TO_WORK_DIRECTORY"]
+        # copy sumo files
+        for file_name in _list_sumo_files:
+            shutil.copy(os.path.join(ROOT_DIR, self.dic_path["PATH_TO_DATA"], file_name),
+                        os.path.join(ROOT_DIR, path, file_name))
+        for file_name in self.dic_exp_conf["TRAFFIC_FILE"]:
+            shutil.copy(os.path.join(ROOT_DIR, self.dic_path["PATH_TO_DATA"], file_name),
+                        os.path.join(ROOT_DIR, path, file_name))
+
+    def _copy_anon_file(self, path=None):
+        # hard code !!!
+        if path == None:
+            path = self.dic_path["PATH_TO_WORK_DIRECTORY"]
+        # copy sumo files
+
+        shutil.copy(os.path.join(ROOT_DIR, self.dic_path["PATH_TO_DATA"], self.dic_exp_conf["TRAFFIC_FILE"][0]),
+                        os.path.join(ROOT_DIR, path, self.dic_exp_conf["TRAFFIC_FILE"][0]))
+        shutil.copy(os.path.join(ROOT_DIR, self.dic_path["PATH_TO_DATA"], self.dic_exp_conf["ROADNET_FILE"]),
+                    os.path.join(ROOT_DIR, path, self.dic_exp_conf["ROADNET_FILE"]))
+
+    def _modify_sumo_file(self, path=None, sumocfg_file=''):
+        if path == None:
+            path = self.dic_path["PATH_TO_WORK_DIRECTORY"]
+        # modify sumo files
+        self._set_traffic_file(os.path.join(self.dic_path["PATH_TO_WORK_DIRECTORY"],
+                                            sumocfg_file),
+                               os.path.join(path, sumocfg_file),
+                               self.dic_exp_conf["TRAFFIC_FILE"])
