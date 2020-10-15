@@ -66,13 +66,14 @@ class SumoEnv:
     ]
 
     def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf, dic_path, external_configurations={},
-                 mode='train', write_mode=True):
+                 mode='train', write_mode=True, sumo_output_enabled=True):
         # mode: train, test, replay
 
         if mode != 'train' and mode != 'test' and mode != 'replay':
             raise ValueError("Mode must be either 'train', 'test', or replay, current value is " + mode)
         self.mode = mode
         self.write_mode = write_mode
+        self.sumo_output_enabled = sumo_output_enabled
 
         self.path_to_log = path_to_log
         self.path_to_work_directory = path_to_work_directory
@@ -125,22 +126,26 @@ class SumoEnv:
             self.list_lanes += inter.list_lanes
         self.list_lanes = np.unique(self.list_lanes).tolist()
 
-        output_file = self.external_configurations['SUMOCFG_PARAMETERS']['--log']
+        if self.sumo_output_enabled:
 
-        split_output_filename = output_file.rsplit('.', 2)
-        execution_base = split_output_filename[0].rsplit('/', 1)[1]
-        split_output_filename[0] += '_' + execution_name
-        output_file = '.'.join(split_output_filename)
+            output_file = self.external_configurations['SUMOCFG_PARAMETERS']['--log']
 
-        split_output_filename = output_file.rsplit('/', 1)
-        split_output_filename.insert(1, execution_base)
-        output_file = '/'.join(split_output_filename)
+            split_output_filename = output_file.rsplit('.', 2)
+            execution_base = split_output_filename[0].rsplit('/', 1)[1]
+            split_output_filename[0] += '_' + execution_name
+            output_file = '.'.join(split_output_filename)
 
-        self.external_configurations['SUMOCFG_PARAMETERS']['--log'] = output_file
+            split_output_filename = output_file.rsplit('/', 1)
+            split_output_filename.insert(1, execution_base)
+            output_file = '/'.join(split_output_filename)
 
-        output_file_path = output_file.rsplit('/', 1)[0]
-        if not os.path.isdir(output_file_path):
-            os.makedirs(output_file_path)
+            output_file_path = output_file.rsplit('/', 1)[0]
+            if not os.path.isdir(output_file_path):
+                os.makedirs(output_file_path)
+
+            self.external_configurations['SUMOCFG_PARAMETERS']['--log'] = output_file
+        else:
+            self.external_configurations['SUMOCFG_PARAMETERS'].pop('--log', None)
 
         sumo_cmd_str = self._get_sumo_cmd()
 
