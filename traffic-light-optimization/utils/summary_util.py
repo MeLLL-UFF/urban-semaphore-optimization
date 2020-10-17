@@ -45,7 +45,7 @@ def consolidate_reward(reward_each_step, save_path, name_base):
     plt.close()
 
 
-def consolidate_time_loss(time_loss_each_step, save_path, name_base,
+def consolidate_time_loss(time_loss_each_step, save_path, name_base, algorithm_label,
                           baseline_comparison=False, scenario=None, traffic_level_configuration=None,
                           mean=False):
 
@@ -73,9 +73,9 @@ def consolidate_time_loss(time_loss_each_step, save_path, name_base,
     final_time_loss = np.round(np.mean(time_loss_tail[time_loss_tail > 0]), decimals=2)[0]
 
     if mean:
-        plot_label = 'frap' + ' ' + '(' + str(final_time_loss) + ')'
+        plot_label = algorithm_label + ' ' + '(' + str(final_time_loss) + ')'
     else:
-        plot_label = 'frap'
+        plot_label = algorithm_label
 
     ax.plot(time_loss_df, linewidth=2, color='k', label=plot_label)
 

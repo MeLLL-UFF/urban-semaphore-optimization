@@ -11,7 +11,7 @@ import traci
 import traci.constants as tc
 from sumolib import checkBinary
 
-from utils import sumo_traci_util
+from utils import sumo_util, sumo_traci_util
 
 from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
 from algorithm.frap.internal.frap_pub.intersection import Intersection
@@ -102,7 +102,6 @@ class SumoEnv:
                 f.close()
 
         self.execution_name = None
-        
 
     def reset(self, execution_name):
 
@@ -149,11 +148,20 @@ class SumoEnv:
 
         sumo_cmd_str = self._get_sumo_cmd()
 
+        stops_to_issue = []
         print("start sumo")
         try:
             traci.start(sumo_cmd_str, label=execution_name)
         except Exception as e:
             traci.close()
+
+            if '--load-state' in self.external_configurations['SUMOCFG_PARAMETERS']:
+
+                save_state = self.external_configurations['SUMOCFG_PARAMETERS']['--load-state']
+                time = self.external_configurations['SUMOCFG_PARAMETERS']['--begin']
+
+                stops_to_issue = sumo_util.fix_save_state_stops(save_state, time)
+
             try:
                 traci.start(sumo_cmd_str, label=execution_name)
             except Exception as e:
@@ -161,6 +169,9 @@ class SumoEnv:
                 print(str(e))
                 raise e
         print("succeed in start sumo")
+
+        for stop_info in stops_to_issue:
+            traci.vehicle.setStop(**stop_info)
 
         # start subscription
         for lane in self.list_lanes:

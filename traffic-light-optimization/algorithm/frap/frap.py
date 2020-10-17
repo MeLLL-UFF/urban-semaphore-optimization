@@ -134,8 +134,8 @@ class Frap:
 
     @staticmethod
     def summary(experiment, plots='all', _round=None, baseline_comparison=True, scenario=None,
-                traffic_level_configuration=None):
-        summary.single_experiment_summary('TransferDQN', 'records/TransferDQN/' + experiment,
+                traffic_level_configuration=None, memo='TransferDQN'):
+        summary.single_experiment_summary(memo, 'records/' + memo + '/' + experiment,
                                           plots, _round, baseline_comparison, scenario, traffic_level_configuration)
 
     @staticmethod

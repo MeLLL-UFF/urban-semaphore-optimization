@@ -721,3 +721,70 @@ def convert_flows_to_trips(route_file):
 
     with open(route_file, 'wb') as handle:
         route_xml.write(handle, pretty_print=True)
+
+
+def fix_save_state_stops(save_state, time):
+
+    parser = etree.XMLParser(remove_blank_text=True)
+    xml = etree.parse(save_state, parser)
+
+    save_state_vehicles = list(set(xml.findall('.//stop/..')))
+
+    stops_to_issue = []
+    for save_state_vehicle in save_state_vehicles:
+
+        stop_elements = save_state_vehicle.findall('.//stop')
+
+        stop_element = None
+        if len(stop_elements) > 1:
+
+            for stop_element in stop_elements[0:-1]:
+                save_state_vehicle.remove(stop_element)
+
+        stop_element = stop_elements[-1]
+
+        if stop_element is not None:
+            
+            vehicle_id = save_state_vehicle.get('id')
+            vehicle_lane_position = save_state_vehicle.get('pos')
+            
+            startPos = stop_element.get('startPos')
+            endPos = stop_element.get('endPos')
+            depart = stop_element.get('depart')
+
+            if endPos is not None:
+                if startPos is not None:
+                    startPos = float(startPos)
+                    endPos = float(endPos)
+
+                    if startPos == endPos:
+                        stop_element.attrib['endPos'] =  str(endPos + 0.15)
+
+            elif depart is None:
+                actual_arrival = stop_element.get('actualArrival')
+                duration = stop_element.get('duration')
+                edge, lane_index = stop_element.get('lane').rsplit('_', 1)
+
+                if duration is None and actual_arrival is not None:
+                    duration = time - float(actual_arrival)
+
+                if duration is not None:
+
+                    duration = float(duration)
+
+                    stops_to_issue.append(
+                        {
+                            'vehID': vehicle_id,
+                            'edgeID': edge,
+                            'pos': vehicle_lane_position,
+                            'laneIndex': lane_index,
+                            'duration': duration
+                        }
+                    )
+
+                    save_state_vehicle.remove(stop_element)
+
+    with open(save_state, 'wb') as handle:
+        xml.write(handle, pretty_print=True)
+
+    return stops_to_issue

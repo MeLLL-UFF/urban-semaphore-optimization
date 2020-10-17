@@ -180,7 +180,9 @@ class SumoBased:
         for movement in serializable_movement_to_connection.keys():
             serializable_movement_to_connection[movement] = dict(serializable_movement_to_connection[movement].attrib)
 
-        summary_util.consolidate_time_loss(time_loss_each_step, save_path, self.name_base)
+        algorithm_label = 'sumo_based' + '_' + self._type
+
+        summary_util.consolidate_time_loss(time_loss_each_step, save_path, self.name_base, algorithm_label)
         summary_util.consolidate_reward(reward_each_step, save_path, self.name_base)
 
         summary_util.consolidate_occupancy_and_speed_inflow_outflow(

@@ -2,6 +2,7 @@ import os
 import copy
 from functools import partial
 import statistics
+import itertools
 
 import numpy as np
 
@@ -20,14 +21,17 @@ class PlanningOnlyAgent(Agent):
         self.dic_exp_conf = dic_exp_conf
 
         self.phases = self.dic_traffic_env_conf['PHASE']
+        self.planning_iterations = self.dic_agent_conf["PLANNING_ITERATIONS"]
+        self.pick_action_and_keep_with_it = self.dic_agent_conf["PICK_ACTION_AND_KEEP_WITH_IT"]
 
-    def choose_action(self, step_num, one_state):
+    def choose_action(self, initial_step, one_state):
 
-        initial_step = step_num
+        if self.pick_action_and_keep_with_it:
+            possibilities = [[index]*self.planning_iterations for index, _ in enumerate(self.phases)]
+        else:
+            possibilities = itertools.product(range(0, len(self.phases)), repeat=self.planning_iterations)
 
         save_state_filepath = self.env.save_state()
-
-        test_run_counts = self.dic_agent_conf["PLANNING_TIME_MULTIPLIER"] * self.dic_traffic_env_conf["MIN_ACTION_TIME"]
 
         kwargs = {
             'initial_step': initial_step,
@@ -39,14 +43,13 @@ class PlanningOnlyAgent(Agent):
             'dic_exp_conf': copy.deepcopy(self.dic_exp_conf),
             'external_configurations': copy.deepcopy(self.env.external_configurations),
             'save_state_filepath': save_state_filepath,
-            'env_mode': self.env.mode,
-            'test_run_counts': test_run_counts
+            'env_mode': self.env.mode
         }
         
-        with NoDaemonPool(processes=1) as pool:
+        with NoDaemonPool(processes=32) as pool:
             rewards = pool.map(
                 partial(PlanningOnlyAgent._run_simulation_possibility, **kwargs),
-                range(0, len(self.phases))
+                possibilities
             )
 
         index = np.random.choice(np.flatnonzero(rewards == np.max(rewards)))
@@ -57,7 +60,7 @@ class PlanningOnlyAgent(Agent):
 
     @staticmethod
     def _run_simulation_possibility(
-            phase_index,
+            possibility,
             initial_step, 
             path_to_log,
             path_to_work_directory,
@@ -67,8 +70,7 @@ class PlanningOnlyAgent(Agent):
             dic_exp_conf,
             external_configurations,
             save_state_filepath, 
-            env_mode,
-            test_run_counts):
+            env_mode):
             
         
         external_configurations['SUMOCFG_PARAMETERS'].update(
@@ -78,6 +80,8 @@ class PlanningOnlyAgent(Agent):
             }
         )
 
+        min_action_time = dic_traffic_env_conf["MIN_ACTION_TIME"]
+        test_run_counts = len(possibility) * min_action_time
         dic_exp_conf["TEST_RUN_COUNTS"] = test_run_counts
 
         from algorithm.frap.internal.frap_pub.config import DIC_AGENTS, DIC_ENVS
@@ -101,20 +105,13 @@ class PlanningOnlyAgent(Agent):
         )
 
         done = False
-        execution_name = 'planning_for' + '_' + '_' + 'phase' + '_' + str(phase_index) + '_' + \
+        execution_name = 'planning_for' + '_' + '_' + 'possibility' + '_' + str(possibility) + '_' + \
             'initial_step' + '_' + str(initial_step)
             
         state = env.reset(execution_name)
         
-        dic_agent_conf["PLANNING_TIME_MULTIPLIER"]
+        possibility = iter(possibility)
 
-
-        test_run_counts = dic_exp_conf["TEST_RUN_COUNTS"]
-        if not dic_agent_conf["PICK_ACTION_AND_KEEP_WITH_IT"]:
-            if dic_agent_conf["PLANNING_TIME_MULTIPLIER"] > 2:
-                test_run_counts = 2 * dic_traffic_env_conf["MIN_ACTION_TIME"]
-        min_action_time = dic_traffic_env_conf["MIN_ACTION_TIME"]
-        
         step_num = 0
         stop_cnt = 0
         rewards = []
@@ -122,11 +119,7 @@ class PlanningOnlyAgent(Agent):
             action_list = []
             for one_state in state:
 
-                if dic_agent_conf["PICK_ACTION_AND_KEEP_WITH_IT"] or step_num == 0:
-                    action = phase_index
-                else:
-                    agent.dic_agent_conf["PLANNING_TIME_MULTIPLIER"] -= 1
-                    action = agent.choose_action(initial_step + (step_num * min_action_time), one_state)
+                action = next(possibility)
 
                 action_list.append(action)
 

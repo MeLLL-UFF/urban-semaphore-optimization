@@ -728,10 +728,18 @@ def single_experiment_summary(memo, records_dir, plots='all', _round=None,
 
         save_path = ROOT_DIR + '/' + round_dir
 
+        algorithm_label = memo
+
         if plots is not None and plots != 'summary_only':
 
-            summary_util.consolidate_time_loss(time_loss_each_step, save_path, name_base,
-                                               baseline_comparison, scenario, traffic_level_configuration)
+            summary_util.consolidate_time_loss(
+                time_loss_each_step, 
+                save_path, 
+                name_base, 
+                algorithm_label,
+                baseline_comparison=baseline_comparison, 
+                scenario=scenario,
+                traffic_level_configuration=traffic_level_configuration)
             summary_util.consolidate_reward(reward_each_step, save_path, name_base)
 
             summary_util.consolidate_occupancy_and_speed_inflow_outflow(
@@ -775,8 +783,14 @@ def single_experiment_summary(memo, records_dir, plots='all', _round=None,
     if plots is not None and plots != 'records_only':
 
         summary_util.consolidate_time_loss(
-            average_time_loss_each_round, save_path, name_base,
-            baseline_comparison, scenario, traffic_level_configuration, mean=True)
+            average_time_loss_each_round, 
+            save_path, 
+            name_base, 
+            algorithm_label,
+            baseline_comparison=baseline_comparison, 
+            scenario=scenario, 
+            traffic_level_configuration=traffic_level_configuration, 
+            mean=True)
         summary_util.consolidate_reward(average_reward_each_round, save_path, name_base)
 
         summary_util.consolidate_occupancy_and_speed_inflow_outflow(
