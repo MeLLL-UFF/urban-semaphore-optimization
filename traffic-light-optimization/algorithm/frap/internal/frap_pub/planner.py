@@ -1,5 +1,8 @@
 import os
 import copy
+
+import numpy as np
+
 from algorithm.frap.internal.frap_pub.config import DIC_AGENTS, DIC_ENVS
 
 from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
@@ -44,26 +47,29 @@ class Planner:
 
         done = False
         execution_name = 'test' + '_' + 'round' + '_' + str(self.cnt_round)
-        state = self.env.reset(execution_name)
-        step_num = 0
+        state, next_action = self.env.reset(execution_name)
+        step = 0
         stop_cnt = 0
 
         test_run_counts = self.dic_exp_conf["TEST_RUN_COUNTS"] 
-        min_action_time = self.dic_traffic_env_conf["MIN_ACTION_TIME"]
 
-        while not done and step_num < int(test_run_counts / min_action_time):
-            action_list = []
-            for one_state in state:
+        while not done and step < test_run_counts:
+            action_list = [None]*len(next_action)
+            
+            new_actions_needed = np.where(np.array(next_action) == None)[0]
+            for index in new_actions_needed:
+                
+                one_state = state[index]
 
-                action = self.agent.choose_action(step_num * min_action_time, one_state)
+                action = self.agent.choose_action(step, one_state)
 
-                action_list.append(action)
+                action_list[index] = action
 
-            next_state, reward, done, _ = self.env.step(action_list)
+            next_state, reward, done, steps_iterated, next_action, _ = self.env.step(action_list)
 
             state = next_state
-            step_num += 1
-            stop_cnt += 1
+            step += steps_iterated
+            stop_cnt += steps_iterated
         self.env.bulk_log()
         self.env.end_sumo()
 

@@ -17,7 +17,7 @@ def get_traci_constant_mapping(constant_str):
 
 class Intersection:
 
-    def __init__(self, light_id, list_vehicle_variables_to_sub, dic_sumo_env_conf, dic_path,
+    def __init__(self, light_id, list_vehicle_variables_to_sub, dic_traffic_env_conf, dic_path,
                  external_configurations={}):
         '''
         still need to automate generation
@@ -32,22 +32,24 @@ class Intersection:
         self.node_light = external_configurations['NODE_LIGHT']
         self.list_vehicle_variables_to_sub = list_vehicle_variables_to_sub
 
-        self.phases = dic_sumo_env_conf["PHASE"]
-        self.movements = dic_sumo_env_conf['list_lane_order']
+        self.phases = dic_traffic_env_conf["PHASE"]
+        self.movements = dic_traffic_env_conf['list_lane_order']
 
         # ===== sumo intersection settings =====
+
+        self.has_per_second_decision = dic_traffic_env_conf.get('PER_SECOND_DECISION', False)
 
         self.dic_path = dic_path
         self.incoming_edges, self.outgoing_edges = sumo_util.get_intersection_edge_ids(self.net_file_xml)
         self.edges = [] + self.incoming_edges + self.outgoing_edges
 
-        self.list_approaches = [str(i) for i in range(dic_sumo_env_conf["N_LEG"])]
+        self.list_approaches = [str(i) for i in range(dic_traffic_env_conf["N_LEG"])]
         self.dic_entering_approach_to_edge = {approach: self.incoming_edges[index]
                                               for index, approach in enumerate(self.list_approaches)}
         self.dic_exiting_approach_to_edge = {approach: self.outgoing_edges[index]
                                              for index, approach in enumerate(self.list_approaches)}
 
-        self.min_action_time = dic_sumo_env_conf['MIN_ACTION_TIME']
+        self.min_action_time = dic_traffic_env_conf['MIN_ACTION_TIME']
 
         # grid settings
         self.length_lane = 300
@@ -55,9 +57,9 @@ class Intersection:
         self.length_grid = 5
         self.num_grid = int(self.length_lane//self.length_grid)
 
-        self.conflicts = dic_sumo_env_conf['CONFLICTS']
+        self.conflicts = dic_traffic_env_conf['CONFLICTS']
 
-        self.movement_to_connection = dic_sumo_env_conf['movement_to_connection']
+        self.movement_to_connection = dic_traffic_env_conf['movement_to_connection']
 
         self.list_entering_lanes = [connection.get('from') + '_' + connection.get('fromLane') 
                                     for _, connection in self.movement_to_connection.items() 
@@ -105,6 +107,7 @@ class Intersection:
         self.previous_phase_index = 1
         self.next_phase_to_set_index = None
         self.current_phase_duration = -1
+        self.current_min_action_duration = -1
         self.all_red_flag = False
         self.all_yellow_flag = False
         self.flicker = 0
@@ -147,43 +150,52 @@ class Intersection:
             else:
                 pass
         else:
-            # determine phase
-            if action_pattern == "switch":  # switch by order
-                if action == 0:  # keep the phase
-                    self.next_phase_to_set_index = self.current_phase_index
-                elif action == 1:  # change to the next phase
-                    self.next_phase_to_set_index = (self.current_phase_index + 1) % len(self.phases) + 1
-                else:
-                    sys.exit("action not recognized\n action must be 0 or 1")
 
-            elif action_pattern == "set":  # set to certain phase
-                self.next_phase_to_set_index = action + 1
+            if self.current_min_action_duration >= self.min_action_time:
 
-            # set phase
-            if self.current_phase_index == self.next_phase_to_set_index:  # the light phase keeps unchanged
-                pass
-            else:  # the light phase needs to change
-                # change to yellow first, and activate the counter and flag
-                current_traffic_light = sumo_traci_util.get_traffic_light_state(self.node_light)
+                # determine phase
+                if action_pattern == "switch":  # switch by order
+                    if action == 0:  # keep the phase
+                        self.next_phase_to_set_index = self.current_phase_index
+                    elif action == 1:  # change to the next phase
+                        self.next_phase_to_set_index = (self.current_phase_index + 1) % len(self.phases) + 1
+                    else:
+                        sys.exit("action not recognized\n action must be 0 or 1")
 
-                phase = self.phases[self.next_phase_to_set_index - 1]
+                elif action_pattern == "set":  # set to certain phase
+                    self.next_phase_to_set_index = action + 1
 
-                for lane_index, lane_id in enumerate(self.list_entering_lanes):
-                    traffic_light_index = int(self.lane_to_traffic_light_index_mapping[lane_id])
-                    current_lane_traffic_light = current_traffic_light[traffic_light_index]
-                    next_lane_traffic_light = self.dic_phase_strs[phase][lane_index]
-                    
-                    if (current_lane_traffic_light == 'g' or current_lane_traffic_light == 'G') and \
-                       (next_lane_traffic_light != 'g' and next_lane_traffic_light != 'G'):
-                        new_lane_traffic_light = self.all_yellow_phase_str[lane_index]
-                        current_traffic_light = current_traffic_light[:traffic_light_index] + \
-                                                new_lane_traffic_light + \
-                                                current_traffic_light[traffic_light_index + 1:]
+                if not self.has_per_second_decision:
+                    self.current_min_action_duration = 0
+                
+                # set phase
+                if self.current_phase_index == self.next_phase_to_set_index:  # the light phase keeps unchanged
+                    pass
+                else:  # the light phase needs to change
+                    # change to yellow first, and activate the counter and flag
+                    current_traffic_light = sumo_traci_util.get_traffic_light_state(self.node_light)
 
-                sumo_traci_util.set_traffic_light_state(self.node_light, current_traffic_light)
-                self.current_phase_index = self.all_yellow_phase_index
-                self.all_yellow_flag = True
-                self.flicker = 1
+                    phase = self.phases[self.next_phase_to_set_index - 1]
+
+                    for lane_index, lane_id in enumerate(self.list_entering_lanes):
+                        traffic_light_index = int(self.lane_to_traffic_light_index_mapping[lane_id])
+                        current_lane_traffic_light = current_traffic_light[traffic_light_index]
+                        next_lane_traffic_light = self.dic_phase_strs[phase][lane_index]
+                        
+                        if (current_lane_traffic_light == 'g' or current_lane_traffic_light == 'G') and \
+                        (next_lane_traffic_light != 'g' and next_lane_traffic_light != 'G'):
+                            new_lane_traffic_light = self.all_yellow_phase_str[lane_index]
+                            current_traffic_light = current_traffic_light[:traffic_light_index] + \
+                                                    new_lane_traffic_light + \
+                                                    current_traffic_light[traffic_light_index + 1:]
+
+                    sumo_traci_util.set_traffic_light_state(self.node_light, current_traffic_light)
+                    self.current_phase_index = self.all_yellow_phase_index
+                    self.all_yellow_flag = True
+                    self.flicker = 1
+
+                    if self.has_per_second_decision:
+                        self.current_min_action_duration = 0
 
     def update_previous_measurements(self):
 
@@ -200,6 +212,8 @@ class Intersection:
             self.current_phase_duration += 1
         else:
             self.current_phase_duration = 1
+
+        self.current_min_action_duration += 1
 
         # ====== lane level observations =======
 
@@ -503,5 +517,14 @@ class Intersection:
 
             if max(waiting_times) + (index + 1) * self.min_action_time >= threshold:
                 return self.phases.index(selected_phases[0])
+
+        return -1
+
+    def select_active_action_time_action(self):
+        
+        if self.current_min_action_duration < self.min_action_time:
+            # next phase only changes with a new action choice
+            if self.next_phase_to_set_index is not None:
+                return self.next_phase_to_set_index
 
         return -1

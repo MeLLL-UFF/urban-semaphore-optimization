@@ -15,6 +15,9 @@ class PlanningOnlyAgent(Agent):
     
     def __init__(self, dic_agent_conf, dic_traffic_env_conf, dic_path, dic_exp_conf, env):
 
+        if dic_traffic_env_conf["NUM_INTERSECTIONS"] > 1:
+            raise NotImplementedError("Planning Only supports one intersection only at this time")
+
         super().__init__(dic_agent_conf, dic_traffic_env_conf, dic_path)
 
         self.env = env
@@ -29,7 +32,7 @@ class PlanningOnlyAgent(Agent):
         if self.pick_action_and_keep_with_it:
             possibilities = [[index]*self.planning_iterations for index, _ in enumerate(self.phases)]
         else:
-            possibilities = itertools.product(range(0, len(self.phases)), repeat=self.planning_iterations)
+            possibilities = list(itertools.product(range(0, len(self.phases)), repeat=self.planning_iterations))
 
         save_state_filepath = self.env.save_state()
 
@@ -37,7 +40,6 @@ class PlanningOnlyAgent(Agent):
             'initial_step': initial_step,
             'path_to_log': copy.deepcopy(self.env.path_to_log),
             'path_to_work_directory': copy.deepcopy(self.env.path_to_work_directory),
-            'dic_agent_conf': copy.deepcopy(self.dic_agent_conf),
             'dic_traffic_env_conf': copy.deepcopy(self.env.dic_traffic_env_conf),
             'dic_path': copy.deepcopy(self.env.dic_path),
             'dic_exp_conf': copy.deepcopy(self.dic_exp_conf),
@@ -46,7 +48,7 @@ class PlanningOnlyAgent(Agent):
             'env_mode': self.env.mode
         }
         
-        with NoDaemonPool(processes=32) as pool:
+        with NoDaemonPool(processes=16) as pool:
             rewards = pool.map(
                 partial(PlanningOnlyAgent._run_simulation_possibility, **kwargs),
                 possibilities
@@ -54,9 +56,11 @@ class PlanningOnlyAgent(Agent):
 
         index = np.random.choice(np.flatnonzero(rewards == np.max(rewards)))
 
+        possibility = possibilities[index]
+
         os.remove(save_state_filepath)
 
-        return index
+        return possibility[0]
 
     @staticmethod
     def _run_simulation_possibility(
@@ -64,74 +68,71 @@ class PlanningOnlyAgent(Agent):
             initial_step, 
             path_to_log,
             path_to_work_directory,
-            dic_agent_conf,
             dic_traffic_env_conf,
             dic_path,
             dic_exp_conf,
             external_configurations,
             save_state_filepath, 
             env_mode):
-            
-        
-        external_configurations['SUMOCFG_PARAMETERS'].update(
-            {
-                '--begin': initial_step,
-                '--load-state': save_state_filepath
-            }
-        )
 
-        min_action_time = dic_traffic_env_conf["MIN_ACTION_TIME"]
-        test_run_counts = len(possibility) * min_action_time
-        dic_exp_conf["TEST_RUN_COUNTS"] = test_run_counts
+        try:
 
-        from algorithm.frap.internal.frap_pub.config import DIC_AGENTS, DIC_ENVS
-        
-        env = DIC_ENVS[dic_traffic_env_conf["SIMULATOR_TYPE"]](
-            path_to_log=path_to_log,
-            path_to_work_directory=path_to_work_directory,
-            dic_traffic_env_conf=dic_traffic_env_conf,
-            dic_path=dic_path,
-            external_configurations=external_configurations,
-            mode=env_mode,
-            sumo_output_enabled=False)
+            external_configurations['SUMOCFG_PARAMETERS'].pop('--log', None)
+            external_configurations['SUMOCFG_PARAMETERS'].pop('--duration-log.statistics', None)
 
-        agent_name = dic_exp_conf["MODEL_NAME"]
-        agent = DIC_AGENTS[agent_name](
-            dic_agent_conf=dic_agent_conf,
-            dic_traffic_env_conf=dic_traffic_env_conf,
-            dic_path=dic_path,
-            dic_exp_conf=dic_exp_conf,
-            env=env
-        )
+            external_configurations['SUMOCFG_PARAMETERS'].update(
+                {
+                    '--begin': initial_step,
+                    '--load-state': save_state_filepath
+                }
+            )
 
-        done = False
-        execution_name = 'planning_for' + '_' + '_' + 'possibility' + '_' + str(possibility) + '_' + \
-            'initial_step' + '_' + str(initial_step)
-            
-        state = env.reset(execution_name)
-        
-        possibility = iter(possibility)
+            from algorithm.frap.internal.frap_pub.config import DIC_ENVS
 
-        step_num = 0
-        stop_cnt = 0
-        rewards = []
-        while step_num < int(test_run_counts / min_action_time):
-            action_list = []
-            for one_state in state:
+            env = DIC_ENVS[dic_traffic_env_conf["SIMULATOR_TYPE"]](
+                path_to_log=path_to_log,
+                path_to_work_directory=path_to_work_directory,
+                dic_traffic_env_conf=dic_traffic_env_conf,
+                dic_path=dic_path,
+                external_configurations=external_configurations,
+                mode=env_mode,
+                sumo_output_enabled=False)
 
-                action = next(possibility)
+            done = False
+            execution_name = 'planning_for' + '_' + '_' + 'possibility' + '_' + str(possibility) + '_' + \
+                'initial_step' + '_' + str(initial_step)
 
-                action_list.append(action)
+            state, next_action = env.reset(execution_name)
 
-            next_state, reward, done, _ = env.step(action_list)
+            min_action_time = dic_traffic_env_conf["MIN_ACTION_TIME"]
+            test_run_counts = min(len(possibility), dic_exp_conf["TEST_RUN_COUNTS"] - initial_step)
 
-            state = next_state
-            rewards.append(reward[0])
-            step_num += 1
-            stop_cnt += 1
+            possibility_iterator = iter(possibility)
 
-        env.end_sumo()
+            step = 0
+            stop_cnt = 0
+            rewards = []
+            while not done and step < test_run_counts:
+                action_list = [None]*len(next_action)
 
-        mean_reward = statistics.mean(rewards)
+                new_actions_needed = np.where(np.array(next_action) == None)[0]
+                for index in new_actions_needed:
+
+                    action = next(possibility_iterator)
+
+                    action_list[index] = action
+
+                next_state, reward, done, steps_iterated, next_action, _ = env.step(action_list)
+
+                rewards.append(reward[0])
+                step += steps_iterated
+                stop_cnt += steps_iterated
+
+            env.end_sumo()
+
+            mean_reward = statistics.mean(rewards)
+        except Exception as e:
+            print(e)
+            raise e
 
         return mean_reward

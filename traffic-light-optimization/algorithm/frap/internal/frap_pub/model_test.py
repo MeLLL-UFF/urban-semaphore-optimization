@@ -141,21 +141,26 @@ def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_c
 
         done = False
         execution_name = 'test' + '_' + 'round' + '_' + str(cnt_round)
-        state = env.reset(execution_name)
-        step_num = 0
+        state, next_action = env.reset(execution_name)
+        step = 0
         stop_cnt = 0
-        while step_num < int(dic_exp_conf["TEST_RUN_COUNTS"] / dic_traffic_env_conf["MIN_ACTION_TIME"]):
-            action_list = []
-            for one_state in state:
-                action = agent.choose_action(step_num, one_state)
+        while step < dic_exp_conf["TEST_RUN_COUNTS"]:
+            action_list = [None]*len(next_action)
+            
+            new_actions_needed = np.where(np.array(next_action) == None)[0]
+            for index in new_actions_needed:
+                
+                one_state = state[index]
 
-                action_list.append(action)
+                action = agent.choose_action(step, one_state)
 
-            next_state, reward, done, _ = env.step(action_list)
+                action_list[index] = action
+
+            next_state, reward, done, steps_iterated, next_action, _ = env.step(action_list)
 
             state = next_state
-            step_num += 1
-            stop_cnt += 1
+            step += steps_iterated
+            stop_cnt += steps_iterated
         env.bulk_log()
 
         if dic_traffic_env_conf["DONE_ENABLE"]:

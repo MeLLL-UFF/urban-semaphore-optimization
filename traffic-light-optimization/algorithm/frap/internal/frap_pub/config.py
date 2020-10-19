@@ -35,6 +35,7 @@ DIC_EXP_CONF = {
 dic_traffic_env_conf = {
     "ACTION_PATTERN": "set",
     "NUM_INTERSECTIONS": 1,
+    "PER_SECOND_DECISION": False,
     "MIN_ACTION_TIME": 10,
     "YELLOW_TIME": 3,
     "ALL_RED_TIME": 0,

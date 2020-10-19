@@ -1,10 +1,12 @@
-import json
 import os
+import json
 import time
-from multiprocessing import Process
 import pickle
+from multiprocessing import Process
+
+import numpy as np
+
 from algorithm.frap.internal.frap_pub.config import DIC_AGENTS, DIC_ENVS
-import sys
 
 from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
 
@@ -74,20 +76,25 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
                          mode='test')
 
         done = False
-        state = env.reset()
-        step_num = 0
+        state, next_action = env.reset()
+        step = 0
 
-        while not done and step_num < int(dic_exp_conf["RUN_COUNTS"] / dic_traffic_env_conf["MIN_ACTION_TIME"]):
-            action_list = []
-            for one_state in state:
-                action = agent.choose_action(step_num, one_state)
+        while not done and step < dic_exp_conf["RUN_COUNTS"]:
+            action_list = [None]*len(next_action)
+            
+            new_actions_needed = np.where(np.array(next_action) == None)[0]
+            for index in new_actions_needed:
+                
+                one_state = state[index]
 
-                action_list.append(action)
+                action = agent.choose_action(step, one_state)
 
-            next_state, reward, done, _ = env.step(action_list)
+                action_list[index] = action
+
+            next_state, reward, done, steps_iterated, next_action, _ = env.step(action_list)
 
             state = next_state
-            step_num += 1
+            step += steps_iterated
         env.bulk_log()
         env.end_sumo()
         if not dic_exp_conf["DEBUG"]:

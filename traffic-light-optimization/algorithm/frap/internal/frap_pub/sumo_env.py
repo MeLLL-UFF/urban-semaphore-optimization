@@ -183,7 +183,9 @@ class SumoEnv:
 
         state, done = self.get_state()
 
-        return state
+        next_action = [None]*len(self.list_intersection)
+
+        return state, next_action
 
     @staticmethod
     def convert_dic_to_df(dic):
@@ -278,14 +280,14 @@ class SumoEnv:
                     "time": cur_time,
                     "state": before_action_feature[inter_ind],
                     "action": action[inter_ind],
-                    "reward": reward,
+                    "reward": reward[inter_ind],
                     "extra": extra})
             else:
                 self.list_inter_log[inter_ind].append({
                     "time": cur_time,
                     "state": before_action_feature[inter_ind],
                     "action": action[inter_ind],
-                    "reward": reward})
+                    "reward": reward[inter_ind]})
 
     def save_state(self, name=None):
 
@@ -308,6 +310,17 @@ class SumoEnv:
         filepath = os.path.join(ROOT_DIR, self.environment_state_path, state_filename)
 
         return filepath
+
+    def check_for_active_action_time_actions(self, action):
+        
+        for inter_ind, inter in enumerate(self.list_intersection):
+            
+            action_time_action = inter.select_active_action_time_action()
+            
+            if action_time_action != -1:
+                action[inter_ind] = action_time_action
+
+        return action
     
     def check_for_time_restricted_actions(self, action):
 
@@ -320,24 +333,18 @@ class SumoEnv:
 
         return action
 
+
     def step(self, action):
 
+        action = self.check_for_active_action_time_actions(action)
         action = self.check_for_time_restricted_actions(action)
 
-        list_action_in_sec = [action]
-        list_action_in_sec_display = [action]
-        for i in range(self.dic_traffic_env_conf["MIN_ACTION_TIME"]-1):
-            if self.dic_traffic_env_conf["ACTION_PATTERN"] == "switch":
-                list_action_in_sec.append(np.zeros_like(action).tolist())
-            elif self.dic_traffic_env_conf["ACTION_PATTERN"] == "set":
-                list_action_in_sec.append(np.copy(action).tolist())
-            list_action_in_sec_display.append(np.full_like(action, fill_value=-1).tolist())
+        if None in action:
+            raise ValueError('Action cannot be None')
 
+        step = 0
         average_reward_action = 0
-        for i in range(self.dic_traffic_env_conf["MIN_ACTION_TIME"]):
-
-            action_in_sec = list_action_in_sec[i]
-            action_in_sec_display = list_action_in_sec_display[i]
+        while None not in action:
 
             instant_time = self.get_current_time()
 
@@ -345,35 +352,35 @@ class SumoEnv:
             state = self.get_state()
 
             # _step
-            self._inner_step(action_in_sec)
+            self._inner_step(action)
 
             # get reward
             reward = self.get_reward()
-            average_reward_action = (average_reward_action*i + reward[0])/(i+1)
+            average_reward_action = (average_reward_action*step + reward[0])/(step+1)
 
-            if self.dic_traffic_env_conf['DEBUG']:
+            if step == 0 or self.dic_traffic_env_conf['DEBUG']:
                 print("time: {0}, phase: {1}, time this phase: {2}, action: {3}, reward: {4}".
                       format(instant_time,
                              before_action_feature[0]["cur_phase"],
                              before_action_feature[0]["time_this_phase"],
-                             action_in_sec_display[0],
+                             action[0],
                              reward[0]))
-            else:
-                if i == 0:
-                    print("time: {0}, phase: {1}, time this phase: {2}, action: {3}, reward: {4}".
-                          format(instant_time,
-                                 before_action_feature[0]["cur_phase"],
-                                 before_action_feature[0]["time_this_phase"],
-                                 action_in_sec_display[0],
-                                 reward[0]))
 
             # log
-            self.log(cur_time=instant_time, before_action_feature=before_action_feature, action=action_in_sec_display,
-                     reward=reward[0])
+            self.log(cur_time=instant_time, before_action_feature=before_action_feature, action=action,
+                     reward=reward)
 
             next_state, done = self.get_state()
 
-        return next_state, reward, done, [average_reward_action]
+            step += 1
+
+            action = [None]*len(self.list_intersection)
+            action = self.check_for_active_action_time_actions(action)
+            action = self.check_for_time_restricted_actions(action)
+
+        next_action = action
+
+        return next_state, reward, done, step, next_action, [average_reward_action]
 
     def _inner_step(self, action):
 
