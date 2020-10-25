@@ -541,19 +541,19 @@ def detect_phases(movements, conflicts, is_right_on_red=True):
 
 def build_phase_expansions(movements, phases):
 
-    phase_expansion = {}
+    phase_expansions = {}
     for i, phase in enumerate(phases):
         phase_movements = phase.split("_")
-        zeros = [0] * len(movements)
+        phase_expansion = [0] * len(movements)
 
         for phase_movement in phase_movements:
-            zeros[movements.index(phase_movement)] = 1
+            phase_expansion[movements.index(phase_movement)] = 1
 
-        phase_expansion[i + 1] = zeros
+        phase_expansions[i] = phase_expansion
 
-    phase_expansion[-1] = [0] * len(movements)
+    phase_expansions[-1] = [0] * len(movements)
 
-    return phase_expansion
+    return phase_expansions
 
 
 def match_ordered_movements_to_phases(ordered_movements, phases):

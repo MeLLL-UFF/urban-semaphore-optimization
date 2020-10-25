@@ -36,7 +36,8 @@ class Generator:
                 dic_sumo_env_conf=self.dic_sumo_env_conf,
                 dic_path=self.dic_path,
                 cnt_round=self.cnt_round,
-                best_round=best_round
+                best_round=best_round,
+                mode='train'
             )
 
         else:
@@ -51,7 +52,8 @@ class Generator:
                 dic_traffic_env_conf=self.dic_traffic_env_conf,
                 dic_path=self.dic_path,
                 cnt_round=self.cnt_round,
-                best_round=best_round
+                best_round=best_round,
+                mode='train'
             )
 
         self.env = DIC_ENVS[dic_traffic_env_conf["SIMULATOR_TYPE"]](

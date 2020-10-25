@@ -84,7 +84,7 @@ class Pipeline:
 
 
     def generator_wrapper(self, cnt_round, cnt_gen, dic_path, dic_exp_conf, dic_agent_conf, dic_traffic_env_conf,
-                          best_round=None, mode='train', external_configurations={}):
+                          best_round=None, external_configurations={}):
         generator = Generator(cnt_round=cnt_round,
                               cnt_gen=cnt_gen,
                               dic_path=dic_path,
@@ -92,7 +92,6 @@ class Pipeline:
                               dic_agent_conf=dic_agent_conf,
                               dic_traffic_env_conf=dic_traffic_env_conf,
                               best_round=best_round,
-                              mode=mode,
                               external_configurations=external_configurations
                               )
         print("make generator")
