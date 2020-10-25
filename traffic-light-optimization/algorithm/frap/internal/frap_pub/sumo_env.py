@@ -160,7 +160,9 @@ class SumoEnv:
                 save_state = self.external_configurations['SUMOCFG_PARAMETERS']['--load-state']
                 time = self.external_configurations['SUMOCFG_PARAMETERS']['--begin']
 
-                stops_to_issue = sumo_util.fix_save_state_stops(save_state, time)
+                net_file = self.external_configurations['SUMOCFG_PARAMETERS']['-n']
+                net_xml = sumo_util.get_xml(net_file)
+                stops_to_issue = sumo_util.fix_save_state_stops(net_xml, save_state, time)
 
             try:
                 traci.start(sumo_cmd_str, label=execution_name)
@@ -333,7 +335,6 @@ class SumoEnv:
 
         return action
 
-
     def step(self, action):
 
         action = self.check_for_active_action_time_actions(action)
@@ -390,6 +391,10 @@ class SumoEnv:
 
         # set signals
         for inter_ind, inter in enumerate(self.list_intersection):
+
+            if action[inter_ind] == 'no_op':
+                continue
+
             inter.set_signal(
                 action=action[inter_ind],
                 action_pattern=self.dic_traffic_env_conf["ACTION_PATTERN"],

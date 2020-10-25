@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 from utils import sumo_util
 
 from algorithm.frap.internal.frap_pub.generator import Generator
-from algorithm.frap.internal.frap_pub.planner import Planner
+from algorithm.frap.internal.frap_pub.runner import Runner
 from algorithm.frap.internal.frap_pub.construct_sample import ConstructSample
 from algorithm.frap.internal.frap_pub.updater import Updater
 from algorithm.frap.internal.frap_pub.model_pool import ModelPool
@@ -37,11 +37,6 @@ class Pipeline:
 
         self.existing_experiment = existing_experiment
 
-        if dic_exp_conf["MODEL_NAME"] == 'PlanningOnly':
-            self.execution_mode = 'planning_only'
-        else:
-            self.execution_mode = 'original'
-
         if self.existing_experiment is None:
 
             # do file operations
@@ -53,10 +48,9 @@ class Pipeline:
                 self._copy_sumo_file(_list_sumo_files=_list_sumo_files)
                 self._modify_sumo_file(sumocfg_file=sumocfg_file)
 
-                if self.execution_mode == 'planning_only':
-                    route_file_name = dic_traffic_env_conf['TRAFFIC_FILE']
-                    route_filepath = os.path.join(ROOT_DIR, self.dic_path["PATH_TO_WORK_DIRECTORY"], route_file_name)
-                    sumo_util.convert_flows_to_trips(route_filepath)
+                route_file_name = dic_traffic_env_conf['TRAFFIC_FILE']
+                route_filepath = os.path.join(ROOT_DIR, self.dic_path["PATH_TO_WORK_DIRECTORY"], route_file_name)
+                sumo_util.convert_flows_to_trips(route_filepath)
 
             elif self.dic_traffic_env_conf["SIMULATOR_TYPE"] == 'anon':
                 self._copy_anon_file()
@@ -90,7 +84,7 @@ class Pipeline:
 
 
     def generator_wrapper(self, cnt_round, cnt_gen, dic_path, dic_exp_conf, dic_agent_conf, dic_traffic_env_conf,
-                          best_round=None, external_configurations={}):
+                          best_round=None, mode='train', external_configurations={}):
         generator = Generator(cnt_round=cnt_round,
                               cnt_gen=cnt_gen,
                               dic_path=dic_path,
@@ -98,22 +92,23 @@ class Pipeline:
                               dic_agent_conf=dic_agent_conf,
                               dic_traffic_env_conf=dic_traffic_env_conf,
                               best_round=best_round,
+                              mode=mode,
                               external_configurations=external_configurations
                               )
         print("make generator")
         generator.generate()
         print("generator_wrapper end")
 
-    def planner_wrapper(self, cnt_round, dic_path, dic_exp_conf, dic_agent_conf, dic_traffic_env_conf,
-                          external_configurations={}):
-        planner = Planner(cnt_round=cnt_round,
-                          dic_path=dic_path,
-                          dic_exp_conf=dic_exp_conf,
-                          dic_agent_conf=dic_agent_conf,
-                          dic_traffic_env_conf=dic_traffic_env_conf,
-                          external_configurations=external_configurations
-                          )
-        planner.plan()
+    def runner_wrapper(self, cnt_round, dic_path, dic_exp_conf, dic_agent_conf, dic_traffic_env_conf,
+                       external_configurations={}):
+        runner = Runner(cnt_round=cnt_round,
+                        dic_path=dic_path,
+                        dic_exp_conf=dic_exp_conf,
+                        dic_agent_conf=dic_agent_conf,
+                        dic_traffic_env_conf=dic_traffic_env_conf,
+                        external_configurations=external_configurations
+                        )
+        runner.run()
 
     def updater_wrapper(self, cnt_round, dic_agent_conf, dic_exp_conf, dic_traffic_env_conf, dic_path, best_round=None, bar_round=None):
 
@@ -170,13 +165,15 @@ class Pipeline:
                 round_start = round_
                 round_end = round_ + 1
 
-        if self.execution_mode == 'original':
-            self.run_original(round_start, round_end, multi_process)
-        elif self.execution_mode == 'planning_only':
-            self.run_planning_only(multi_process)
+        agent_name = self.dic_exp_conf["MODEL_NAME"]
 
+        if agent_name == 'PlanningOnly' or \
+           agent_name == 'Sumo':
+            self.run_simple_run(multi_process)
+        else:
+            self.run_learning(round_start, round_end, multi_process)
 
-    def run_original(self, round_start, round_end, multi_process=True):
+    def run_learning(self, round_start, round_end, multi_process=True):
 
         best_round, bar_round = None, None
         # pretrain for acceleration
@@ -414,27 +411,25 @@ class Pipeline:
             f_timing.write("round_{0}: {1}\n".format(cnt_round, round_end_t-round_start_t))
             f_timing.close()
 
-
-    def run_planning_only(self, multi_process=True):
+    def run_simple_run(self, multi_process=True):
 
         cnt_round = 0
 
         if multi_process:
-            p = Process(target=self.planner_wrapper,
+            p = Process(target=self.runner_wrapper,
                         args=(cnt_round, self.dic_path, self.dic_exp_conf,
-                                self.dic_agent_conf, self.dic_traffic_env_conf,
-                                self.external_configurations)
+                              self.dic_agent_conf, self.dic_traffic_env_conf, 
+                              self.external_configurations)
                         )
             p.start()
             p.join()
         else:
-            self.planner_wrapper(cnt_round=cnt_round,
-                                 dic_path=self.dic_path,
-                                 dic_exp_conf=self.dic_exp_conf,
-                                 dic_agent_conf=self.dic_agent_conf,
-                                 dic_traffic_env_conf=self.dic_traffic_env_conf,
-                                 external_configurations=self.external_configurations)
-
+            self.runner_wrapper(cnt_round=cnt_round,
+                                dic_path=self.dic_path,
+                                dic_exp_conf=self.dic_exp_conf,
+                                dic_agent_conf=self.dic_agent_conf,
+                                dic_traffic_env_conf=self.dic_traffic_env_conf,
+                                external_configurations=self.external_configurations)
 
     @staticmethod
     def _set_traffic_file(sumo_config_file_tmp_name, sumo_config_file_output_name, list_traffic_file_name):

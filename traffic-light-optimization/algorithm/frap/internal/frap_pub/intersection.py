@@ -103,8 +103,8 @@ class Intersection:
         # initialization
 
         # -1: all yellow, -2: all red, -3: none
-        self.current_phase_index = 1
-        self.previous_phase_index = 1
+        self.current_phase_index = 0
+        self.previous_phase_index = 0
         self.next_phase_to_set_index = None
         self.current_phase_duration = -1
         self.current_min_action_duration = -1
@@ -136,7 +136,7 @@ class Intersection:
                 current_traffic_light = sumo_traci_util.get_traffic_light_state(self.node_light)
 
                 self.current_phase_index = self.next_phase_to_set_index
-                phase = self.phases[self.current_phase_index - 1]
+                phase = self.phases[self.current_phase_index]
 
                 for lane_index, lane_id in enumerate(self.list_entering_lanes):
                     traffic_light_index = int(self.lane_to_traffic_light_index_mapping[lane_id])
@@ -151,19 +151,19 @@ class Intersection:
                 pass
         else:
 
-            if self.current_min_action_duration >= self.min_action_time:
+            if self.next_phase_to_set_index is None or self.current_min_action_duration >= self.min_action_time:
 
                 # determine phase
                 if action_pattern == "switch":  # switch by order
                     if action == 0:  # keep the phase
                         self.next_phase_to_set_index = self.current_phase_index
                     elif action == 1:  # change to the next phase
-                        self.next_phase_to_set_index = (self.current_phase_index + 1) % len(self.phases) + 1
+                        self.next_phase_to_set_index = (self.current_phase_index + 1) % len(self.phases)
                     else:
                         sys.exit("action not recognized\n action must be 0 or 1")
 
                 elif action_pattern == "set":  # set to certain phase
-                    self.next_phase_to_set_index = action + 1
+                    self.next_phase_to_set_index = action
 
                 if not self.has_per_second_decision:
                     self.current_min_action_duration = 0
@@ -175,7 +175,7 @@ class Intersection:
                     # change to yellow first, and activate the counter and flag
                     current_traffic_light = sumo_traci_util.get_traffic_light_state(self.node_light)
 
-                    phase = self.phases[self.next_phase_to_set_index - 1]
+                    phase = self.phases[self.next_phase_to_set_index]
 
                     for lane_index, lane_id in enumerate(self.list_entering_lanes):
                         traffic_light_index = int(self.lane_to_traffic_light_index_mapping[lane_id])

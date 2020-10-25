@@ -124,6 +124,7 @@ def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_c
         dic_traffic_env_conf=dic_traffic_env_conf,
         dic_path=dic_path,
         cnt_round=1,  # useless
+        mode='test'
     )
     try:
         agent.load_network(model_round)

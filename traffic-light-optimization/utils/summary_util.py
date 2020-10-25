@@ -11,7 +11,8 @@ from matplotlib.ticker import (MultipleLocator, MaxNLocator, FormatStrFormatter)
 from matplotlib.lines import Line2D
 
 from definitions import ROOT_DIR
-from algorithm.sumo_based.definitions import ROOT_DIR as SUMO_BASED_ROOT_DIR
+
+from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR as FRAP_ROOT_DIR
 
 
 font = {'size': 24}
@@ -46,7 +47,7 @@ def consolidate_reward(reward_each_step, save_path, name_base):
 
 
 def consolidate_time_loss(time_loss_each_step, save_path, name_base, algorithm_label,
-                          baseline_comparison=False, scenario=None, traffic_level_configuration=None,
+                          baseline_comparison=False, baseline_experiments=None,
                           mean=False):
 
     time_loss_df = pd.DataFrame({'time_loss': time_loss_each_step})
@@ -81,40 +82,25 @@ def consolidate_time_loss(time_loss_each_step, save_path, name_base, algorithm_l
 
     if baseline_comparison:
 
-        right_on_red_type = 'right_on_red'
-        right_on_red_name_base = scenario + '__' + right_on_red_type + '__' + traffic_level_configuration
-        right_on_red_records_folder = os.path.join(
-            SUMO_BASED_ROOT_DIR, 'records', right_on_red_type, right_on_red_name_base, 'test')
+        for baseline_experiment in baseline_experiments:
 
-        unregulated_type = 'unregulated'
-        unregulated_name_base = scenario + '__' + unregulated_type + '__' + traffic_level_configuration
-        unregulated_records_folder = os.path.join(
-            SUMO_BASED_ROOT_DIR, 'records', unregulated_type, unregulated_name_base, 'test')
+            memo, experiment, round_, color, label = baseline_experiment
 
-        right_on_red_result_file = right_on_red_records_folder + '/' + right_on_red_name_base + '-time_loss.csv'
-        unregulated_result_file = unregulated_records_folder + '/' + unregulated_name_base + '-time_loss.csv'
+            records_folder = os.path.join(
+                FRAP_ROOT_DIR, 'records', memo, experiment, 'test_round', 'round' + '_' + str(round_))
 
-        if os.path.isfile(right_on_red_result_file):
-            right_on_red_df = pd.read_csv(right_on_red_result_file)
-            
-            if mean:
-                data = right_on_red_df['time_loss'].mean()
-                ax.plot([0, time_loss_df.shape[0]], [data, data], linewidth=2, linestyle=':', color='r',
-                        label='right on red' + ' ' + '(' + str(np.round(data, decimals=2)) + ')')
-            else:
-                data = right_on_red_df['time_loss']
-                ax.plot(data, linewidth=2, linestyle=':', color='r', label='right on red')
+            result_file = records_folder + '/' + experiment + '-test-time_loss.csv'
 
-        if os.path.isfile(unregulated_result_file):
-            unregulated_df = pd.read_csv(unregulated_result_file)
+            if os.path.isfile(result_file):
+                result_df = pd.read_csv(result_file)
 
-            if mean:
-                data = unregulated_df['time_loss'].mean()
-                ax.plot([0, time_loss_df.shape[0]], [data, data], linewidth=2, linestyle=':', color='g',
-                        label='unregulated' + ' ' + '(' + str(np.round(data, decimals=2)) + ')')
-            else:
-                data = unregulated_df['time_loss']
-                ax.plot(data, linewidth=2, linestyle=':', color='g', label='unregulated')
+                if mean:
+                    data = result_df['time_loss'].mean()
+                    ax.plot([0, time_loss_df.shape[0]], [data, data], linewidth=2, linestyle=':', color='g',
+                            label=label + ' ' + '(' + str(np.round(data, decimals=2)) + ')')
+                else:
+                    data = result_df['time_loss']
+                    ax.plot(data, linewidth=2, linestyle=':', color=color, label=label)
 
         ax.legend()
 

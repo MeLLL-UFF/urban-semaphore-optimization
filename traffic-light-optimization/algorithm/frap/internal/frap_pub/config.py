@@ -1,7 +1,9 @@
 # parameters and paths
 
 from algorithm.frap.internal.frap_pub.transfer_dqn_agent import TransferDQNAgent
+from algorithm.frap.internal.frap_pub.sumo_agent import SumoAgent
 from algorithm.frap.internal.frap_pub.planning_only_agent import PlanningOnlyAgent
+from algorithm.frap.internal.frap_pub.transfer_dqn_with_planning_agent import TransferDQNWithPlanningAgent
 from algorithm.frap.internal.frap_pub.sumo_env import SumoEnv
 from algorithm.frap.internal.frap_pub.anon_env import AnonEnv
 
@@ -192,9 +194,41 @@ DIC_TRANSFERDQN_AGENT_CONF = {
     "MERGE": "multiply"
 }
 
+DIC_SUMO_AGENT_CONF = {
+}
+
 DIC_PLANNINGONLY_AGENT_CONF = {
     "PLANNING_ITERATIONS": 3,
-    "PICK_ACTION_AND_KEEP_WITH_IT": True
+    "PICK_ACTION_AND_KEEP_WITH_IT": False
+}
+
+DIC_TRANSFERDQNWITHPLANNING_AGENT_CONF = {
+    "LEARNING_RATE": 0.001,
+    "LR_DECAY": 1,
+    "MIN_LR": 0.0001,
+    "SAMPLE_SIZE": 1000,
+    "BATCH_SIZE": 20,
+    "EPOCHS": 100,
+    "UPDATE_Q_BAR_FREQ": 5,
+    "UPDATE_Q_BAR_EVERY_C_ROUND": False,
+    "GAMMA": 0.8,
+    "MAX_MEMORY_LEN": 10000,
+    "PATIENCE": 10,
+    "D_DENSE": 20,
+    "N_LAYER": 2,
+    "EPSILON": 0.8,
+    "EPSILON_DECAY": 0.95,
+    "MIN_EPSILON": 0.2,
+    "LOSS_FUNCTION": "mean_squared_error",
+    "SEPARATE_MEMORY": False,
+    "NORMAL_FACTOR": 20,
+    "TRAFFIC_FILE": "cross.2phases_rou01_equal_450.xml",
+    "EARLY_STOP_LOSS": "val_loss",
+    "DROPOUT_RATE": 0,
+    "MERGE": "multiply",
+    "PLANNING_ITERATIONS": 3,
+    "PICK_ACTION_AND_KEEP_WITH_IT": False,
+    "SAMPLE_ONLY": True
 }
 
 DIC_PATH = {
@@ -210,7 +244,9 @@ DIC_PATH = {
 
 DIC_AGENTS = {
     "TransferDQN": TransferDQNAgent,
-    "PlanningOnly": PlanningOnlyAgent
+    "Sumo": SumoAgent,
+    "PlanningOnly": PlanningOnlyAgent,
+    "TransferDQNWithPlanning": TransferDQNWithPlanningAgent,
 }
 
 DIC_ENVS = {

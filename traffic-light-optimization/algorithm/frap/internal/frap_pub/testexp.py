@@ -61,6 +61,7 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
         dic_traffic_env_conf=dic_traffic_env_conf,
         dic_path=dic_path,
         cnt_round=1,  # useless
+        mode='test'
     )
     try:
         agent.load_network(model_round)

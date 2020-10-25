@@ -91,6 +91,7 @@ class ModelPool():
             dic_traffic_env_conf=dic_traffic_env_conf,
             dic_path=self.dic_path,
             cnt_round=0,  # useless
+            mode='train'
         )
         # try:
         if 1:

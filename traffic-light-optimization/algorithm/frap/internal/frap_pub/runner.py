@@ -8,7 +8,7 @@ from algorithm.frap.internal.frap_pub.config import DIC_AGENTS, DIC_ENVS
 from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
 
 
-class Planner:
+class Runner:
 
     def __init__(self, cnt_round, dic_path, dic_exp_conf, dic_agent_conf, dic_traffic_env_conf,
                  external_configurations={}):
@@ -26,24 +26,27 @@ class Planner:
             os.makedirs(ROOT_DIR + '/' + self.path_to_log)
 
 
-        self.env = DIC_ENVS[dic_traffic_env_conf["SIMULATOR_TYPE"]](
-                        path_to_log = self.path_to_log,
-                        path_to_work_directory = self.dic_path["PATH_TO_WORK_DIRECTORY"],
-                        dic_traffic_env_conf = self.dic_traffic_env_conf,
-                        dic_path=self.dic_path,
-                        external_configurations=self.external_configurations,
-                        mode='test')
-
         self.agent_name = self.dic_exp_conf["MODEL_NAME"]
         self.agent = DIC_AGENTS[self.agent_name](
             dic_agent_conf=self.dic_agent_conf,
             dic_traffic_env_conf=self.dic_traffic_env_conf,
             dic_path=self.dic_path,
             dic_exp_conf=self.dic_exp_conf,
-            env=self.env
+            mode='test'
         )
 
-    def plan(self):
+        self.env = DIC_ENVS[dic_traffic_env_conf["SIMULATOR_TYPE"]](
+                path_to_log = self.path_to_log,
+                path_to_work_directory = self.dic_path["PATH_TO_WORK_DIRECTORY"],
+                dic_traffic_env_conf = self.dic_traffic_env_conf,
+                dic_path=self.dic_path,
+                external_configurations=self.external_configurations,
+                mode='test')
+
+        if self.agent_name == 'PlanningOnly':
+            self.agent.set_simulation_environment(self.env)
+
+    def run(self):
 
         done = False
         execution_name = 'test' + '_' + 'round' + '_' + str(self.cnt_round)

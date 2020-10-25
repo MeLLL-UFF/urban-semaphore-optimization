@@ -31,6 +31,13 @@ net_xml_copy = None
 route_xml_copy = None
 
 
+def get_xml(file):
+
+    parser = etree.XMLParser(remove_blank_text=True)
+    xml = etree.parse(file, parser)
+
+    return xml
+
 def configure_sumo_traffic_light_parameters(experiment, traffic_light_parameters={}):
 
     global net_xml_copy
@@ -723,19 +730,18 @@ def convert_flows_to_trips(route_file):
         route_xml.write(handle, pretty_print=True)
 
 
-def fix_save_state_stops(save_state, time):
+def fix_save_state_stops(net_xml, save_state, time):
 
     parser = etree.XMLParser(remove_blank_text=True)
-    xml = etree.parse(save_state, parser)
+    save_state_xml = etree.parse(save_state, parser)
 
-    save_state_vehicles = list(set(xml.findall('.//stop/..')))
+    save_state_vehicles = list(set(save_state_xml.findall('.//stop/..')))
 
     stops_to_issue = []
     for save_state_vehicle in save_state_vehicles:
 
         stop_elements = save_state_vehicle.findall('.//stop')
 
-        stop_element = None
         if len(stop_elements) > 1:
 
             for stop_element in stop_elements[0:-1]:
@@ -744,21 +750,32 @@ def fix_save_state_stops(save_state, time):
         stop_element = stop_elements[-1]
 
         if stop_element is not None:
-            
+
             vehicle_id = save_state_vehicle.get('id')
+            lane = stop_element.get('lane')
             vehicle_lane_position = save_state_vehicle.get('pos')
-            
-            startPos = stop_element.get('startPos')
-            endPos = stop_element.get('endPos')
+
+            start_pos = stop_element.get('startPos')
+            end_pos = stop_element.get('endPos')
             depart = stop_element.get('depart')
 
-            if endPos is not None:
-                if startPos is not None:
-                    startPos = float(startPos)
-                    endPos = float(endPos)
+            if end_pos is not None:
+                if start_pos is not None:
+                    start_pos = float(start_pos)
+                    end_pos = float(end_pos)
 
-                    if startPos == endPos:
-                        stop_element.attrib['endPos'] =  str(endPos + 0.15)
+                    if start_pos == end_pos:
+                        lane_definition = net_xml.find('.//edge/lane[@id="' + lane + '"]')
+                        lane_length = float(lane_definition.get('length'))
+
+                        if end_pos + 0.15 > lane_length:
+                            end_pos = lane_length
+                            start_pos = lane_length - 0.15
+                        else:
+                            end_pos += 0.15
+
+                        stop_element.attrib['startPos'] = str(start_pos)
+                        stop_element.attrib['endPos'] = str(end_pos)
 
             elif depart is None:
                 actual_arrival = stop_element.get('actualArrival')
@@ -769,7 +786,6 @@ def fix_save_state_stops(save_state, time):
                     duration = time - float(actual_arrival)
 
                 if duration is not None:
-
                     duration = float(duration)
 
                     stops_to_issue.append(
@@ -785,6 +801,6 @@ def fix_save_state_stops(save_state, time):
                     save_state_vehicle.remove(stop_element)
 
     with open(save_state, 'wb') as handle:
-        xml.write(handle, pretty_print=True)
+        save_state_xml.write(handle, pretty_print=True)
 
     return stops_to_issue

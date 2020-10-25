@@ -73,6 +73,7 @@ def run(dir, round_number, run_cnt, execution_name, if_gui, rewrite_mode=False, 
         dic_traffic_env_conf=dic_traffic_env_conf,
         dic_path=dic_path,
         cnt_round=round_number + 1,  # useless
+        mode='replay'
     )
     agent.load_network(model_round)
 
@@ -148,6 +149,7 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
         dic_traffic_env_conf=dic_traffic_env_conf,
         dic_path=dic_path,
         cnt_round=0,  # useless
+        mode='replay'
     )
     if 1:
         agent.load_network(model_round)

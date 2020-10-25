@@ -20,7 +20,6 @@ else:
 import lxml.etree as etree
 
 from algorithm.frap.frap import Frap
-from algorithm.sumo_based.sumo_based import SumoBased
 import definitions
 from utils.traffic_util import generate_unique_traffic_level_configurations
 from utils.sumo_util import get_intersection_edge_ids, get_connections, map_connection_direction, \
@@ -227,7 +226,7 @@ def create_experiment_generator(_type='regular', algorithm=None):
 def run_experiment(arguments):
 
     scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, sumocfg_file, \
-        output_folder, step_length = arguments
+        output_folder = arguments
 
     route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
     #route_file = scenario_folder + '/' + 'temp' + '/' + 'routes' + '/' + scenario + '_' + '_'.join(traffic_level_configuration) + '.rou.xml'
@@ -236,21 +235,7 @@ def run_experiment(arguments):
     if not os.path.isdir(output_folder):
         os.makedirs(output_folder)
 
-    if algorithm == 'FRAP':
-
-        begin = time.time()
-
-        Frap.run(net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
-
-        end = time.time()
-        timing = end - begin
-
-        with open(scenario_folder + '/' + 'frap_timing.txt', 'a') as handle:
-            handle.write(str(timing))
-    else:
-
-        sumo = SumoBased(net_file, route_file, output_file, scenario, _type, traffic_level_configuration, step_length)
-        sumo.run()
+    Frap.run(net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
 
     sys.stdout.flush()
 
@@ -306,7 +291,7 @@ def re_run(arguments):
 
     os.remove(route_file)
 
-def _run(_type='regular', algorithm=None, experiment=None, step_length=1):
+def _run(_type='regular', algorithm=None, experiment=None):
     
     experiment_generator = create_experiment_generator(_type=_type, algorithm=algorithm)
 
@@ -341,19 +326,21 @@ if __name__ == "__main__":
     #_build_experiment_i_routes()
     run()
 
-    #_run(_type='right_on_red', step_length=1)
-    #_run(_type='unregulated', step_length=1)
+    #_run(_type='right_on_red', algorithm='FRAP')
+    #_run(_type='unregulated', algorithm='FRAP')
 
     '''
-    Frap.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___10_09_17_41_52_10__eabb03b9-3291-42c1-9ab2-7e9ca95f6795',
-                 plots='summary_only', baseline_comparison=True, scenario='0_regular-intersection',
-                 traffic_level_configuration='custom_4_street_traffic')
-
-    Frap.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___10_09_17_41_52_10__eabb03b9-3291-42c1-9ab2-7e9ca95f6795',
-                 plots='records_only', _round=322, baseline_comparison=True, scenario='0_regular-intersection',
-                 traffic_level_configuration='custom_4_street_traffic')
+    Frap.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___10_23_13_33_15_10__535228e8-7f97-4bf5-b5cf-3828d2a13cc8',
+                 memo='PlanningOnly', plots='summary_only', baseline_comparison=False)
     '''
-
+    '''
+    Frap.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___10_25_14_05_32_10__744604da-478b-44d9-a4a9-b4a1a1b92608',
+                 memo='PlanningOnly', plots='records_only', _round=0, baseline_comparison=True, 
+                 baseline_experiments=[
+                     ['Sumo', '0_regular-intersection__right_on_red__custom_4_street_traffic___10_23_10_48_51_10__04092094-1443-4525-99a9-99fa6145a308', 0, 'r', 'right on red'],
+                     ['Sumo', '0_regular-intersection__unregulated__custom_4_street_traffic___10_23_10_51_45_10__110ede2f-8a0b-4b1d-85c0-bff18cf64d40', 0, 'g', 'unregulated']
+                 ])
+    '''
     '''
     experiment = '0_regular-intersection__right_on_red__custom_4_street_traffic___10_04_21_00_35_10__4ff3043f-4ccb-4877-be7f-f47b2f7291e6'
 

@@ -656,7 +656,7 @@ def summary_detail_baseline(memo):
 
 
 def single_experiment_summary(memo, records_dir, plots='all', _round=None,
-                              baseline_comparison=False, scenario=None, traffic_level_configuration=None):
+                              baseline_comparison=False, baseline_experiments=None):
     # plots: None, 'records_only 'summary_only', 'all'
 
     if _round is not None:
@@ -738,8 +738,7 @@ def single_experiment_summary(memo, records_dir, plots='all', _round=None,
                 name_base, 
                 algorithm_label,
                 baseline_comparison=baseline_comparison, 
-                scenario=scenario,
-                traffic_level_configuration=traffic_level_configuration)
+                baseline_experiments=baseline_experiments)
             summary_util.consolidate_reward(reward_each_step, save_path, name_base)
 
             summary_util.consolidate_occupancy_and_speed_inflow_outflow(
@@ -788,8 +787,7 @@ def single_experiment_summary(memo, records_dir, plots='all', _round=None,
             name_base, 
             algorithm_label,
             baseline_comparison=baseline_comparison, 
-            scenario=scenario, 
-            traffic_level_configuration=traffic_level_configuration, 
+            baseline_experiments=None,
             mean=True)
         summary_util.consolidate_reward(average_reward_each_round, save_path, name_base)
 

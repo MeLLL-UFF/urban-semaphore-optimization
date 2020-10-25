@@ -19,7 +19,7 @@ class ConstructSample:
         try:
             # load settings
             self.measure_time = self.dic_traffic_env_conf["MEASURE_TIME"]
-            self.interval = self.dic_traffic_env_conf["MIN_ACTION_TIME"]
+            self.min_action_time = self.dic_traffic_env_conf["MIN_ACTION_TIME"]
             f_logging_data = open(os.path.join(ROOT_DIR, self.path_to_samples, folder, "inter_0.pkl"), "rb")
             self.logging_data = pickle.load(f_logging_data)
             f_logging_data.close()
@@ -103,16 +103,16 @@ class ConstructSample:
             list_samples = []
             total_time = int(self.logging_data[-1]['time'] + 1)
             # construct samples
-            for time in range(0, total_time - self.measure_time + 1, self.interval):
+            for time in range(0, total_time - self.measure_time + 1, self.min_action_time):
                 state = self.construct_state(self.dic_traffic_env_conf["LIST_STATE_FEATURE"], time)
                 reward_instant, reward_average = self.construct_reward(self.dic_traffic_env_conf["DIC_REWARD_INFO"], time)
                 action = self.judge_action(time)
 
-                if time + self.interval == total_time:
-                    next_state = self.construct_state(self.dic_traffic_env_conf["LIST_STATE_FEATURE"], time + self.interval - 1)
+                if time + self.min_action_time == total_time:
+                    next_state = self.construct_state(self.dic_traffic_env_conf["LIST_STATE_FEATURE"], time + self.min_action_time - 1)
 
                 else:
-                    next_state = self.construct_state(self.dic_traffic_env_conf["LIST_STATE_FEATURE"], time + self.interval)
+                    next_state = self.construct_state(self.dic_traffic_env_conf["LIST_STATE_FEATURE"], time + self.min_action_time)
                 sample = [state, action, next_state, reward_average, reward_instant, time]
                 list_samples.append(sample)
 

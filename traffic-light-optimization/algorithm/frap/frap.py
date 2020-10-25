@@ -133,10 +133,9 @@ class Frap:
 
 
     @staticmethod
-    def summary(experiment, plots='all', _round=None, baseline_comparison=True, scenario=None,
-                traffic_level_configuration=None, memo='TransferDQN'):
+    def summary(experiment, memo, plots='all', _round=None, baseline_comparison=True, baseline_experiments=None):
         summary.single_experiment_summary(memo, 'records/' + memo + '/' + experiment,
-                                          plots, _round, baseline_comparison, scenario, traffic_level_configuration)
+                                          plots, _round, baseline_comparison, baseline_experiments)
 
     @staticmethod
     def _consolidate_output_file(output_folder, experiment_name):

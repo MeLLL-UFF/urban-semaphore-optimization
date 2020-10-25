@@ -92,7 +92,8 @@ def conv2d_bn(input_layer, index_layer,
 
 
 class NetworkAgent(Agent):
-    def __init__(self, dic_agent_conf, dic_traffic_env_conf, dic_path, cnt_round, best_round=None, bar_round=None):
+    def __init__(self, dic_agent_conf, dic_traffic_env_conf, dic_path, cnt_round, best_round=None, bar_round=None, mode='test',
+                 *args, **kwargs):
 
         import tensorflow as tf
         #import keras.backend.tensorflow_backend as KTF
@@ -105,7 +106,7 @@ class NetworkAgent(Agent):
         #KTF.set_session(session)
 
         super(NetworkAgent, self).__init__(
-            dic_agent_conf, dic_traffic_env_conf, dic_path)
+            dic_agent_conf, dic_traffic_env_conf, dic_path, mode)
 
         # ===== check num actions == num phases ============
 
