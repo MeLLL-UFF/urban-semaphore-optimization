@@ -4,6 +4,7 @@ import shutil
 import pickle
 import json
 from sys import platform
+import threading
 
 import numpy as np
 import pandas as pd
@@ -16,6 +17,8 @@ from utils import sumo_util, sumo_traci_util
 from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
 from algorithm.frap.internal.frap_pub.intersection import Intersection
 
+
+traci_start_lock = threading.Lock()
 
 class SumoEnv:
 
@@ -101,8 +104,6 @@ class SumoEnv:
                 f = open(ROOT_DIR + '/' + path_to_log_file, "wb")
                 f.close()
 
-        self.execution_name = None
-
     def reset(self, execution_name):
 
         self.execution_name = execution_name
@@ -116,6 +117,7 @@ class SumoEnv:
             for j in range(self.dic_traffic_env_conf["NUM_INTERSECTIONS"]):
                 self.list_intersection.append(Intersection("{0}_{1}".format(i, j), self.LIST_VEHICLE_VARIABLES_TO_SUB,
                                                            self.dic_traffic_env_conf, self.dic_path,
+                                                           execution_name=execution_name,
                                                            external_configurations=self.external_configurations))
 
         self.list_inter_log = [[] for _ in range(len(self.list_intersection))]
@@ -150,8 +152,9 @@ class SumoEnv:
 
         stops_to_issue = []
         print("start sumo")
+        traci_start_lock.acquire()
         try:
-            traci.start(sumo_cmd_str, label=execution_name)
+            traci.start(sumo_cmd_str, label=self.execution_name)
         except Exception as e:
             traci.close()
 
@@ -165,19 +168,23 @@ class SumoEnv:
                 stops_to_issue = sumo_util.fix_save_state_stops(net_xml, save_state, time)
 
             try:
-                traci.start(sumo_cmd_str, label=execution_name)
+                traci.start(sumo_cmd_str, label=self.execution_name)
             except Exception as e:
                 print('TRACI TERMINATED')
+                traci.close()
                 print(str(e))
                 raise e
+
+        traci_connection = traci.getConnection(self.execution_name)
         print("succeed in start sumo")
+        traci_start_lock.release()
 
         for stop_info in stops_to_issue:
-            traci.vehicle.setStop(**stop_info)
+            traci_connection.vehicle.setStop(**stop_info)
 
         # start subscription
         for lane in self.list_lanes:
-            traci.lane.subscribe(lane, [getattr(tc, var) for var in self.LIST_LANE_VARIABLES_TO_SUB])
+            traci_connection.lane.subscribe(lane, [getattr(tc, var) for var in self.LIST_LANE_VARIABLES_TO_SUB])
 
         # get new measurements
         for inter in self.list_intersection:
@@ -227,10 +234,12 @@ class SumoEnv:
                     shutil.copy(ROOT_DIR + '/' + path_to_log_file, ROOT_DIR + '/' + detailed_copy)
 
     def end_sumo(self):
-        traci.close()
+        traci_connection = traci.getConnection(self.execution_name)
+        traci_connection.close()
 
     def get_current_time(self):
-        return traci.simulation.getTime()
+        traci_connection = traci.getConnection(self.execution_name)
+        return traci_connection.simulation.getTime()
 
     def get_feature(self):
 
@@ -258,13 +267,14 @@ class SumoEnv:
 
             if self.mode == 'test':
 
-                traffic_light = sumo_traci_util.get_traffic_light_state(inter.node_light)
-                time_loss = sumo_traci_util.get_time_loss(inter.dic_vehicle_sub_current_step)
+                traffic_light = sumo_traci_util.get_traffic_light_state(inter.node_light, self.execution_name)
+                time_loss = sumo_traci_util.get_time_loss(inter.dic_vehicle_sub_current_step, self.execution_name)
                 relative_occupancy = sumo_traci_util.get_lane_relative_occupancy(
                     inter.dic_lane_sub_current_step,
                     inter.dic_lane_vehicle_sub_current_step,
                     inter.dic_vehicle_sub_current_step,
-                    inter.edges)
+                    inter.edges, 
+                    self.execution_name)
                 relative_mean_speed = sumo_traci_util.get_relative_mean_speed(
                     inter.dic_lane_sub_current_step, inter.edges)
                 absolute_number_of_cars = sumo_traci_util.get_absolute_number_of_cars(
@@ -301,7 +311,8 @@ class SumoEnv:
 
         filepath = os.path.join(ROOT_DIR, self.environment_state_path, state_name)
 
-        traci.simulation.saveState(filepath)
+        traci_connection = traci.getConnection(self.execution_name)
+        traci_connection.simulation.saveState(filepath)
 
         return filepath
 
@@ -392,9 +403,6 @@ class SumoEnv:
         # set signals
         for inter_ind, inter in enumerate(self.list_intersection):
 
-            if action[inter_ind] == 'no_op':
-                continue
-
             inter.set_signal(
                 action=action[inter_ind],
                 action_pattern=self.dic_traffic_env_conf["ACTION_PATTERN"],
@@ -405,14 +413,17 @@ class SumoEnv:
         # run one step
 
         for i in range(int(1/self.dic_traffic_env_conf["INTERVAL"])):
-            traci.simulationStep()
+            traci_connection = traci.getConnection(self.execution_name)
+            traci_connection.simulationStep()
 
         # get new measurements
         for inter in self.list_intersection:
             inter.update_current_measurements()
 
-            blocked_vehicles = sumo_traci_util.detect_deadlock(inter.net_file_xml, inter.dic_vehicle_sub_current_step)
-            sumo_traci_util.resolve_deadlock(blocked_vehicles, inter.net_file_xml, inter.dic_vehicle_sub_current_step)
+            blocked_vehicles = sumo_traci_util.detect_deadlock(inter.net_file_xml, inter.dic_vehicle_sub_current_step, 
+                traci_label=self.execution_name)
+            sumo_traci_util.resolve_deadlock(blocked_vehicles, inter.net_file_xml, inter.dic_vehicle_sub_current_step, 
+                traci_label=self.execution_name)
 
     def _check_episode_done(self, list_state):
 

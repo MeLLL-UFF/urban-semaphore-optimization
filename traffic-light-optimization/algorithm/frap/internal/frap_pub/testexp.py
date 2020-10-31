@@ -60,6 +60,7 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
         dic_agent_conf=dic_agent_conf,
         dic_traffic_env_conf=dic_traffic_env_conf,
         dic_path=dic_path,
+        dic_exp_conf=dic_exp_conf,
         cnt_round=1,  # useless
         mode='test'
     )
@@ -76,6 +77,9 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
                          external_configurations=external_configurations,
                          mode='test')
 
+        if agent_name == 'PlanningOnly' or agent_name == 'TransferDQNwithPlanning':
+            agent.set_simulation_environment(env)
+
         done = False
         state, next_action = env.reset()
         step = 0
@@ -88,7 +92,7 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
                 
                 one_state = state[index]
 
-                action = agent.choose_action(step, one_state)
+                action = agent.choose_action(step, one_state, intersection_index=index)
 
                 action_list[index] = action
 

@@ -90,6 +90,7 @@ class ModelPool():
             dic_agent_conf=dic_agent_conf,
             dic_traffic_env_conf=dic_traffic_env_conf,
             dic_path=self.dic_path,
+            dic_exp_conf=dic_exp_conf,
             cnt_round=0,  # useless
             mode='train'
         )
@@ -110,6 +111,9 @@ class ModelPool():
                              external_configurations=external_configurations,
                              mode='train')
 
+            if agent_name == 'PlanningOnly' or agent_name == 'TransferDQNwithPlanning':
+                agent.set_simulation_environment(env)
+
             done = False
             state, next_action = env.reset()
             step = 0
@@ -122,7 +126,7 @@ class ModelPool():
                     
                     one_state = state[index]
 
-                    action = self.agent.choose_action(step, one_state)
+                    action = self.agent.choose_action(step, one_state, intersection_index=index)
 
                     action_list[index] = action
 

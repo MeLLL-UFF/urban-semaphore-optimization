@@ -81,9 +81,7 @@ class Pipeline:
             else:
                 return 0
 
-
-
-    def generator_wrapper(self, cnt_round, cnt_gen, dic_path, dic_exp_conf, dic_agent_conf, dic_traffic_env_conf,
+    def generator_wrapper(self, cnt_gen, cnt_round, dic_path, dic_exp_conf, dic_agent_conf, dic_traffic_env_conf,
                           best_round=None, external_configurations={}):
         generator = Generator(cnt_round=cnt_round,
                               cnt_gen=cnt_gen,

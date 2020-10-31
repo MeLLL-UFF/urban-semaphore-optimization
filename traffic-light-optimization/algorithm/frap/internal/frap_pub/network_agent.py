@@ -1,19 +1,19 @@
+import os
+import copy
+import random
+import pickle as pkl
 import numpy as np
+
 from keras.layers import Input, Dense, Conv2D, Flatten, BatchNormalization, Activation, Multiply, Add
 from keras.models import Model, model_from_json, load_model
 from keras.optimizers import RMSprop
 from keras.layers.core import Dropout
 from keras.layers.pooling import MaxPooling2D
 from keras import backend as K
-import random
 from keras.engine.topology import Layer
-import os
 from keras.callbacks import EarlyStopping, TensorBoard
-import pickle as pkl
 
 from algorithm.frap.internal.frap_pub.agent import Agent
-import copy
-
 from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
 
 rotation_matrix_2_p = np.zeros((4, 4))
@@ -92,21 +92,27 @@ def conv2d_bn(input_layer, index_layer,
 
 
 class NetworkAgent(Agent):
-    def __init__(self, dic_agent_conf, dic_traffic_env_conf, dic_path, cnt_round, best_round=None, bar_round=None, mode='test',
+
+    def __init__(self, dic_agent_conf, dic_traffic_env_conf, dic_path, dic_exp_conf, cnt_round, best_round=None, bar_round=None, mode='test',
                  *args, **kwargs):
 
         import tensorflow as tf
-        #import keras.backend.tensorflow_backend as KTF
 
-        tf_config = tf.compat.v1.ConfigProto()
-        tf_config.gpu_options.allow_growth = True
-        tf_config.gpu_options.per_process_gpu_memory_fraction = 0.2
-        session = tf.compat.v1.Session(config=tf_config)
-        tf.compat.v1.keras.backend.set_session(session)
-        #KTF.set_session(session)
+        gpus = tf.config.experimental.list_physical_devices('GPU')
+        if gpus:
+            try:
+                # Currently, memory growth needs to be the same across GPUs
+                for gpu in gpus:
+                    tf.config.experimental.set_virtual_device_configuration(
+                        gpu,
+                        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=1024)])
+                    tf.config.experimental.set_memory_growth(gpu, True)
+            except RuntimeError as e:
+                # Memory growth must be set before GPUs have been initialized
+                print(e)
 
-        super(NetworkAgent, self).__init__(
-            dic_agent_conf, dic_traffic_env_conf, dic_path, mode)
+        super().__init__(
+            dic_agent_conf, dic_traffic_env_conf, dic_path, dic_exp_conf, mode)
 
         # ===== check num actions == num phases ============
 
@@ -122,6 +128,8 @@ class NetworkAgent(Agent):
         self.memory = self.build_memory()
 
         self.cnt_round = cnt_round
+        self.best_round = best_round
+        self.bar_round = bar_round
 
         if cnt_round == 0:
             # initialization
@@ -166,7 +174,7 @@ class NetworkAgent(Agent):
                     else:
                         self.load_network_bar("round_{0}".format(
                             max(cnt_round - self.dic_agent_conf["UPDATE_Q_BAR_FREQ"], 0)))
-            except:
+            except Exception as e:
                 print("fail to load network, current round: {0}".format(cnt_round))
 
         # decay the epsilon
@@ -371,7 +379,7 @@ class NetworkAgent(Agent):
             return [np.array([s[feature]]) for feature in self.dic_traffic_env_conf["LIST_STATE_FEATURE"]]
 
 
-    def choose_action(self, count, state):
+    def choose_action(self, step, state, *args, **kwargs):
 
         ''' choose the best action for current state '''
 

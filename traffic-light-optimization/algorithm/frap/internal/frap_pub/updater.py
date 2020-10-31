@@ -17,7 +17,13 @@ class Updater:
         self.dic_agent_conf = dic_agent_conf
         self.agent_name = self.dic_exp_conf["MODEL_NAME"]
 
-        self.agent = DIC_AGENTS[self.agent_name](self.dic_agent_conf, self.dic_traffic_env_conf, self.dic_path, self.cnt_round, mode='train')
+        self.agent = DIC_AGENTS[self.agent_name](
+            self.dic_agent_conf, 
+            self.dic_traffic_env_conf, 
+            self.dic_path, 
+            self.dic_exp_conf, 
+            self.cnt_round, 
+            mode='train')
 
     def load_sample(self):
 

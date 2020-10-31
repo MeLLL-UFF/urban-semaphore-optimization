@@ -8,12 +8,24 @@ from shapely.geometry import Polygon, CAP_STYLE
 from utils import sumo_util, math_util
 
 
-def get_current_time():
-    return traci.simulation.getTime()
+def get_current_time(traci_label=None):
+
+    if traci_label is None:
+        traci_connection = traci
+    else:
+        traci_connection = traci.getConnection(traci_label)
+
+    return traci_connection.simulation.getTime()
 
 
-def set_traffic_light_state(intersection, state):
-    traci.trafficlight.setRedYellowGreenState(intersection, state)
+def set_traffic_light_state(intersection, state, traci_label=None):
+    
+    if traci_label is None:
+        traci_connection = traci
+    else:
+        traci_connection = traci.getConnection(traci_label)
+
+    traci_connection.trafficlight.setRedYellowGreenState(intersection, state)
 
 
 def get_lane_first_stopped_car_waiting_times(lanes, lane_vehicle_subscription_data):
@@ -27,15 +39,26 @@ def get_lane_first_stopped_car_waiting_times(lanes, lane_vehicle_subscription_da
     return result
 
 
-def get_traffic_light_state(intersection):
-    return traci.trafficlight.getRedYellowGreenState(intersection)
+def get_traffic_light_state(intersection, traci_label=None):
+
+    if traci_label is None:
+        traci_connection = traci
+    else:
+        traci_connection = traci.getConnection(traci_label)
+
+    return traci_connection.trafficlight.getRedYellowGreenState(intersection)
 
 
 def get_lane_number_of_vehicles(lanes, lane_subscription_data):
     return [lane_subscription_data[lane][tc.LAST_STEP_VEHICLE_NUMBER] for lane in lanes]
 
 
-def get_time_loss(vehicle_subscription_data):
+def get_time_loss(vehicle_subscription_data, traci_label=None):
+
+    if traci_label is None:
+        traci_connection = traci
+    else:
+        traci_connection = traci.getConnection(traci_label)
 
     if vehicle_subscription_data:
         
@@ -43,7 +66,7 @@ def get_time_loss(vehicle_subscription_data):
                            for data in vehicle_subscription_data.values()]
         
         running = len(relative_speeds)
-        step_length = traci.simulation.getDeltaT()        
+        step_length = traci_connection.simulation.getDeltaT()        
         mean_relative_speed = sum(relative_speeds) / running
         
         time_loss = (1 - mean_relative_speed) * running * step_length
@@ -54,7 +77,12 @@ def get_time_loss(vehicle_subscription_data):
 
 
 def get_lane_relative_occupancy(lane_subscription_data, lane_vehicle_subscription_data, vehicle_subscription_data,
-                                edges):
+                                edges, traci_label=None):
+
+    if traci_label is None:
+        traci_connection = traci
+    else:
+        traci_connection = traci.getConnection(traci_label)
 
     result = {}
 
@@ -82,7 +110,7 @@ def get_lane_relative_occupancy(lane_subscription_data, lane_vehicle_subscriptio
 
         for vehicle_id, vehicle in vehicles.items():
             min_gap = vehicle[tc.VAR_MINGAP]
-            leader_vehicle_result = traci.vehicle.getLeader(vehicle_id)
+            leader_vehicle_result = traci_connection.vehicle.getLeader(vehicle_id)
 
             if leader_vehicle_result:
 
@@ -90,7 +118,7 @@ def get_lane_relative_occupancy(lane_subscription_data, lane_vehicle_subscriptio
                 leader_vehicle = all_vehicles[leader_id]
 
                 actual_distance = max(0 + min_gap, leader_vehicle_distance + min_gap)
-                secure_gap = traci.vehicle.getSecureGap(
+                secure_gap = traci_connection.vehicle.getSecureGap(
                     vehicle_id,
                     vehicle[tc.VAR_SPEED],
                     leader_vehicle[tc.VAR_SPEED],
@@ -216,7 +244,12 @@ def get_next_lane(vehicle, net_xml, vehicle_subscription_data):
     return next_lane
 
 
-def detect_deadlock(net_xml, vehicle_subscription_data, waiting_too_long_threshold=10):
+def detect_deadlock(net_xml, vehicle_subscription_data, waiting_too_long_threshold=10, traci_label=None):
+
+    if traci_label is None:
+        traci_connection = traci
+    else:
+        traci_connection = traci.getConnection(traci_label)
 
     internal_lanes = sumo_util.get_internal_lanes(net_xml)
     lane_path_dict = sumo_util.get_internal_lane_paths(net_xml)
@@ -225,7 +258,7 @@ def detect_deadlock(net_xml, vehicle_subscription_data, waiting_too_long_thresho
     vehicle_waiting_times = {}
 
     for lane_id in internal_lanes:
-        vehicles = traci.lane.getLastStepVehicleIDs(lane_id)
+        vehicles = traci_connection.lane.getLastStepVehicleIDs(lane_id)
         
         for vehicle_id in vehicles:
             vehicle_lane_dict[vehicle_id] = lane_id
@@ -281,7 +314,12 @@ def detect_deadlock(net_xml, vehicle_subscription_data, waiting_too_long_thresho
     return blocked_vehicles
 
 
-def resolve_deadlock(blocked_vehicles, net_xml, vehicle_subscription_data):
+def resolve_deadlock(blocked_vehicles, net_xml, vehicle_subscription_data, traci_label=None):
+
+    if traci_label is None:
+        traci_connection = traci
+    else:
+        traci_connection = traci.getConnection(traci_label)
 
     for index, (blocked_vehicle, lane) in enumerate(blocked_vehicles.items()):
 
@@ -292,4 +330,4 @@ def resolve_deadlock(blocked_vehicles, net_xml, vehicle_subscription_data):
             if lane == other_lane:
                 lane_position += vehicle_subscription_data[other_blocked_vehicle][tc.VAR_LENGTH] + 1
 
-        traci.vehicle.moveTo(blocked_vehicle, next_lane, lane_position)
+        traci_connection.vehicle.moveTo(blocked_vehicle, next_lane, lane_position)

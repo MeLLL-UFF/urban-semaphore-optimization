@@ -43,7 +43,7 @@ class Runner:
                 external_configurations=self.external_configurations,
                 mode='test')
 
-        if self.agent_name == 'PlanningOnly':
+        if self.agent_name == 'PlanningOnly' or self.agent_name == 'TransferDQNwithPlanning':
             self.agent.set_simulation_environment(self.env)
 
     def run(self):
@@ -64,7 +64,7 @@ class Runner:
                 
                 one_state = state[index]
 
-                action = self.agent.choose_action(step, one_state)
+                action = self.agent.choose_action(step, one_state, intersection_index=index)
 
                 action_list[index] = action
 

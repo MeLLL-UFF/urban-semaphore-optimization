@@ -72,6 +72,7 @@ def run(dir, round_number, run_cnt, execution_name, if_gui, rewrite_mode=False, 
         dic_agent_conf=dic_agent_conf,
         dic_traffic_env_conf=dic_traffic_env_conf,
         dic_path=dic_path,
+        dic_exp_conf=dic_exp_conf,
         cnt_round=round_number + 1,  # useless
         mode='replay'
     )
@@ -80,12 +81,16 @@ def run(dir, round_number, run_cnt, execution_name, if_gui, rewrite_mode=False, 
     path_to_log = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round", model_round)
     if not os.path.exists(ROOT_DIR + '/' + path_to_log):
         os.makedirs(ROOT_DIR + '/' + path_to_log)
+    
     env = DIC_ENVS[dic_traffic_env_conf["SIMULATOR_TYPE"]](path_to_log=path_to_log,
                         path_to_work_directory=dic_path["PATH_TO_WORK_DIRECTORY"],
                         dic_traffic_env_conf=dic_traffic_env_conf,
                         dic_path=dic_path,
                         external_configurations=external_configurations,
                         mode='replay', write_mode=rewrite_mode)
+
+    if agent_name == 'PlanningOnly' or agent_name == 'TransferDQNwithPlanning':
+        agent.set_simulation_environment(env)
 
     done = False
     state, next_action = env.reset(execution_name)
@@ -99,7 +104,7 @@ def run(dir, round_number, run_cnt, execution_name, if_gui, rewrite_mode=False, 
             
             one_state = state[index]
 
-            action = agent.choose_action(step, one_state)
+            action = agent.choose_action(step, one_state, intersection_index=index)
 
             action_list[index] = action
 
@@ -148,6 +153,7 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
         dic_agent_conf=dic_agent_conf,
         dic_traffic_env_conf=dic_traffic_env_conf,
         dic_path=dic_path,
+        dic_exp_conf=dic_exp_conf,
         cnt_round=0,  # useless
         mode='replay'
     )
@@ -164,6 +170,9 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
                          external_configurations=external_configurations,
                          mode='replay')
 
+        if agent_name == 'PlanningOnly' or agent_name == 'TransferDQNwithPlanning':
+            agent.set_simulation_environment(env)
+
         done = False
         state, next_action = env.reset()
         step = 0
@@ -176,7 +185,7 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
                 
                 one_state = state[index]
 
-                action = agent.choose_action(step, one_state)
+                action = agent.choose_action(step, one_state, intersection_index=index)
 
                 action_list[index] = action
 

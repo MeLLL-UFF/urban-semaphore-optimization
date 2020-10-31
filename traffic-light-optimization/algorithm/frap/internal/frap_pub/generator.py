@@ -35,6 +35,7 @@ class Generator:
                 dic_agent_conf=self.dic_agent_conf,
                 dic_sumo_env_conf=self.dic_sumo_env_conf,
                 dic_path=self.dic_path,
+                dic_exp_conf=self.dic_exp_conf,
                 cnt_round=self.cnt_round,
                 best_round=best_round,
                 mode='train'
@@ -51,6 +52,7 @@ class Generator:
                 dic_agent_conf=self.dic_agent_conf,
                 dic_traffic_env_conf=self.dic_traffic_env_conf,
                 dic_path=self.dic_path,
+                dic_exp_conf=self.dic_exp_conf,
                 cnt_round=self.cnt_round,
                 best_round=best_round,
                 mode='train'
@@ -63,6 +65,9 @@ class Generator:
                               dic_path=self.dic_path,
                               external_configurations=self.external_configurations,
                               mode='train')
+        
+        if self.agent_name == 'PlanningOnly' or self.agent_name == 'TransferDQNwithPlanning':
+            self.agent.set_simulation_environment(self.env)
 
     def generate(self):
 
@@ -82,7 +87,7 @@ class Generator:
                 
                 one_state = state[index]
 
-                action = self.agent.choose_action(step, one_state)
+                action = self.agent.choose_action(step, one_state, intersection_index=index)
 
                 action_list[index] = action
 

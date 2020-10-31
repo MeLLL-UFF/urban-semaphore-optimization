@@ -18,10 +18,12 @@ def get_traci_constant_mapping(constant_str):
 class Intersection:
 
     def __init__(self, light_id, list_vehicle_variables_to_sub, dic_traffic_env_conf, dic_path,
-                 external_configurations={}):
+                 execution_name, external_configurations={}):
         '''
         still need to automate generation
         '''
+
+        self.execution_name = execution_name
 
         roadnet_file = external_configurations['ROADNET_FILE']
 
@@ -133,7 +135,7 @@ class Intersection:
             self.flicker = 0
             if self.current_phase_duration >= yellow_time:  # yellow time reached
 
-                current_traffic_light = sumo_traci_util.get_traffic_light_state(self.node_light)
+                current_traffic_light = sumo_traci_util.get_traffic_light_state(self.node_light, self.execution_name)
 
                 self.current_phase_index = self.next_phase_to_set_index
                 phase = self.phases[self.current_phase_index]
@@ -145,13 +147,16 @@ class Intersection:
                                             new_lane_traffic_light + \
                                             current_traffic_light[traffic_light_index + 1:]
 
-                sumo_traci_util.set_traffic_light_state(self.node_light, current_traffic_light)
+                sumo_traci_util.set_traffic_light_state(self.node_light, current_traffic_light, self.execution_name)
                 self.all_yellow_flag = False
             else:
                 pass
         else:
 
             if self.next_phase_to_set_index is None or self.current_min_action_duration >= self.min_action_time:
+
+                if action == 'no_op':
+                    return
 
                 # determine phase
                 if action_pattern == "switch":  # switch by order
@@ -173,7 +178,7 @@ class Intersection:
                     pass
                 else:  # the light phase needs to change
                     # change to yellow first, and activate the counter and flag
-                    current_traffic_light = sumo_traci_util.get_traffic_light_state(self.node_light)
+                    current_traffic_light = sumo_traci_util.get_traffic_light_state(self.node_light, self.execution_name)
 
                     phase = self.phases[self.next_phase_to_set_index]
 
@@ -189,7 +194,7 @@ class Intersection:
                                                     new_lane_traffic_light + \
                                                     current_traffic_light[traffic_light_index + 1:]
 
-                    sumo_traci_util.set_traffic_light_state(self.node_light, current_traffic_light)
+                    sumo_traci_util.set_traffic_light_state(self.node_light, current_traffic_light, self.execution_name)
                     self.current_phase_index = self.all_yellow_phase_index
                     self.all_yellow_flag = True
                     self.flicker = 1
@@ -207,6 +212,8 @@ class Intersection:
 
     def update_current_measurements(self):
         # need change, debug in seeing format
+        
+        traci_connection = traci.getConnection(self.execution_name)
 
         if self.current_phase_index == self.previous_phase_index:
             self.current_phase_duration += 1
@@ -217,12 +224,12 @@ class Intersection:
 
         # ====== lane level observations =======
 
-        self.dic_lane_sub_current_step = {lane: traci.lane.getSubscriptionResults(lane) for lane in self.list_lanes}
+        self.dic_lane_sub_current_step = {lane: traci_connection.lane.getSubscriptionResults(lane) for lane in self.list_lanes}
 
         # ====== vehicle level observations =======
 
         # get vehicle list
-        self.list_vehicles_current_step = traci.vehicle.getIDList()
+        self.list_vehicles_current_step = traci_connection.vehicle.getIDList()
         list_vehicles_new_arrive = list(set(self.list_vehicles_current_step) - set(self.list_vehicles_previous_step))
         list_vehicles_new_left = list(set(self.list_vehicles_previous_step) - set(self.list_vehicles_current_step))
         list_vehicles_new_left_entering_lane_by_lane = self._update_leave_entering_approach_vehicle()
@@ -232,10 +239,10 @@ class Intersection:
 
         # update subscriptions
         for vehicle in list_vehicles_new_arrive:
-            traci.vehicle.subscribe(vehicle, [getattr(tc, var) for var in self.list_vehicle_variables_to_sub])
+            traci_connection.vehicle.subscribe(vehicle, [getattr(tc, var) for var in self.list_vehicle_variables_to_sub])
 
         # vehicle level observations
-        self.dic_vehicle_sub_current_step = {vehicle: traci.vehicle.getSubscriptionResults(vehicle)
+        self.dic_vehicle_sub_current_step = {vehicle: traci_connection.vehicle.getSubscriptionResults(vehicle)
                                              for vehicle in self.list_vehicles_current_step}
         self.dic_lane_vehicle_sub_current_step = {}
         for vehicle, values in self.dic_vehicle_sub_current_step.items():
@@ -440,7 +447,8 @@ class Intersection:
     # ================= get functions from outside ======================
 
     def get_current_time(self):
-        return traci.simulation.getTime()
+        traci_connection = traci.getConnection(self.execution_name)
+        return traci_connection.simulation.getTime()
 
     def get_dic_vehicle_arrive_leave_time(self):
         return self.dic_vehicle_arrive_leave_time

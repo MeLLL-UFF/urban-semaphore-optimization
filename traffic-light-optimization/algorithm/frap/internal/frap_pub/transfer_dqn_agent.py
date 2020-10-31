@@ -1,10 +1,13 @@
+
+import numpy as np
+
 from keras.layers import Input, Dense, Flatten, Reshape, Layer, Lambda, RepeatVector, Activation, Embedding, Conv2D
 from keras.models import Model, model_from_json, load_model
 from keras.optimizers import RMSprop, Adam
 from keras.layers.merge import concatenate, add, dot, maximum, multiply
-from algorithm.frap.internal.frap_pub.network_agent import NetworkAgent, conv2d_bn, Selector
 from keras import backend as K
-import numpy as np
+
+from algorithm.frap.internal.frap_pub.network_agent import NetworkAgent, conv2d_bn, Selector
 
 
 def slice_tensor(x, index):

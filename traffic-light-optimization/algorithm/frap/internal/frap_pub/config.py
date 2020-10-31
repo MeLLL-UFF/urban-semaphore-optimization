@@ -19,7 +19,7 @@ DIC_EXP_CONF = {
     "LIST_MODEL":
         ["TransferDQN"],
     "LIST_MODEL_NEED_TO_UPDATE":
-        ["TransferDQN"],
+        ["TransferDQN", "TransferDQNwithPlanning"],
     "MODEL_POOL": False,
     "NUM_BEST_MODEL": 3,
     "PRETRAIN": True,
@@ -199,7 +199,8 @@ DIC_SUMO_AGENT_CONF = {
 
 DIC_PLANNINGONLY_AGENT_CONF = {
     "PLANNING_ITERATIONS": 3,
-    "PICK_ACTION_AND_KEEP_WITH_IT": False
+    "PICK_ACTION_AND_KEEP_WITH_IT": False,
+    "TIEBREAK_POLICY": 'random'  # 'random', 'maintain', 'change'
 }
 
 DIC_TRANSFERDQNWITHPLANNING_AGENT_CONF = {
@@ -228,7 +229,10 @@ DIC_TRANSFERDQNWITHPLANNING_AGENT_CONF = {
     "MERGE": "multiply",
     "PLANNING_ITERATIONS": 3,
     "PICK_ACTION_AND_KEEP_WITH_IT": False,
-    "SAMPLE_ONLY": True
+    "TIEBREAK_POLICY": 'random',  # 'random', 'maintain', 'change'
+    "ACTION_SAMPLING_SIZE": 3,
+    "ACTION_SAMPLING_POLICY": 'best',  # 'best', 'random'
+    "PLANNING_SAMPLE_ONLY": True
 }
 
 DIC_PATH = {
@@ -246,7 +250,7 @@ DIC_AGENTS = {
     "TransferDQN": TransferDQNAgent,
     "Sumo": SumoAgent,
     "PlanningOnly": PlanningOnlyAgent,
-    "TransferDQNWithPlanning": TransferDQNWithPlanningAgent,
+    "TransferDQNwithPlanning": TransferDQNWithPlanningAgent,
 }
 
 DIC_ENVS = {

@@ -1,5 +1,25 @@
+import copyreg
 
 import lxml.etree as etree
+
+
+copyreg_registered = False
+
+def etree_unpickler(data):
+    return etree.fromstring(data)
+
+def etree_pickler(tree):
+    data = etree.tostring(tree)
+    return etree_unpickler, (data,)
+
+
+def register_copyreg():
+    global copyreg_registered
+
+    if not copyreg_registered:
+        copyreg.pickle(etree._ElementTree, etree_pickler, etree_unpickler)
+        copyreg.pickle(etree._Element, etree_pickler, etree_unpickler)
+        copyreg_registered = True
 
 
 def rename_xml_string(element, old_string, new_string, parser=None):

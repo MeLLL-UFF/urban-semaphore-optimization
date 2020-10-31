@@ -123,6 +123,7 @@ def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_c
         dic_agent_conf=dic_agent_conf,
         dic_traffic_env_conf=dic_traffic_env_conf,
         dic_path=dic_path,
+        dic_exp_conf=dic_exp_conf,
         cnt_round=1,  # useless
         mode='test'
     )
@@ -140,6 +141,9 @@ def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_c
                                                                external_configurations=external_configurations,
                                                                mode='test')
 
+        if agent_name == 'PlanningOnly' or agent_name == 'TransferDQNwithPlanning':
+            agent.set_simulation_environment(env)
+
         done = False
         execution_name = 'test' + '_' + 'round' + '_' + str(cnt_round)
         state, next_action = env.reset(execution_name)
@@ -153,7 +157,7 @@ def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_c
                 
                 one_state = state[index]
 
-                action = agent.choose_action(step, one_state)
+                action = agent.choose_action(step, one_state, intersection_index=index)
 
                 action_list[index] = action
 

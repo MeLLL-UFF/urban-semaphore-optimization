@@ -29,8 +29,8 @@ class ConstructSample:
             print(os.path.join(ROOT_DIR, self.path_to_samples, folder), "files not found")
             return 0
 
-    def construct_state(self, features, time):
-        state = self.logging_data[time]
+    def construct_state(self, features, index, time):
+        state = self.logging_data[index]
         assert time == state["time"]
         if self.dic_traffic_env_conf["BINARY_PHASE_EXPANSION"]:
             state_after_selection = {}
@@ -66,18 +66,18 @@ class ConstructSample:
             r += rs[component] * weight
         return r
 
-    def construct_reward(self,rewards_components, time):
+    def construct_reward(self,rewards_components, index, time):
 
-        rs = self.logging_data[time + self.measure_time - 1]
+        rs = self.logging_data[index + self.measure_time - 1]
         assert time + self.measure_time - 1 == rs["time"]
         rs = self.get_reward_from_features(rs['state'])
         r_instant = self.cal_reward(rs, rewards_components)
 
         # average
         list_r = []
-        for t in range(time, time + self.measure_time):
+        for i, t in zip(range(index, index + self.measure_time), range(time, time + self.measure_time)):
             #print("t is ", t)
-            rs = self.logging_data[t]
+            rs = self.logging_data[i]
             assert t == rs["time"]
             rs = self.get_reward_from_features(rs['state'])
             r = self.cal_reward(rs, rewards_components)
@@ -86,11 +86,11 @@ class ConstructSample:
 
         return r_instant, r_average
 
-    def judge_action(self,time):
-        if self.logging_data[time]['action'] == -1:
+    def judge_action(self, index):
+        if self.logging_data[index]['action'] == -1:
             raise ValueError
         else:
-            return self.logging_data[time]['action']
+            return self.logging_data[index]['action']
 
     def make_reward(self):
         self.samples = []
@@ -101,18 +101,29 @@ class ConstructSample:
             if not self.load_data(folder):
                 continue
             list_samples = []
+            initial_time = int(self.logging_data[0]['time'])
             total_time = int(self.logging_data[-1]['time'] + 1)
             # construct samples
-            for time in range(0, total_time - self.measure_time + 1, self.min_action_time):
-                state = self.construct_state(self.dic_traffic_env_conf["LIST_STATE_FEATURE"], time)
-                reward_instant, reward_average = self.construct_reward(self.dic_traffic_env_conf["DIC_REWARD_INFO"], time)
-                action = self.judge_action(time)
+            for index in range(0, len(self.logging_data) - self.measure_time + 1, self.min_action_time):
+                time = int(self.logging_data[index]['time'])
+                state = self.construct_state(self.dic_traffic_env_conf["LIST_STATE_FEATURE"], index, time)
+                reward_instant, reward_average = self.construct_reward(
+                    self.dic_traffic_env_conf["DIC_REWARD_INFO"], index, time)
+                action = self.judge_action(index)
 
                 if time + self.min_action_time == total_time:
-                    next_state = self.construct_state(self.dic_traffic_env_conf["LIST_STATE_FEATURE"], time + self.min_action_time - 1)
-
+                    next_state = self.construct_state(
+                        self.dic_traffic_env_conf["LIST_STATE_FEATURE"],
+                        index + self.min_action_time - 1,
+                        time + self.min_action_time - 1
+                    )
                 else:
-                    next_state = self.construct_state(self.dic_traffic_env_conf["LIST_STATE_FEATURE"], time + self.min_action_time)
+                    next_state = self.construct_state(
+                        self.dic_traffic_env_conf["LIST_STATE_FEATURE"],
+                        index + self.min_action_time,
+                        time + self.min_action_time
+                    )
+
                 sample = [state, action, next_state, reward_average, reward_instant, time]
                 list_samples.append(sample)
 
