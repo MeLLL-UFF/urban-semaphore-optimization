@@ -82,7 +82,7 @@ class PlanningOnlyAgent(Agent):
             **kwargs
         )
 
-        with ThreadPoolExecutor(max_workers=1) as executor:
+        with ThreadPoolExecutor(max_workers=len(possible_actions)) as executor:
             possible_future_rewards = executor.map(
                 partial(self._run_simulation_possibility, **simulation_possibility_kwargs),
                 possible_actions
