@@ -96,7 +96,7 @@ def consolidate_time_loss(time_loss_each_step, save_path, name_base, algorithm_l
 
                 if mean:
                     data = result_df['time_loss'].mean()
-                    ax.plot([0, time_loss_df.shape[0]], [data, data], linewidth=2, linestyle=':', color='g',
+                    ax.plot([0, time_loss_df.shape[0]], [data, data], linewidth=2, linestyle=':', color=color,
                             label=label + ' ' + '(' + str(np.round(data, decimals=2)) + ')')
                 else:
                     data = result_df['time_loss']
