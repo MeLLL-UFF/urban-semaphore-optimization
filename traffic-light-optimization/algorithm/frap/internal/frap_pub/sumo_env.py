@@ -308,7 +308,7 @@ class SumoEnv:
             os.makedirs(ROOT_DIR + '/' + self.environment_state_path)
 
         if name is None:
-            state_name = self.execution_name + '_' + 'save_state' + '_' + str(self.get_current_time()) + 
+            state_name = self.execution_name + '_' + 'save_state' + '_' + str(self.get_current_time()) + \
                          '__' + str(uuid.uuid4()) + '.sbx'
 
         filepath = os.path.join(ROOT_DIR, self.environment_state_path, state_name)
