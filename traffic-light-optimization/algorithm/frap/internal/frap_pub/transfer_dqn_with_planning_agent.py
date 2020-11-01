@@ -32,8 +32,8 @@ class TransferDQNWithPlanningAgent(TransferDQNAgent, PlanningOnlyAgent):
 
         return action
 
-    def _choose_action(self, initial_step, one_state, intersection_index, previous_action, rng, planning_iterations, possible_actions=None,
-                       env=None, *args, **kwargs):
+    def _choose_action(self, initial_step, one_state, original_step, intersection_index, rng, planning_iterations,
+                       previous_actions, possible_actions=None, env=None, *args, **kwargs):
 
         if self.action_sampling_policy == 'best':
             q_values = self.q_network.predict(self.convert_state_to_input(one_state))
@@ -50,7 +50,8 @@ class TransferDQNWithPlanningAgent(TransferDQNAgent, PlanningOnlyAgent):
         else:
             raise ValueError('Incorrect action sampling policy')
 
-        action, rewards = PlanningOnlyAgent._choose_action(self, initial_step, one_state, intersection_index, previous_action,
-                                                  rng, planning_iterations, possible_actions, env, **kwargs)
+        action, rewards = PlanningOnlyAgent._choose_action(
+            self, initial_step, one_state, original_step, intersection_index, rng, planning_iterations,
+            previous_actions, possible_actions, env, **kwargs)
 
         return action, rewards

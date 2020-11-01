@@ -29,9 +29,6 @@ class PlanningOnlyAgent(Agent):
         self.planning_iterations = self.dic_agent_conf["PLANNING_ITERATIONS"]
         self.pick_action_and_keep_with_it = self.dic_agent_conf["PICK_ACTION_AND_KEEP_WITH_IT"]
 
-        self.previous_action = None
-        self.current_action = None
-
         self.tiebreak_policy = self.dic_agent_conf["TIEBREAK_POLICY"]
 
         xml_util.register_copyreg()
@@ -43,21 +40,20 @@ class PlanningOnlyAgent(Agent):
         
         rng = np.random.Generator(np.random.MT19937(23423))
         
-        self.previous_action = self.current_action
-
         intersection_index = kwargs.get('intersection_index', None)
 
         if intersection_index is None:
             raise ValueError('intersection_index must be declared')
 
-        action, _ = self._choose_action(step, state, intersection_index, self.previous_action, rng, self.planning_iterations)
+        previous_actions = []
 
-        self.current_action = action
+        action, _ = self._choose_action(step, state, step, intersection_index, rng,
+                                        self.planning_iterations, previous_actions)
 
         return action
     
-    def _choose_action(self, initial_step, one_state, intersection_index, previous_action, rng, planning_iterations, 
-                       possible_actions=None, env=None, *args, **kwargs):
+    def _choose_action(self, initial_step, one_state, original_step, intersection_index, rng, planning_iterations,
+                       previous_actions, possible_actions=None, env=None, *args, **kwargs):
 
         if possible_actions is None:
             possible_actions = range(0, len(self.phases))
@@ -70,10 +66,12 @@ class PlanningOnlyAgent(Agent):
         simulation_possibility_kwargs = {
             'initial_step': initial_step,
             'one_state': copy.deepcopy(one_state),
+            'original_step': original_step,
             'intersection_index': intersection_index,
             'save_state_filepath': save_state_filepath,
             'rng_state': copy.deepcopy(rng.bit_generator.state),
             'planning_iterations': planning_iterations,
+            'previous_actions': copy.deepcopy(previous_actions),
             'possible_actions': possible_actions,
         }
 
@@ -97,14 +95,14 @@ class PlanningOnlyAgent(Agent):
             action = rng.choice(best_actions)
 
         elif self.tiebreak_policy == 'maintain':
-            if previous_action in best_actions:
-                action = previous_action
+            if previous_actions and previous_actions[-1] in best_actions:
+                action = previous_actions[-1]
             else:
                 action = rng.choice(best_actions)
 
         elif self.tiebreak_policy == 'change':
-            if len(best_actions) > 1 and previous_action in best_actions:
-                index = np.argwhere(best_actions == previous_action)[0]
+            if previous_actions and previous_actions[-1] in best_actions and len(best_actions) > 1:
+                index = np.argwhere(best_actions == previous_actions[-1])[0]
                 best_actions = np.delete(best_actions, index)
 
             action = rng.choice(best_actions)
@@ -122,10 +120,12 @@ class PlanningOnlyAgent(Agent):
             action,
             initial_step,
             one_state,
+            original_step,
             intersection_index,
             save_state_filepath,
             rng_state,
             planning_iterations,
+            previous_actions,
             possible_actions,
             **kwargs):
             
@@ -143,8 +143,10 @@ class PlanningOnlyAgent(Agent):
                 }
             )
 
-            execution_name = 'planning_for' + '_' + 'phase' + '_' + str(action) + '_' + \
-                'initial_step' + '_' + str(initial_step)
+            execution_name = 'planning_for' + '_' + str(original_step) + '_' + \
+                             'phases' + '_' + '-'.join(str(x) for x in previous_actions) + '_' + \
+                             'initial_step' + '_' + str(initial_step) + '_' +\
+                             'phase' + '_' + str(action) + '_'
 
             write_mode = False
             if self.mode == 'train':
@@ -187,7 +189,7 @@ class PlanningOnlyAgent(Agent):
                 one_state = next_state[intersection_index]
                 rewards.append(reward[0])
 
-                previous_action = action
+                previous_actions.append(action)
 
                 planning_iterations -= 1
                 if planning_iterations > 0 or done:
@@ -198,10 +200,11 @@ class PlanningOnlyAgent(Agent):
                     _, future_rewards = self._choose_action(
                         initial_step + steps_iterated, 
                         one_state,
+                        original_step,
                         intersection_index,
-                        previous_action, 
                         rng,
                         planning_iterations,
+                        previous_actions,
                         possible_actions,
                         env,
                         **kwargs

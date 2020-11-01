@@ -105,9 +105,11 @@ class SumoEnv:
                 f = open(ROOT_DIR + '/' + path_to_log_file, "wb")
                 f.close()
 
+        self.execution_name = None
+
     def reset(self, execution_name):
 
-        self.execution_name = execution_name
+        self.execution_name = execution_name + '__' + str(uuid.uuid4())
 
         # initialize intersections
         # self.list_intersection = [Intersection(i, self.LIST_VEHICLE_VARIABLES_TO_SUB)
@@ -118,7 +120,7 @@ class SumoEnv:
             for j in range(self.dic_traffic_env_conf["NUM_INTERSECTIONS"]):
                 self.list_intersection.append(Intersection("{0}_{1}".format(i, j), self.LIST_VEHICLE_VARIABLES_TO_SUB,
                                                            self.dic_traffic_env_conf, self.dic_path,
-                                                           execution_name=execution_name,
+                                                           execution_name=self.execution_name,
                                                            external_configurations=self.external_configurations))
 
         self.list_inter_log = [[] for _ in range(len(self.list_intersection))]
@@ -134,7 +136,7 @@ class SumoEnv:
 
             split_output_filename = output_file.rsplit('.', 2)
             execution_base = split_output_filename[0].rsplit('/', 1)[1]
-            split_output_filename[0] += '_' + execution_name
+            split_output_filename[0] += '_' + self.execution_name
             output_file = '.'.join(split_output_filename)
 
             split_output_filename = output_file.rsplit('/', 1)
@@ -308,8 +310,7 @@ class SumoEnv:
             os.makedirs(ROOT_DIR + '/' + self.environment_state_path)
 
         if name is None:
-            state_name = self.execution_name + '_' + 'save_state' + '_' + str(self.get_current_time()) + \
-                         '__' + str(uuid.uuid4()) + '.sbx'
+            state_name = self.execution_name + '_' + 'save_state' + '_' + str(self.get_current_time()) + '.sbx'
 
         filepath = os.path.join(ROOT_DIR, self.environment_state_path, state_name)
 
