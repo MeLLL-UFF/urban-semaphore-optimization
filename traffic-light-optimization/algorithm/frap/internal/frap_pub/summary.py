@@ -787,7 +787,7 @@ def single_experiment_summary(memo, records_dir, plots='all', _round=None,
             name_base, 
             algorithm_label,
             baseline_comparison=baseline_comparison, 
-            baseline_experiments=None,
+            baseline_experiments=baseline_experiments,
             mean=True)
         summary_util.consolidate_reward(average_reward_each_round, save_path, name_base)
 
