@@ -1,6 +1,5 @@
 import os
 import copy
-import uuid
 from functools import partial
 import statistics
 from concurrent.futures import ThreadPoolExecutor
@@ -145,7 +144,7 @@ class PlanningOnlyAgent(Agent):
             )
 
             execution_name = 'planning_for' + '_' + 'phase' + '_' + str(action) + '_' + \
-                'initial_step' + '_' + str(initial_step) + '_' + str(uuid.uuid4())
+                'initial_step' + '_' + str(initial_step)
 
             write_mode = False
             if self.mode == 'train':

@@ -3,6 +3,7 @@ import sys
 import shutil
 import pickle
 import json
+import uuid
 from sys import platform
 import threading
 
@@ -307,20 +308,13 @@ class SumoEnv:
             os.makedirs(ROOT_DIR + '/' + self.environment_state_path)
 
         if name is None:
-            state_name = self.execution_name + '_' + 'save_state' + '_' + str(self.get_current_time()) +  '.sbx'
+            state_name = self.execution_name + '_' + 'save_state' + '_' + str(self.get_current_time()) + 
+                         '__' + str(uuid.uuid4()) + '.sbx'
 
         filepath = os.path.join(ROOT_DIR, self.environment_state_path, state_name)
 
         traci_connection = traci.getConnection(self.execution_name)
         traci_connection.simulation.saveState(filepath)
-
-        return filepath
-
-    def get_save_state_filepath(self, time):
-        
-        state_filename = self.execution_name + '_' + 'save_state' + '_' + str(time) +  '.sbx'
-
-        filepath = os.path.join(ROOT_DIR, self.environment_state_path, state_filename)
 
         return filepath
 
