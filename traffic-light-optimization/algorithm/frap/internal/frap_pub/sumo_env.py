@@ -219,7 +219,6 @@ class SumoEnv:
                 df.to_csv(ROOT_DIR + '/' + path_to_log_file, na_rep="nan")
 
                 feature = inter.get_feature()
-                print(feature['lane_num_vehicle'])
                 if max(feature['lane_num_vehicle']) > self.dic_traffic_env_conf["VALID_THRESHOLD"]:
                     valid_flag[inter_ind] = 0
                 else:
@@ -343,8 +342,8 @@ class SumoEnv:
 
     def step(self, action):
 
-        action = self.check_for_active_action_time_actions(action)
         action = self.check_for_time_restricted_actions(action)
+        action = self.check_for_active_action_time_actions(action)
 
         if None in action:
             raise ValueError('Action cannot be None')
@@ -383,7 +382,6 @@ class SumoEnv:
 
             action = [None]*len(self.list_intersection)
             action = self.check_for_active_action_time_actions(action)
-            action = self.check_for_time_restricted_actions(action)
 
         next_action = action
 

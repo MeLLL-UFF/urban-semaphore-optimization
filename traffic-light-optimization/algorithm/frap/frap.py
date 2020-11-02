@@ -152,7 +152,7 @@ class Frap:
                 duration = np.NaN
 
             round_split = _file.split('_round_')
-            round_number = int(round_split[1].split('.')[0])
+            round_number = int(round_split[1].split('__')[0])
             
             if '_train_' in _file:
                 generator_number = round_split[0].split('_generator_')[1]

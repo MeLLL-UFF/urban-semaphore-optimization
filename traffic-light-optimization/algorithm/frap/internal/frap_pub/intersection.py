@@ -170,9 +170,6 @@ class Intersection:
                 elif action_pattern == "set":  # set to certain phase
                     self.next_phase_to_set_index = action
 
-                if not self.has_per_second_decision:
-                    self.current_min_action_duration = 0
-                
                 # set phase
                 if self.current_phase_index == self.next_phase_to_set_index:  # the light phase keeps unchanged
                     pass
@@ -199,8 +196,7 @@ class Intersection:
                     self.all_yellow_flag = True
                     self.flicker = 1
 
-                    if self.has_per_second_decision:
-                        self.current_min_action_duration = 0
+                    self.current_min_action_duration = 0
 
     def update_previous_measurements(self):
 
@@ -491,7 +487,7 @@ class Intersection:
     def select_action_based_on_time_restriction(self, threshold=120):
         # order movements by the waiting time of the first car
         # select all phases, covering all movements in order
-        # check time necessary to avoid waiting time threshold value
+        # check time necessary to avoid transgressing waiting time threshold
 
         lane_waiting_time_dict = sumo_traci_util.get_lane_first_stopped_car_waiting_times(
             self.list_entering_lanes, self.dic_lane_vehicle_sub_current_step)
