@@ -63,15 +63,16 @@ class PlanningOnlyAgent(Agent):
 
         save_state_filepath = env.save_state()
 
+        # mutable objects need deep copy in the target funtion
         simulation_possibility_kwargs = {
             'initial_step': initial_step,
-            'one_state': copy.deepcopy(one_state),
+            'one_state': one_state,  # deep copy needed
             'original_step': original_step,
             'intersection_index': intersection_index,
             'save_state_filepath': save_state_filepath,
-            'rng_state': copy.deepcopy(rng.bit_generator.state),
+            'rng_state': rng.bit_generator.state,  # deep copy needed
             'planning_iterations': planning_iterations,
-            'previous_actions': copy.deepcopy(previous_actions),
+            'previous_actions': previous_actions,  # deep copy needed
             'possible_actions': possible_actions,
         }
 
@@ -131,6 +132,10 @@ class PlanningOnlyAgent(Agent):
             
         try:
 
+            one_state = copy.deepcopy(one_state)
+            rng_state = copy.deepcopy(rng_state)
+            previous_actions = copy.deepcopy(previous_actions)
+
             env = copy.deepcopy(self.env)
 
             env.external_configurations['SUMOCFG_PARAMETERS'].pop('--log', None)
@@ -143,10 +148,12 @@ class PlanningOnlyAgent(Agent):
                 }
             )
 
-            execution_name = 'planning_for' + '_' + str(original_step) + '_' + \
-                             'phases' + '_' + '-'.join(str(x) for x in previous_actions) + '_' + \
-                             'initial_step' + '_' + str(initial_step) + '_' +\
-                             'phase' + '_' + str(action) + '_'
+            execution_name = 'planning_for_step' + '_' + str(original_step) + '__' + \
+                             'previous_phases' + '_' + (
+                                 '-'.join(str(x) for x in previous_actions)
+                                 if len(previous_actions) else str(None)) + '__' + \
+                             'initial_step' + '_' + str(initial_step) + '__' + \
+                             'phase' + '_' + str(action)
 
             write_mode = False
             if self.mode == 'train':
