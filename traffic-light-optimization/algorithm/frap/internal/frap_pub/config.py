@@ -45,7 +45,7 @@ dic_traffic_env_conf = {
     "NUM_LANES": 1,
     "ACTION_DIM": 2,
     "MEASURE_TIME": 10,
-    "CYCLE_TIME_RESTRICTION": 120,
+    "WAITING_TIME_RESTRICTION": 120,
     "DEADLOCK_WAITING_TOO_LONG_THRESHOLD": 10,
     "IF_GUI": True,
     "DEBUG": False,
