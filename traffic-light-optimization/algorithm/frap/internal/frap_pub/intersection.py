@@ -489,6 +489,9 @@ class Intersection:
         # select all phases, covering all movements in order
         # check time necessary to avoid transgressing waiting time threshold
 
+        if threshold == -1:
+            return -1
+
         lane_waiting_time_dict = sumo_traci_util.get_lane_first_stopped_car_waiting_times(
             self.list_entering_lanes, self.dic_lane_vehicle_sub_current_step)
 

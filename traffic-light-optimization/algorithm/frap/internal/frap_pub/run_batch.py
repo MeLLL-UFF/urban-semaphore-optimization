@@ -14,7 +14,7 @@ def parse_args():
     parser.add_argument("--algorithm", type=str, default="TransferDQN")
     parser.add_argument("--num_phase", type=int, default=8)
     parser.add_argument("--rotation", action="store_true")
-    parser.add_argument("--run_round", type=int, default=200)
+    parser.add_argument("--run_round", type=int, default=400)
 
     parser.add_argument("--done", action="store_true")
     parser.add_argument("--priority", action="store_true")

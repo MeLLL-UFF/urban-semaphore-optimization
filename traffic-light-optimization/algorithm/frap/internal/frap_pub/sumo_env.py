@@ -329,11 +329,11 @@ class SumoEnv:
 
         return action
     
-    def check_for_time_restricted_actions(self, action):
+    def check_for_time_restricted_actions(self, action, threshold=120):
 
         for inter_ind, inter in enumerate(self.list_intersection):
 
-            time_restricted_action = inter.select_action_based_on_time_restriction()
+            time_restricted_action = inter.select_action_based_on_time_restriction(threshold)
             
             if time_restricted_action != -1:
                 action[inter_ind] = time_restricted_action
@@ -342,7 +342,9 @@ class SumoEnv:
 
     def step(self, action):
 
-        action = self.check_for_time_restricted_actions(action)
+        cycle_time_restriction = self.dic_traffic_env_conf["CYCLE_TIME_RESTRICTION"]
+
+        action = self.check_for_time_restricted_actions(action, cycle_time_restriction)
         action = self.check_for_active_action_time_actions(action)
 
         if None in action:
@@ -409,12 +411,14 @@ class SumoEnv:
             traci_connection = traci.getConnection(self.execution_name)
             traci_connection.simulationStep()
 
+        deadlock_waiting_too_long_threshold = self.dic_traffic_env_conf["DEADLOCK_WAITING_TOO_LONG_THRESHOLD"]
+
         # get new measurements
         for inter in self.list_intersection:
             inter.update_current_measurements()
 
             blocked_vehicles = sumo_traci_util.detect_deadlock(inter.net_file_xml, inter.dic_vehicle_sub_current_step, 
-                traci_label=self.execution_name)
+                waiting_too_long_threshold=deadlock_waiting_too_long_threshold, traci_label=self.execution_name)
             sumo_traci_util.resolve_deadlock(blocked_vehicles, inter.net_file_xml, inter.dic_vehicle_sub_current_step, 
                 traci_label=self.execution_name)
 
