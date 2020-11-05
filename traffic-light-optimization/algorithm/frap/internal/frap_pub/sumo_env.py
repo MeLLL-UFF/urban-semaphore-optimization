@@ -329,11 +329,11 @@ class SumoEnv:
 
         return action
     
-    def check_for_time_restricted_actions(self, action, threshold=120):
+    def check_for_time_restricted_actions(self, action, waiting_time_restriction=120):
 
         for inter_ind, inter in enumerate(self.list_intersection):
 
-            time_restricted_action = inter.select_action_based_on_time_restriction(threshold)
+            time_restricted_action = inter.select_action_based_on_time_restriction(waiting_time_restriction)
             
             if time_restricted_action != -1:
                 action[inter_ind] = time_restricted_action
@@ -342,9 +342,9 @@ class SumoEnv:
 
     def step(self, action):
 
-        cycle_time_restriction = self.dic_traffic_env_conf["CYCLE_TIME_RESTRICTION"]
+        waiting_time_restriction = self.dic_traffic_env_conf["WAITING_TIME_RESTRICTION"]
 
-        action = self.check_for_time_restricted_actions(action, cycle_time_restriction)
+        action = self.check_for_time_restricted_actions(action, waiting_time_restriction)
         action = self.check_for_active_action_time_actions(action)
 
         if None in action:
