@@ -246,6 +246,9 @@ def get_next_lane(vehicle, net_xml, vehicle_subscription_data):
 
 def detect_deadlock(net_xml, vehicle_subscription_data, waiting_too_long_threshold=10, traci_label=None):
 
+    if waiting_too_long_threshold == -1:
+        return []
+
     if traci_label is None:
         traci_connection = traci
     else:
