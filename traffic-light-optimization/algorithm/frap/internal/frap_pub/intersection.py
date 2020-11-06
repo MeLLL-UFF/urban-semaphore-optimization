@@ -172,7 +172,8 @@ class Intersection:
 
                 # set phase
                 if self.current_phase_index == self.next_phase_to_set_index:  # the light phase keeps unchanged
-                    pass
+                    if not self.has_per_second_decision:
+                        self.current_min_action_duration = 0
                 else:  # the light phase needs to change
                     # change to yellow first, and activate the counter and flag
                     current_traffic_light = sumo_traci_util.get_traffic_light_state(self.node_light, self.execution_name)
