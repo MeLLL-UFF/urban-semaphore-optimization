@@ -92,23 +92,26 @@ class PlanningOnlyAgent(Agent):
 
         best_actions = np.flatnonzero(mean_rewards == np.max(mean_rewards))
 
-        if self.tiebreak_policy == 'random':
-            action = rng.choice(best_actions)
-
-        elif self.tiebreak_policy == 'maintain':
-            if previous_actions and previous_actions[-1] in best_actions:
-                action = previous_actions[-1]
-            else:
+        if len(best_actions) > 1:
+            if self.tiebreak_policy == 'random':
                 action = rng.choice(best_actions)
 
-        elif self.tiebreak_policy == 'change':
-            if previous_actions and previous_actions[-1] in best_actions and len(best_actions) > 1:
-                index = np.argwhere(best_actions == previous_actions[-1])[0]
-                best_actions = np.delete(best_actions, index)
+            elif self.tiebreak_policy == 'maintain':
+                if previous_actions and previous_actions[-1] in best_actions:
+                    action = previous_actions[-1]
+                else:
+                    action = rng.choice(best_actions)
 
-            action = rng.choice(best_actions)
+            elif self.tiebreak_policy == 'change':
+                if previous_actions and previous_actions[-1] in best_actions:
+                    index = np.argwhere(best_actions == previous_actions[-1])[0]
+                    best_actions = np.delete(best_actions, index)
+
+                action = rng.choice(best_actions)
+            else:
+                raise ValueError('Invalid tiebreak_policy: ' + str(self.tiebreak_policy))
         else:
-            raise ValueError('Invalid tiebreak_policy: ' + str(self.tiebreak_policy))
+            action = best_actions[0]
 
         rewards = possible_future_rewards[action]
 
