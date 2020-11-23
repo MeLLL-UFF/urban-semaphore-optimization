@@ -15,8 +15,8 @@ import matplotlib.pyplot as plt
 
 from utils import summary_util, sumo_util
 
-from algorithm.frap.internal.frap_pub.script import *
-from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
+from algorithm.frap_pub.script import *
+from algorithm.frap_pub.definitions import ROOT_DIR
 
 font = {'size': 24}
 mlp.rc('font', **font)
@@ -838,7 +838,7 @@ if __name__ == "__main__":
         "min_duration2": []
     }
 
-    memo = "TransferDQN"
+    memo = "Frap"
     #summary_detail_train(memo, copy.deepcopy(total_summary))
     summary_detail_test(memo, copy.deepcopy(total_summary))
     # summary_detail_baseline(memo)

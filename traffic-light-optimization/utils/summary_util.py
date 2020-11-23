@@ -12,7 +12,7 @@ from matplotlib.lines import Line2D
 
 from definitions import ROOT_DIR
 
-from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR as FRAP_ROOT_DIR
+from algorithm.frap_pub.definitions import ROOT_DIR as FRAP_ROOT_DIR
 
 
 font = {'size': 24}
@@ -26,7 +26,7 @@ def consolidate_reward(reward_each_step, save_path, name_base):
 
 
     f, ax = plt.subplots(1, 1, figsize=(20, 9), dpi=100)
-    
+
     ax.margins(0.05)
 
     ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
@@ -55,7 +55,7 @@ def consolidate_time_loss(time_loss_each_step, save_path, name_base, algorithm_l
 
 
     f, ax = plt.subplots(1, 1, figsize=(20, 9), dpi=100)
-    
+
     ax.margins(0.05)
 
     ax.yaxis.set_major_locator(MaxNLocator(nbins=5))

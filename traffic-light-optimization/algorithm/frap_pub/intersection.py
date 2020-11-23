@@ -8,7 +8,7 @@ import traci.constants as tc
 
 from utils import sumo_traci_util, sumo_util
 
-from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
+from algorithm.frap_pub.definitions import ROOT_DIR
 
 
 def get_traci_constant_mapping(constant_str):

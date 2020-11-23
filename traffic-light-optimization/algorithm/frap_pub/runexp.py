@@ -8,9 +8,9 @@ from lxml import etree
 
 from utils import sumo_util
 
-import algorithm.frap.internal.frap_pub.config as config
-from algorithm.frap.internal.frap_pub.pipeline import Pipeline
-from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
+import algorithm.frap_pub.config as config
+from algorithm.frap_pub.pipeline import Pipeline
+from algorithm.frap_pub.definitions import ROOT_DIR
 
 
 def memo_rename(traffic_file_list):
@@ -316,7 +316,7 @@ def continue_(existing_experiment, round_='FROM_THE_LAST', args=None, memo=None,
 
     multi_process = True
 
-    dir_ = os.path.join('TransferDQN', existing_experiment)
+    dir_ = os.path.join('Frap', existing_experiment)
 
     model_dir = "model/" + dir_
     records_dir = "records/" + dir_

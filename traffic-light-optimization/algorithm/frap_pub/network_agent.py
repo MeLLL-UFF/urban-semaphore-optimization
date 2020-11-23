@@ -13,8 +13,8 @@ from keras import backend as K
 from keras.engine.topology import Layer
 from keras.callbacks import EarlyStopping, TensorBoard
 
-from algorithm.frap.internal.frap_pub.agent import Agent
-from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
+from algorithm.frap_pub.agent import Agent
+from algorithm.frap_pub.definitions import ROOT_DIR
 
 rotation_matrix_2_p = np.zeros((4, 4))
 j = 2

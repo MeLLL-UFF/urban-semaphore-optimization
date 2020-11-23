@@ -1,9 +1,9 @@
 
-from algorithm.frap.internal.frap_pub.transfer_dqn_agent import TransferDQNAgent
-from algorithm.frap.internal.frap_pub.planning_only_agent import PlanningOnlyAgent
+from algorithm.frap_pub.frap_agent import FrapAgent
+from algorithm.frap_pub.planning_only_agent import PlanningOnlyAgent
 
 
-class TransferDQNWithPlanningAgent(TransferDQNAgent, PlanningOnlyAgent):
+class FrapWithPlanningAgent(FrapAgent, PlanningOnlyAgent):
     
     def __init__(self, dic_agent_conf, dic_traffic_env_conf, dic_path, dic_exp_conf, 
                  cnt_round, best_round=None, bar_round=None, mode='train',
@@ -28,7 +28,7 @@ class TransferDQNWithPlanningAgent(TransferDQNAgent, PlanningOnlyAgent):
         action = PlanningOnlyAgent.choose_action(self, step, state, *args, **kwargs)
 
         if self.planning_sample_only:
-            action = TransferDQNAgent.choose_action(self, step, state)
+            action = FrapAgent.choose_action(self, step, state)
 
         return action
 

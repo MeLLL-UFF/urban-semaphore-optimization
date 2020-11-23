@@ -15,8 +15,8 @@ from sumolib import checkBinary
 
 from utils import sumo_util, sumo_traci_util
 
-from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
-from algorithm.frap.internal.frap_pub.intersection import Intersection
+from algorithm.frap_pub.definitions import ROOT_DIR
+from algorithm.frap_pub.intersection import Intersection
 
 
 traci_start_lock = threading.Lock()

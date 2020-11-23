@@ -1,14 +1,24 @@
 import os
-import json
 import time
+import json
 import pickle
+import argparse
 from multiprocessing import Process
 
 import numpy as np
 
-from algorithm.frap.internal.frap_pub.config import DIC_AGENTS, DIC_ENVS
+from algorithm.frap_pub.config import DIC_AGENTS, DIC_ENVS
 
-from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
+from algorithm.frap_pub.definitions import ROOT_DIR
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--memo", type=str, default="default")
+    parser.add_argument("--round", type=int, default=0)
+
+    return parser.parse_args()
 
 
 def check_all_workers_working(list_cur_p):
@@ -27,6 +37,89 @@ def downsample(path_to_log):
     os.remove(ROOT_DIR + '/' + path_to_pkl)
     with open(ROOT_DIR + '/' + path_to_pkl, "wb") as f_subset:
         pickle.dump(subset_data, f_subset)
+
+
+def run(dir, round_number, run_cnt, execution_name, if_gui, rewrite_mode=False, external_configurations={}):
+    model_dir = "model/" + dir
+    records_dir = "records/" + dir
+    model_round = 'round' + '_' + str(round_number)
+    dic_path = {}
+    dic_path["PATH_TO_MODEL"] = model_dir
+    dic_path["PATH_TO_WORK_DIRECTORY"] = records_dir
+
+    with open(os.path.join(ROOT_DIR, records_dir, "agent.conf"), "r") as f:
+        dic_agent_conf = json.load(f)
+    with open(os.path.join(ROOT_DIR, records_dir, "exp.conf"), "r") as f:
+        dic_exp_conf = json.load(f)
+    with open(os.path.join(ROOT_DIR, records_dir, "traffic_env.conf"), "r") as f:
+        dic_traffic_env_conf = json.load(f)
+
+    dic_traffic_env_conf['phase_expansion'] = {int(key): value for key, value in dic_traffic_env_conf['phase_expansion'].items()}
+
+    dic_exp_conf["RUN_COUNTS"] = run_cnt
+    dic_traffic_env_conf["IF_GUI"] = if_gui
+    dic_traffic_env_conf["SAVEREPLAY"] = True
+
+    # dump dic_exp_conf
+    with open(os.path.join(ROOT_DIR, records_dir, "test_exp.conf"), "w") as f:
+        json.dump(dic_exp_conf, f)
+
+    if dic_exp_conf["MODEL_NAME"] in dic_exp_conf["LIST_MODEL_NEED_TO_UPDATE"]:
+        dic_agent_conf["EPSILON"] = 0  # dic_agent_conf["EPSILON"]  # + 0.1*cnt_gen
+        dic_agent_conf["MIN_EPSILON"] = 0
+
+    agent_name = dic_exp_conf["MODEL_NAME"]
+    agent = DIC_AGENTS[agent_name](
+        dic_agent_conf=dic_agent_conf,
+        dic_traffic_env_conf=dic_traffic_env_conf,
+        dic_path=dic_path,
+        dic_exp_conf=dic_exp_conf,
+        cnt_round=round_number + 1,  # useless
+        mode='replay'
+    )
+    agent.load_network(model_round)
+
+    path_to_log = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round", model_round)
+    if not os.path.exists(ROOT_DIR + '/' + path_to_log):
+        os.makedirs(ROOT_DIR + '/' + path_to_log)
+    
+    env = DIC_ENVS[dic_traffic_env_conf["SIMULATOR_TYPE"]](path_to_log=path_to_log,
+                        path_to_work_directory=dic_path["PATH_TO_WORK_DIRECTORY"],
+                        dic_traffic_env_conf=dic_traffic_env_conf,
+                        dic_path=dic_path,
+                        external_configurations=external_configurations,
+                        mode='replay', write_mode=rewrite_mode)
+
+    if agent_name == 'PlanningOnly' or agent_name == 'FrapWithPlanning':
+        agent.set_simulation_environment(env)
+
+    done = False
+    state, next_action = env.reset(execution_name)
+    step = 0
+
+    while not done and step < dic_exp_conf["RUN_COUNTS"]:
+        action_list = [None]*len(next_action)
+        
+        new_actions_needed = np.where(np.array(next_action) == None)[0]
+        for index in new_actions_needed:
+            
+            one_state = state[index]
+
+            action = agent.choose_action(step, one_state, intersection_index=index)
+
+            action_list[index] = action
+
+        next_state, reward, done, steps_iterated, next_action, _ = env.step(action_list)
+
+        state = next_state
+        step += steps_iterated
+    env.bulk_log()
+    env.end_sumo()
+    
+    if rewrite_mode:
+        path_to_log = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round", model_round)
+        downsample(path_to_log)
+
 
 
 def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
@@ -55,16 +148,17 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
     if dic_exp_conf["MODEL_NAME"] in dic_exp_conf["LIST_MODEL_NEED_TO_UPDATE"]:
         dic_agent_conf["EPSILON"] = 0  # dic_agent_conf["EPSILON"]  # + 0.1*cnt_gen
         dic_agent_conf["MIN_EPSILON"] = 0
+
     agent_name = dic_exp_conf["MODEL_NAME"]
     agent = DIC_AGENTS[agent_name](
         dic_agent_conf=dic_agent_conf,
         dic_traffic_env_conf=dic_traffic_env_conf,
         dic_path=dic_path,
         dic_exp_conf=dic_exp_conf,
-        cnt_round=1,  # useless
-        mode='test'
+        cnt_round=0,  # useless
+        mode='replay'
     )
-    try:
+    if 1:
         agent.load_network(model_round)
 
         path_to_log = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round", model_round)
@@ -75,9 +169,9 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
                          dic_traffic_env_conf=dic_traffic_env_conf,
                          dic_path=dic_path,
                          external_configurations=external_configurations,
-                         mode='test')
+                         mode='replay')
 
-        if agent_name == 'PlanningOnly' or agent_name == 'TransferDQNwithPlanning':
+        if agent_name == 'PlanningOnly' or agent_name == 'FrapWithPlanning':
             agent.set_simulation_environment(env)
 
         done = False
@@ -96,38 +190,40 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
 
                 action_list[index] = action
 
-            next_state, reward, done, steps_iterated, next_action, _ = env.step(action_list)
+            next_state, reward, done,  steps_iterated, next_action, _ = env.step(action_list)
 
             state = next_state
             step += steps_iterated
         env.bulk_log()
         env.end_sumo()
-        if not dic_exp_conf["DEBUG"]:
-            path_to_log = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round",
-                                       model_round)
+        if not __debug__:
+            path_to_log = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round", model_round)
             # print("downsample", path_to_log)
             downsample(path_to_log)
             # print("end down")
 
-    except:
-        pass
+    #except:
+    #    pass
         # import sys
         # sys.stderr.write("fail to test model_%"%model_round)
         # raise SystemExit(1)
 
     return
 
+
 def main(memo=None, external_configurations={}):
     # run name
     if not memo:
-        memo = "multi_phase/multi_phase_12_11_400"
+        memo = "learning_rate/anon_2_phase_done"
+
+    #args = parse_args()
 
     # test run_count
     run_cnt = 3600
 
     # add the specific rounds in the given_round_list, like [150, 160]
     # if none, test all the round
-    given_round_list = [336]
+    given_round_list = [7]
 
     given_traffic_list = [
         # "cross.2phases_rou01_equal_650.xml",
@@ -143,23 +239,21 @@ def main(memo=None, external_configurations={}):
     if_gui = True
 
     multi_process = True
-    n_workers = 32
+    n_workers = 100
     process_list = []
     for traffic in os.listdir(ROOT_DIR + '/' + "records/" + memo):
-        if not ".xml" in traffic and not "flow" in traffic:
+        print(traffic)
+        if not ".xml" in traffic and not ".json" in traffic:
             continue
-        print("not start", traffic)
-        if traffic != "cross.2phases_rou01_equal_600.xml_12_11_18_10_30":
-            continue
-        print("start", traffic)
 
+        if traffic != "flow_1_1_700.json_01_06_02_45_01_10":
+            continue
         test_round_dir = os.path.join("records", memo, traffic, "test_round")
         if os.path.exists(ROOT_DIR + '/' + test_round_dir):
             print("exist")
             #continue
         # if traffic[0:-15] not in given_traffic_list:
         #    continue
-        print(traffic)
 
         work_dir = os.path.join(memo, traffic)
 

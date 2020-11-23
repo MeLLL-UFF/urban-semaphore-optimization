@@ -6,8 +6,8 @@ from math import isnan
 import numpy as np
 import pandas as pd
 
-from algorithm.frap.internal.frap_pub.config import DIC_AGENTS, DIC_ENVS
-from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
+from algorithm.frap_pub.config import DIC_AGENTS, DIC_ENVS
+from algorithm.frap_pub.definitions import ROOT_DIR
 
 
 
@@ -141,7 +141,7 @@ def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_c
                                                                external_configurations=external_configurations,
                                                                mode='test')
 
-        if agent_name == 'PlanningOnly' or agent_name == 'TransferDQNwithPlanning':
+        if agent_name == 'PlanningOnly' or agent_name == 'FrapWithPlanning':
             agent.set_simulation_environment(env)
 
         done = False

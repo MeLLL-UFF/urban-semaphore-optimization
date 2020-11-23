@@ -3,9 +3,9 @@ import copy
 
 import numpy as np
 
-from algorithm.frap.internal.frap_pub.config import DIC_AGENTS, DIC_ENVS
+from algorithm.frap_pub.config import DIC_AGENTS, DIC_ENVS
 
-from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
+from algorithm.frap_pub.definitions import ROOT_DIR
 
 
 class Runner:
@@ -43,7 +43,7 @@ class Runner:
                 external_configurations=self.external_configurations,
                 mode='test')
 
-        if self.agent_name == 'PlanningOnly' or self.agent_name == 'TransferDQNwithPlanning':
+        if self.agent_name == 'PlanningOnly' or self.agent_name == 'FrapWithPlanning':
             self.agent.set_simulation_environment(self.env)
 
     def run(self):

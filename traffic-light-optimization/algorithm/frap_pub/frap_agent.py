@@ -7,7 +7,7 @@ from keras.optimizers import RMSprop, Adam
 from keras.layers.merge import concatenate, add, dot, maximum, multiply
 from keras import backend as K
 
-from algorithm.frap.internal.frap_pub.network_agent import NetworkAgent, conv2d_bn, Selector
+from algorithm.frap_pub.network_agent import NetworkAgent, conv2d_bn, Selector
 
 
 def slice_tensor(x, index):
@@ -107,7 +107,7 @@ def relation(x, dic_traffic_env_conf):
     return constant
 
 
-class TransferDQNAgent(NetworkAgent):
+class FrapAgent(NetworkAgent):
 
     def build_network(self):
 

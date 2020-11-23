@@ -19,7 +19,7 @@ else:
 
 import lxml.etree as etree
 
-from algorithm.frap.frap import Frap
+from algorithm.experiment import Experiment
 import definitions
 from utils.traffic_util import generate_unique_traffic_level_configurations
 from utils.sumo_util import get_intersection_edge_ids, get_connections, map_connection_direction, \
@@ -32,7 +32,6 @@ car_turning_policy_dict = {'left_turn': 0.1, 'straight': 0.6, 'right_turn': 0.3}
 
 traffic_level_mapping = {
     'light': 0.3,
-    'medium': 0.5,
     'heavy': 0.7
 }
 
@@ -235,7 +234,7 @@ def run_experiment(arguments):
     if not os.path.isdir(output_folder):
         os.makedirs(output_folder)
 
-    Frap.run(net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
+    Experiment.run(net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
 
     sys.stdout.flush()
 
@@ -254,7 +253,7 @@ def continue_experiment(arguments):
         os.makedirs(output_folder)
 
     if algorithm == 'FRAP':
-        Frap.continue_(experiment, net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
+        Experiment.continue_(experiment, net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
 
     else:
         raise ValueError('please specify algorithm that can be continued')
@@ -276,7 +275,7 @@ def re_run(arguments):
         os.makedirs(output_folder)
 
     if algorithm == 'FRAP':
-        Frap.retrain(
+        Experiment.retrain(
             experiment='0_regular-intersection__right_on_red__custom_4_street_traffic___10_10_07_54_05_10__74168e65-8cce-41de-927d-1a64cbe6b929', 
             _round=3, 
             net_file=net_file, 
@@ -294,6 +293,18 @@ def re_run(arguments):
 def _run(_type='regular', algorithm=None, experiment=None):
     
     experiment_generator = create_experiment_generator(_type=_type, algorithm=algorithm)
+
+    scenario = '0_regular-intersection'
+    traffic_level_configuration = tuple(['custom_4_street_traffic'])
+    experiment_name = scenario + '__' + _type + '__' + '_'.join(traffic_level_configuration)
+    scenario_folder = test_i_folder + '/' + scenario
+    net_file = scenario_folder + '/' + scenario + '__' + _type + '.net.xml'
+    sumocfg_file = scenario_folder + '/' + scenario + '__' + _type + '.sumocfg'
+    output_folder = scenario_folder + '/' + 'output' + '/' + str(algorithm) + '/' + _type + '/' + experiment_name + '/'
+
+    experiment_generator = [(scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, \
+                  sumocfg_file, output_folder)]
+
 
     global NUMBER_OF_PROCESSES
 
@@ -330,13 +341,17 @@ if __name__ == "__main__":
     #_run(_type='unregulated', algorithm='FRAP')
 
     '''
-    Frap.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___10_23_13_33_15_10__535228e8-7f97-4bf5-b5cf-3828d2a13cc8',
-                 memo='PlanningOnly', plots='summary_only', baseline_comparison=False)
-    '''
-    '''
-    Frap.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___10_25_14_05_32_10__744604da-478b-44d9-a4a9-b4a1a1b92608',
-                 memo='PlanningOnly', plots='records_only', _round=0, baseline_comparison=True, 
+    Experiment.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___11_09_13_21_04_10__7189ec7c-7139-464c-877b-57838896b1b6',
+                 memo='Frap', plots='summary_only', baseline_comparison=True,
                  baseline_experiments=[
+                     ['Sumo', '0_regular-intersection__right_on_red__custom_4_street_traffic___10_23_10_48_51_10__04092094-1443-4525-99a9-99fa6145a308', 0, 'r', 'right on red'],
+                     ['Sumo', '0_regular-intersection__unregulated__custom_4_street_traffic___10_23_10_51_45_10__110ede2f-8a0b-4b1d-85c0-bff18cf64d40', 0, 'g', 'unregulated']
+                 ])
+    '''
+    '''
+    Experiment.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___11_11_13_18_38_10__fbaf1121-8e4f-4361-90be-9e6c31ce00d8',
+                       memo='PlanningOnly', plots='records_only', _round=0, baseline_comparison=True,
+                       baseline_experiments=[
                      ['Sumo', '0_regular-intersection__right_on_red__custom_4_street_traffic___10_23_10_48_51_10__04092094-1443-4525-99a9-99fa6145a308', 0, 'r', 'right on red'],
                      ['Sumo', '0_regular-intersection__unregulated__custom_4_street_traffic___10_23_10_51_45_10__110ede2f-8a0b-4b1d-85c0-bff18cf64d40', 0, 'g', 'unregulated']
                  ])
@@ -347,7 +362,7 @@ if __name__ == "__main__":
     _round = 'worst_time_loss'
     #_round = 0
 
-    Frap.visualize_policy_behavior(
+    Experiment.visualize_policy_behavior(
         scenario='0_regular-intersection', _type='right_on_red', traffic_level_configuration='custom_4_street_traffic',
         experiment=experiment, _round=_round)
     '''
@@ -358,5 +373,5 @@ if __name__ == "__main__":
             if '___' not in folder:
                 continue
             
-            Frap._consolidate_output_file(_dir + '/' + folder, folder)
+            Experiment._consolidate_output_file(_dir + '/' + folder, folder)
     '''

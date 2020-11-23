@@ -1,14 +1,16 @@
-import json
 import os
-import pandas as pd
-import random
-import numpy as np
+import json
 import pickle
+import random
 from math import isnan
-from algorithm.frap.internal.frap_pub.config import DIC_AGENTS, DIC_ENVS
-from algorithm.frap.internal.frap_pub.script import  *
 
-from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
+import numpy as np
+import pandas as pd
+
+from algorithm.frap_pub.config import DIC_AGENTS, DIC_ENVS
+from algorithm.frap_pub.script import *
+
+from algorithm.frap_pub.definitions import ROOT_DIR
 
 validation_set = [
     "synthetic-over-WE254-EW221-NS671-SN747-1893.xml",
@@ -111,7 +113,7 @@ class ModelPool():
                              external_configurations=external_configurations,
                              mode='train')
 
-            if agent_name == 'PlanningOnly' or agent_name == 'TransferDQNwithPlanning':
+            if agent_name == 'PlanningOnly' or agent_name == 'FrapWithPlanning':
                 agent.set_simulation_environment(env)
 
             done = False

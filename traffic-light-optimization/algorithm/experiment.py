@@ -10,34 +10,34 @@ mlp.use("agg")
 import matplotlib.pyplot as plt
 from matplotlib.ticker import (MultipleLocator, MaxNLocator, FormatStrFormatter)
 
-from algorithm.frap.internal.frap_pub import run_batch, replay, summary
-from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR as FRAP_ROOT_DIR
+from algorithm.frap_pub import run_batch, replay, summary
+from algorithm.frap_pub.definitions import ROOT_DIR as FRAP_ROOT_DIR
 
 from utils import sumo_util
 from config import Config as config
 from definitions import ROOT_DIR
 
 
-class Frap:
+class Experiment:
 
     @staticmethod
     def run(net_file, route_file, sumocfg_file, output_file, traffic_level_configuration):
 
-        external_configurations = Frap._create_external_configurations_dict(
+        external_configurations = Experiment._create_external_configurations_dict(
             net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
 
         experiment_name = run_batch.run(external_configurations)
 
         output_folder = output_file.rsplit('/', 1)[0] + '/' + experiment_name        
 
-        Frap._consolidate_output_file(output_folder, experiment_name)
+        Experiment._consolidate_output_file(output_folder, experiment_name)
 
         return experiment_name
 
     @staticmethod
     def continue_(experiment, net_file, route_file, sumocfg_file, output_file, traffic_level_configuration):
 
-        external_configurations = Frap._create_external_configurations_dict(
+        external_configurations = Experiment._create_external_configurations_dict(
             net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
 
         experiment_name = run_batch.continue_(experiment, external_configurations)
@@ -57,8 +57,8 @@ class Frap:
             experiment = sorted(os.listdir(output_folder_base))[-1]
 
         output_folder = os.path.join(output_folder_base, experiment)
-        frap_records_folder = os.path.join(FRAP_ROOT_DIR, 'records', 'TransferDQN', experiment)
-        frap_summary_folder = os.path.join(FRAP_ROOT_DIR, 'summary', 'TransferDQN', experiment)
+        frap_records_folder = os.path.join(FRAP_ROOT_DIR, 'records', 'Frap', experiment)
+        frap_summary_folder = os.path.join(FRAP_ROOT_DIR, 'summary', 'Frap', experiment)
 
         if _round == 'best_time_loss':
             result_df = pd.read_csv(os.path.join(frap_summary_folder, experiment + '-test-time_loss.csv'))
@@ -108,11 +108,11 @@ class Frap:
         if not os.path.isfile(route_file):
             raise ValueError("Route file does not exist")
 
-        external_configurations = Frap._create_external_configurations_dict(
+        external_configurations = Experiment._create_external_configurations_dict(
             net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
 
         replay.run(
-            os.path.join('TransferDQN', experiment), 
+            os.path.join('Frap', experiment),
             round_number=_round, 
             run_cnt=3600,
             execution_name=execution_name,
@@ -124,7 +124,7 @@ class Frap:
     @staticmethod
     def retrain(experiment, _round, net_file, route_file, sumocfg_file, output_file, traffic_level_configuration):
 
-        external_configurations = Frap._create_external_configurations_dict(
+        external_configurations = Experiment._create_external_configurations_dict(
             net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
 
         experiment_name = run_batch.continue_(experiment, _round, external_configurations)
@@ -170,8 +170,8 @@ class Frap:
         traffic_level_configuration = split_experiment_name[2]
 
         if 'test' in duration_df:
-            Frap._plot_consolidate_output(output_folder, experiment_name, duration_df['test'],
-                scenario, traffic_level_configuration)
+            Experiment._plot_consolidate_output(output_folder, experiment_name, duration_df['test'],
+                                                scenario, traffic_level_configuration)
 
 
     @staticmethod

@@ -1,8 +1,10 @@
-import numpy as np
-import pickle
 import os
+import pickle
 
-from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
+import numpy as np
+
+from algorithm.frap_pub.definitions import ROOT_DIR
+
 
 class ConstructSample:
 

@@ -1,17 +1,17 @@
-import algorithm.frap.internal.frap_pub.runexp as runexp
-import algorithm.frap.internal.frap_pub.testexp as testexp
-import algorithm.frap.internal.frap_pub.summary as summary
-import argparse
 import os
+import argparse
 import time
 
-from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
+import algorithm.frap_pub.runexp as runexp
+import algorithm.frap_pub.summary as summary
+from algorithm.frap_pub.definitions import ROOT_DIR
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--memo", type=str, default="TransferDQN")
-    parser.add_argument("--algorithm", type=str, default="TransferDQN")
+    parser.add_argument("--memo", type=str, default="Frap")
+    parser.add_argument("--algorithm", type=str, default="Frap")
     parser.add_argument("--num_phase", type=int, default=8)
     parser.add_argument("--rotation", action="store_true")
     parser.add_argument("--run_round", type=int, default=400)

@@ -1,9 +1,9 @@
-import pickle
 import os
-from algorithm.frap.internal.frap_pub.config import DIC_AGENTS
 import shutil
+import pickle
 
-from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
+from algorithm.frap_pub.config import DIC_AGENTS
+from algorithm.frap_pub.definitions import ROOT_DIR
 
 
 class Updater:

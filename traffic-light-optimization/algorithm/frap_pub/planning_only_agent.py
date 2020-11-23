@@ -8,8 +8,8 @@ import numpy as np
 
 from utils import xml_util
 
-from algorithm.frap.internal.frap_pub.agent import Agent
-from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
+from algorithm.frap_pub.agent import Agent
+from algorithm.frap_pub.definitions import ROOT_DIR
 
 
 class PlanningOnlyAgent(Agent):

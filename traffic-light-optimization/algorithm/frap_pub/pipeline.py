@@ -14,13 +14,13 @@ import xml.etree.ElementTree as ET
 
 from utils import sumo_util
 
-from algorithm.frap.internal.frap_pub.generator import Generator
-from algorithm.frap.internal.frap_pub.runner import Runner
-from algorithm.frap.internal.frap_pub.construct_sample import ConstructSample
-from algorithm.frap.internal.frap_pub.updater import Updater
-from algorithm.frap.internal.frap_pub.model_pool import ModelPool
-import algorithm.frap.internal.frap_pub.model_test as model_test
-from algorithm.frap.internal.frap_pub.definitions import ROOT_DIR
+from algorithm.frap_pub.generator import Generator
+from algorithm.frap_pub.runner import Runner
+from algorithm.frap_pub.construct_sample import ConstructSample
+from algorithm.frap_pub.updater import Updater
+from algorithm.frap_pub.model_pool import ModelPool
+import algorithm.frap_pub.model_test as model_test
+from algorithm.frap_pub.definitions import ROOT_DIR
 
 
 class Pipeline:

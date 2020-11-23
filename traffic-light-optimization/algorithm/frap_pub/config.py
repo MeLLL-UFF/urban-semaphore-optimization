@@ -1,11 +1,11 @@
 # parameters and paths
 
-from algorithm.frap.internal.frap_pub.transfer_dqn_agent import TransferDQNAgent
-from algorithm.frap.internal.frap_pub.sumo_agent import SumoAgent
-from algorithm.frap.internal.frap_pub.planning_only_agent import PlanningOnlyAgent
-from algorithm.frap.internal.frap_pub.transfer_dqn_with_planning_agent import TransferDQNWithPlanningAgent
-from algorithm.frap.internal.frap_pub.sumo_env import SumoEnv
-from algorithm.frap.internal.frap_pub.anon_env import AnonEnv
+from algorithm.frap_pub.frap_agent import FrapAgent
+from algorithm.frap_pub.sumo_agent import SumoAgent
+from algorithm.frap_pub.planning_only_agent import PlanningOnlyAgent
+from algorithm.frap_pub.frap_with_planning_agent import FrapWithPlanningAgent
+from algorithm.frap_pub.sumo_env import SumoEnv
+from algorithm.frap_pub.anon_env import AnonEnv
 
 DIC_EXP_CONF = {
     "RUN_COUNTS": 3600,
@@ -17,9 +17,9 @@ DIC_EXP_CONF = {
     "NUM_ROUNDS": 400,
     "NUM_GENERATORS": 3,
     "LIST_MODEL":
-        ["TransferDQN"],
+        ["Frap"],
     "LIST_MODEL_NEED_TO_UPDATE":
-        ["TransferDQN", "TransferDQNwithPlanning"],
+        ["Frap", "FrapWithPlanning"],
     "MODEL_POOL": False,
     "NUM_BEST_MODEL": 3,
     "PRETRAIN": True,
@@ -170,7 +170,7 @@ dic_two_phase_expansion = {
 #     8: [0, 0, 0, 0, 1, 1, 0, 0]
 # }
 
-DIC_TRANSFERDQN_AGENT_CONF = {
+DIC_FRAP_AGENT_CONF = {
     "LEARNING_RATE": 0.001,
     "LR_DECAY": 1,
     "MIN_LR": 0.0001,
@@ -205,7 +205,7 @@ DIC_PLANNINGONLY_AGENT_CONF = {
     "TIEBREAK_POLICY": 'random'  # 'random', 'maintain', 'change'
 }
 
-DIC_TRANSFERDQNWITHPLANNING_AGENT_CONF = {
+DIC_FRAPWITHPLANNING_AGENT_CONF = {
     "LEARNING_RATE": 0.001,
     "LR_DECAY": 1,
     "MIN_LR": 0.0001,
@@ -249,10 +249,10 @@ DIC_PATH = {
 }
 
 DIC_AGENTS = {
-    "TransferDQN": TransferDQNAgent,
+    "Frap": FrapAgent,
     "Sumo": SumoAgent,
     "PlanningOnly": PlanningOnlyAgent,
-    "TransferDQNwithPlanning": TransferDQNWithPlanningAgent,
+    "FrapWithPlanning": FrapWithPlanningAgent,
 }
 
 DIC_ENVS = {
