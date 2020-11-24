@@ -101,7 +101,8 @@ dic_traffic_env_conf = {
         "sum_lane_num_vehicle_left": 0,
         "sum_duration_vehicle_left": 0,
         "sum_num_vehicle_been_stopped_thres01": 0,
-        "sum_num_vehicle_been_stopped_thres1": -0.25
+        "sum_num_vehicle_been_stopped_thres1": -1,
+        "pressure": 0
     },
 
     "LANE_NUM": {
