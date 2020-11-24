@@ -11,7 +11,10 @@ from algorithm.frap_pub.definitions import ROOT_DIR
 class Runner:
 
     def __init__(self, cnt_round, dic_path, dic_exp_conf, dic_agent_conf, dic_traffic_env_conf,
-                 external_configurations={}):
+                 external_configurations=None):
+
+        if external_configurations is None:
+            external_configurations = {}
 
         self.cnt_round = cnt_round
         self.dic_exp_conf = dic_exp_conf

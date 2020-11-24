@@ -39,7 +39,11 @@ def downsample(path_to_log):
         pickle.dump(subset_data, f_subset)
 
 
-def run(dir, round_number, run_cnt, execution_name, if_gui, rewrite_mode=False, external_configurations={}):
+def run(dir, round_number, run_cnt, execution_name, if_gui, rewrite_mode=False, external_configurations=None):
+
+    if external_configurations is None:
+        external_configurations = {}
+
     model_dir = "model/" + dir
     records_dir = "records/" + dir
     model_round = 'round' + '_' + str(round_number)
@@ -122,7 +126,11 @@ def run(dir, round_number, run_cnt, execution_name, if_gui, rewrite_mode=False, 
 
 
 
-def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
+def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations=None):
+
+    if external_configurations is None:
+        external_configurations = {}
+
     model_dir = "model/" + dir
     records_dir = "records/" + dir
     model_round = one_round
@@ -211,7 +219,11 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations={}):
     return
 
 
-def main(memo=None, external_configurations={}):
+def main(memo=None, external_configurations=None):
+
+    if external_configurations is None:
+        external_configurations = {}
+
     # run name
     if not memo:
         memo = "learning_rate/anon_2_phase_done"

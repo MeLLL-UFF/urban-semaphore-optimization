@@ -4,7 +4,7 @@ import numpy as np
 from keras.layers import Input, Dense, Flatten, Reshape, Layer, Lambda, RepeatVector, Activation, Embedding, Conv2D
 from keras.models import Model, model_from_json, load_model
 from keras.optimizers import RMSprop, Adam
-from keras.layers.merge import concatenate, add, dot, maximum, multiply
+from keras.layers.merge import concatenate, add, average, dot, maximum, multiply
 from keras import backend as K
 
 from algorithm.frap_pub.network_agent import NetworkAgent, conv2d_bn, Selector
@@ -106,7 +106,7 @@ def relation(x, dic_traffic_env_conf):
     return constant
 
 
-class FrapAgent(NetworkAgent):
+class FrapPlusPlusAgent(NetworkAgent):
 
     def build_network(self):
 
@@ -139,7 +139,7 @@ class FrapAgent(NetworkAgent):
         lane_embedding = Dense(self.num_actions*2, activation="relu", name="lane_embedding")
         for phase in self.dic_traffic_env_conf["PHASE"]:
             movements = phase.split("_")
-            list_phase_pressure.append(add([lane_embedding(dic_lane[m]) for m in movements], name=phase))
+            list_phase_pressure.append(average([lane_embedding(dic_lane[m]) for m in movements], name=phase))
 
         constant = Lambda(relation, arguments={"dic_traffic_env_conf": self.dic_traffic_env_conf},
                         name="constant")(dic_input_node["lane_num_vehicle"])

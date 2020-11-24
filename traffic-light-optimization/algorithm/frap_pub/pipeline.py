@@ -21,12 +21,16 @@ from algorithm.frap_pub.updater import Updater
 from algorithm.frap_pub.model_pool import ModelPool
 import algorithm.frap_pub.model_test as model_test
 from algorithm.frap_pub.definitions import ROOT_DIR
+from algorithm.frap_pub import synchronization_util
 
 
 class Pipeline:
 
     def __init__(self, dic_exp_conf, dic_agent_conf, dic_traffic_env_conf, dic_path, 
-                 external_configurations={}, existing_experiment=None):
+                 external_configurations=None, existing_experiment=None):
+
+        if external_configurations is None:
+            external_configurations = {}
 
         # load configurations
         self.dic_exp_conf = dic_exp_conf
@@ -82,7 +86,11 @@ class Pipeline:
                 return 0
 
     def generator_wrapper(self, cnt_round, cnt_gen, dic_path, dic_exp_conf, dic_agent_conf, dic_traffic_env_conf,
-                          best_round=None, external_configurations={}):
+                          best_round=None, external_configurations=None):
+
+        if external_configurations is None:
+            external_configurations = {}
+
         generator = Generator(cnt_round=cnt_round,
                               cnt_gen=cnt_gen,
                               dic_path=dic_path,
@@ -97,7 +105,11 @@ class Pipeline:
         print("generator_wrapper end")
 
     def runner_wrapper(self, cnt_round, dic_path, dic_exp_conf, dic_agent_conf, dic_traffic_env_conf,
-                       external_configurations={}):
+                       external_configurations=None):
+
+        if external_configurations is None:
+            external_configurations = {}
+
         runner = Runner(cnt_round=cnt_round,
                         dic_path=dic_path,
                         dic_exp_conf=dic_exp_conf,
@@ -277,6 +289,10 @@ class Pipeline:
 
             process_list = []
 
+            if self.dic_exp_conf["MODEL_NAME"] in self.dic_exp_conf["LIST_MODEL_NEED_TO_UPDATE_BETWEEN_STEPS"]:
+                barrier_parties = self.dic_exp_conf['NUM_GENERATORS']
+                synchronization_util.configure_network_update_barrier(barrier_parties, multi_processed=multi_process)
+
             # ==============  generator =============
             if multi_process:
                 for cnt_gen in range(self.dic_exp_conf["NUM_GENERATORS"]):
@@ -304,17 +320,18 @@ class Pipeline:
             # ==============  make samples =============
             # make samples and determine which samples are good
 
-            train_round = os.path.join(self.dic_path["PATH_TO_WORK_DIRECTORY"], "train_round")
-            if not os.path.exists(ROOT_DIR + '/' + train_round):
-                os.makedirs(ROOT_DIR + '/' + train_round)
-            cs = ConstructSample(path_to_samples=train_round, cnt_round=cnt_round,
-                                 dic_traffic_env_conf=self.dic_traffic_env_conf)
-            cs.make_reward()
+            if self.dic_exp_conf["MODEL_NAME"] in self.dic_exp_conf["LIST_MODEL_NEED_TO_UPDATE_BETWEEN_ROUNDS"]:
 
-            # EvaluateSample()
+                train_round = os.path.join(self.dic_path["PATH_TO_WORK_DIRECTORY"], "train_round")
+                if not os.path.exists(ROOT_DIR + '/' + train_round):
+                    os.makedirs(ROOT_DIR + '/' + train_round)
+                cs = ConstructSample(path_to_samples=train_round, cnt_round=cnt_round,
+                                     dic_traffic_env_conf=self.dic_traffic_env_conf)
+                cs.make_reward()
 
-            # ==============  update network =============
-            if self.dic_exp_conf["MODEL_NAME"] in self.dic_exp_conf["LIST_MODEL_NEED_TO_UPDATE"]:
+                # EvaluateSample()
+
+                # ==============  update network =============
                 if multi_process:
                     p = Process(target=self.updater_wrapper,
                                 args=(cnt_round,

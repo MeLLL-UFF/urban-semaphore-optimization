@@ -63,8 +63,11 @@ class ModelPool():
         else:
             self.best_model_pool = []
 
-    def single_test(self, cnt_round, external_configurations={}):
+    def single_test(self, cnt_round, external_configurations=None):
         print("Start testing model pool")
+
+        if external_configurations is None:
+            external_configurations = {}
 
         records_dir = self.dic_path["PATH_TO_WORK_DIRECTORY"]
         # run_cnt = 360

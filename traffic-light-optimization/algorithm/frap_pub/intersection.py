@@ -18,10 +18,13 @@ def get_traci_constant_mapping(constant_str):
 class Intersection:
 
     def __init__(self, light_id, list_vehicle_variables_to_sub, dic_traffic_env_conf, dic_path,
-                 execution_name, external_configurations={}):
+                 execution_name, external_configurations=None):
         '''
         still need to automate generation
         '''
+
+        if external_configurations is None:
+            external_configurations = {}
 
         self.execution_name = execution_name
 

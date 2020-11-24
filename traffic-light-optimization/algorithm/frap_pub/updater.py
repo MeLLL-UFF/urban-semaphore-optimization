@@ -8,7 +8,8 @@ from algorithm.frap_pub.definitions import ROOT_DIR
 
 class Updater:
 
-    def __init__(self, cnt_round, dic_agent_conf, dic_exp_conf, dic_traffic_env_conf, dic_path, best_round=None, bar_round=None):
+    def __init__(self, cnt_round, dic_agent_conf, dic_exp_conf, dic_traffic_env_conf, dic_path,
+                 best_round=None, bar_round=None, agent=None):
 
         self.cnt_round = cnt_round
         self.dic_path = dic_path
@@ -17,13 +18,15 @@ class Updater:
         self.dic_agent_conf = dic_agent_conf
         self.agent_name = self.dic_exp_conf["MODEL_NAME"]
 
-        self.agent = DIC_AGENTS[self.agent_name](
-            self.dic_agent_conf, 
-            self.dic_traffic_env_conf, 
-            self.dic_path, 
-            self.dic_exp_conf, 
-            self.cnt_round, 
-            mode='train')
+        self.agent = agent
+        if self.agent is None:
+            self.agent = DIC_AGENTS[self.agent_name](
+                self.dic_agent_conf,
+                self.dic_traffic_env_conf,
+                self.dic_path,
+                self.dic_exp_conf,
+                self.cnt_round,
+                mode='train')
 
     def load_sample(self):
 

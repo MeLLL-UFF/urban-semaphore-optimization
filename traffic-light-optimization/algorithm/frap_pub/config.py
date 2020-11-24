@@ -1,6 +1,7 @@
 # parameters and paths
 
 from algorithm.frap_pub.frap_agent import FrapAgent
+from algorithm.frap_pub.frap_plus_plus_agent import FrapPlusPlusAgent
 from algorithm.frap_pub.sumo_agent import SumoAgent
 from algorithm.frap_pub.planning_only_agent import PlanningOnlyAgent
 from algorithm.frap_pub.frap_with_planning_agent import FrapWithPlanningAgent
@@ -18,8 +19,12 @@ DIC_EXP_CONF = {
     "NUM_GENERATORS": 3,
     "LIST_MODEL":
         ["Frap"],
-    "LIST_MODEL_NEED_TO_UPDATE":
+    "LIST_MODEL_NEED_TO_UPDATE_BETWEEN_ROUNDS":
         ["Frap", "FrapWithPlanning"],
+    "LIST_MODEL_NEED_TO_UPDATE_BETWEEN_STEPS":
+        ["FrapPlusPlus"],
+    "LIST_MODEL_NEED_TO_UPDATE":
+        ["Frap", "FrapPlusPlus", "FrapWithPlanning"],
     "MODEL_POOL": False,
     "NUM_BEST_MODEL": 3,
     "PRETRAIN": True,
@@ -196,6 +201,34 @@ DIC_FRAP_AGENT_CONF = {
     "MERGE": "multiply"
 }
 
+DIC_FRAPPLUSPLUS_AGENT_CONF = {
+    "LEARNING_RATE": 0.001,
+    "LR_DECAY": 1,
+    "MIN_LR": 0.0001,
+    "SAMPLE_SIZE": 30,
+    'UPDATE_START': 100,
+    'UPDATE_PERIOD': 10,
+    "BATCH_SIZE": 20,
+    "EPOCHS": 100,
+    "UPDATE_Q_BAR_FREQ": 5,
+    "UPDATE_Q_BAR_EVERY_C_ROUND": False,
+    "GAMMA": 0.8,
+    "MAX_MEMORY_LEN": 10000,
+    "PATIENCE": 10,
+    "D_DENSE": 20,
+    "N_LAYER": 2,
+    "EPSILON": 0.8,
+    "EPSILON_DECAY": 0.95,
+    "MIN_EPSILON": 0.2,
+    "LOSS_FUNCTION": "mean_squared_error",
+    "SEPARATE_MEMORY": False,
+    "NORMAL_FACTOR": 20,
+    "TRAFFIC_FILE": "cross.2phases_rou01_equal_450.xml",
+    "EARLY_STOP_LOSS": "val_loss",
+    "DROPOUT_RATE": 0,
+    "MERGE": "multiply"
+}
+
 DIC_SUMO_AGENT_CONF = {
 }
 
@@ -250,6 +283,7 @@ DIC_PATH = {
 
 DIC_AGENTS = {
     "Frap": FrapAgent,
+    "FrapPlusPlus": FrapPlusPlusAgent,
     "Sumo": SumoAgent,
     "PlanningOnly": PlanningOnlyAgent,
     "FrapWithPlanning": FrapWithPlanningAgent,

@@ -75,7 +75,10 @@ def reset_scenario(experiment):
     reset_sumo_traffic_light_parameters(experiment.scenario)
     reset_sumo_flow_parameters(experiment.scenario)
 
-def main(experiment, parameters={}, execution=''):
+def main(experiment, parameters=None, execution=''):
+
+    if parameters is None:
+        parameters = {}
 
     prepare_scenario(experiment, parameters)
 

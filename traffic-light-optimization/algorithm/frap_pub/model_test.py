@@ -89,7 +89,11 @@ def write_summary(dic_path, run_counts, cnt_round):
         round_summary.to_csv(ROOT_DIR + '/' + path_to_seg_log, mode="a", index=False, header=False)
 
 
-def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_configurations={}):
+def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_configurations=None):
+
+    if external_configurations is None:
+        external_configurations = {}
+
     records_dir = model_dir.replace("model", "records")
     model_round = "round_%d"%cnt_round
     dic_path = {}

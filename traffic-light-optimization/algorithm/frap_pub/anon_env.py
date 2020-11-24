@@ -365,8 +365,12 @@ class AnonEnv:
         "intersection_1_1"
     ]
 
-    def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf, dic_path, external_configurations={}, mode='train'):
+    def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf, dic_path,
+                 external_configurations=None, mode='train'):
         # mode: train or test
+
+        if external_configurations is None:
+            external_configurations = {}
 
         if mode != 'train' and mode != 'test':
             raise ValueError("Mode must be either 'train' or 'test', current value is " + mode)
@@ -592,7 +596,7 @@ class AnonEnv:
 
         for inter_ind in range(len(self.list_inter_log)):
             path_to_log_file = os.path.join(self.path_to_log, "inter_{0}.pkl".format(inter_ind))
-            f = open(ROOT_DIR + '/' + path_to_log_file, "wb")
+            f = open(ROOT_DIR + '/' + path_to_log_file, "wb+")
             pickle.dump(self.list_inter_log[inter_ind], f)
             f.close()
 

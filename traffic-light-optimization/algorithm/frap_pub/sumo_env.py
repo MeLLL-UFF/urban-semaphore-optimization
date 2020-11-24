@@ -1,11 +1,9 @@
 import os
 import sys
-import shutil
 import pickle
 import json
 import uuid
 from sys import platform
-import threading
 
 import numpy as np
 import pandas as pd
@@ -17,9 +15,7 @@ from utils import sumo_util, sumo_traci_util
 
 from algorithm.frap_pub.definitions import ROOT_DIR
 from algorithm.frap_pub.intersection import Intersection
-
-
-traci_start_lock = threading.Lock()
+from algorithm.frap_pub import synchronization_util
 
 class SumoEnv:
 
@@ -69,8 +65,12 @@ class SumoEnv:
         'VAR_ROUTE_INDEX'
     ]
 
-    def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf, dic_path, external_configurations={},
-                 mode='train', write_mode=True, sumo_output_enabled=True):
+    def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf, dic_path,
+                 external_configurations=None, mode='train', write_mode=True, sumo_output_enabled=True):
+
+        if external_configurations is None:
+            external_configurations = {}
+
         # mode: train, test, replay
 
         if mode != 'train' and mode != 'test' and mode != 'replay':
@@ -155,7 +155,7 @@ class SumoEnv:
 
         stops_to_issue = []
         print("start sumo")
-        traci_start_lock.acquire()
+        synchronization_util.traci_start_lock.acquire()
         try:
             traci.start(sumo_cmd_str, label=self.execution_name)
         except Exception as e:
@@ -180,7 +180,7 @@ class SumoEnv:
 
         traci_connection = traci.getConnection(self.execution_name)
         print("succeed in start sumo")
-        traci_start_lock.release()
+        synchronization_util.traci_start_lock.release()
 
         for stop_info in stops_to_issue:
             traci_connection.vehicle.setStop(**stop_info)
@@ -227,13 +227,18 @@ class SumoEnv:
 
             for inter_ind in range(len(self.list_inter_log)):
                 path_to_log_file = os.path.join(self.path_to_log, "inter_{0}.pkl".format(inter_ind))
-                f = open(ROOT_DIR + '/' + path_to_log_file, "wb")
+                f = open(ROOT_DIR + '/' + path_to_log_file, "wb+")
                 pickle.dump(self.list_inter_log[inter_ind], f)
                 f.close()
 
                 if self.mode == 'test':
-                    detailed_copy = os.path.join(self.path_to_log, "inter_{0}_detailed.pkl".format(inter_ind))
-                    shutil.copy(ROOT_DIR + '/' + path_to_log_file, ROOT_DIR + '/' + detailed_copy)
+                    path_to_detailed_log_file = os.path.join(
+                        self.path_to_log, "inter_{0}_detailed.pkl".format(inter_ind))
+                    f = open(ROOT_DIR + '/' + path_to_detailed_log_file, "wb+")
+                    pickle.dump(self.list_inter_log[inter_ind], f)
+                    f.close()
+
+            self.list_inter_log = [[] for _ in range(len(self.list_intersection))]
 
     def end_sumo(self):
         traci_connection = traci.getConnection(self.execution_name)

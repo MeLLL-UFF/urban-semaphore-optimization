@@ -6,8 +6,18 @@ from utils.bidict import bidict
 
 class Scenario:
 
-    def __init__(self, name='', flows_to_direction=bidict(), _traffic_parametrization={},
-                 _traffic_distribution={}):
+    def __init__(self, name='', flows_to_direction=None, _traffic_parametrization=None,
+                 _traffic_distribution=None):
+
+        if flows_to_direction is None:
+            flows_to_direction = bidict()
+
+        if _traffic_parametrization is None:
+            _traffic_parametrization = {}
+
+        if _traffic_distribution is None:
+            _traffic_distribution = {}
+
         self.name = name
         self.flows_to_direction = flows_to_direction
 

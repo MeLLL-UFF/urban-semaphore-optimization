@@ -38,7 +38,10 @@ def get_xml(file):
 
     return xml
 
-def configure_sumo_traffic_light_parameters(experiment, traffic_light_parameters={}):
+def configure_sumo_traffic_light_parameters(experiment, traffic_light_parameters=None):
+
+    if traffic_light_parameters is None:
+        traffic_light_parameters = {}
 
     global net_xml_copy
 

@@ -10,8 +10,8 @@ from algorithm.frap_pub.definitions import ROOT_DIR
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--memo", type=str, default="Frap")
-    parser.add_argument("--algorithm", type=str, default="Frap")
+    parser.add_argument("--memo", type=str, default="FrapPlusPlus")
+    parser.add_argument("--algorithm", type=str, default="FrapPlusPlus")
     parser.add_argument("--num_phase", type=int, default=8)
     parser.add_argument("--rotation", action="store_true")
     parser.add_argument("--run_round", type=int, default=400)
@@ -44,7 +44,11 @@ def parse_args():
     return parser.parse_args()
 
 
-def run(external_configurations={}):
+def run(external_configurations=None):
+
+    if external_configurations is None:
+        external_configurations = {}
+
     args = parse_args()
     memo = args.memo
 
@@ -62,7 +66,11 @@ def run(external_configurations={}):
 
     return experiment_name
 
-def continue_(experiment, external_configurations={}):
+def continue_(experiment, external_configurations=None):
+
+    if external_configurations is None:
+        external_configurations = {}
+
     args = parse_args()
     memo = args.memo
 
@@ -74,7 +82,11 @@ def continue_(experiment, external_configurations={}):
 
     return experiment
 
-def re_run(experiment, round_, external_configurations={}):
+def re_run(experiment, round_, external_configurations=None):
+
+    if external_configurations is None:
+        external_configurations = {}
+
     args = parse_args()
     memo = args.memo
 

@@ -13,7 +13,6 @@ class ConstructSample:
         self.path_to_samples = path_to_samples + "/round_" + str(cnt_round)
         self.cnt_round = cnt_round
         self.dic_traffic_env_conf = dic_traffic_env_conf
-        self.num_lanes = np.sum(np.array(list(self.dic_traffic_env_conf["LANE_NUM"].values())))
         self.dic_phase_expansion = self.dic_traffic_env_conf["phase_expansion"]
 
     def load_data(self, folder):
@@ -94,7 +93,7 @@ class ConstructSample:
         else:
             return self.logging_data[index]['action']
 
-    def make_reward(self):
+    def make_reward(self, start_index=0):
         self.samples = []
         for folder in os.listdir(ROOT_DIR + '/' + self.path_to_samples):
             if "generator" not in folder:
@@ -103,10 +102,9 @@ class ConstructSample:
             if not self.load_data(folder):
                 continue
             list_samples = []
-            initial_time = int(self.logging_data[0]['time'])
             total_time = int(self.logging_data[-1]['time'] + 1)
             # construct samples
-            for index in range(0, len(self.logging_data) - self.measure_time + 1, self.min_action_time):
+            for index in range(start_index, len(self.logging_data) - self.measure_time + 1, self.min_action_time):
                 time = int(self.logging_data[index]['time'])
                 state = self.construct_state(self.dic_traffic_env_conf["LIST_STATE_FEATURE"], index, time)
                 reward_instant, reward_average = self.construct_reward(
