@@ -113,7 +113,7 @@ class FrapAgent(NetworkAgent):
         phases = self.dic_traffic_env_conf["PHASE"]
         max_number_of_movements_per_phase = max(map(lambda x: len(x.split('_')), phases))
         number_of_phases = len(self.dic_traffic_env_conf["PHASE"])
-        number_of_movements = len(self.dic_traffic_env_conf['list_lane_order'])
+        number_of_movements = len(self.dic_traffic_env_conf['MOVEMENT'])
 
         dic_input_node = {}
         feature_shape = {}
@@ -138,7 +138,7 @@ class FrapAgent(NetworkAgent):
         p = Activation('sigmoid')(Embedding(2, 4, input_length=number_of_movements)(dic_input_node["cur_phase"]))
         d = Dense(4, activation="sigmoid", name="num_vec_mapping")
         dic_lane = {}
-        for i, m in enumerate(self.dic_traffic_env_conf["list_lane_order"]):
+        for i, m in enumerate(self.dic_traffic_env_conf["MOVEMENT"]):
             tmp_vec = d(
                 Lambda(slice_tensor, arguments={"index": i}, name="vec_%d" % i)(vec_input_node))
             tmp_phase = Lambda(slice_tensor, arguments={"index": i}, name="phase_%d" % i)(p)

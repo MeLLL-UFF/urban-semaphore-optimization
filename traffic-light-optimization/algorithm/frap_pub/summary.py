@@ -291,12 +291,14 @@ def summary_detail_train(memo, total_summary):
                     min_queue_length = queue_length_gens / cnt_gen / sample_num
                     min_queue_length_id = int(round[6:])
 
+                '''
                 valid_flag = json.load(open(os.path.join(ROOT_DIR, gen_dir, "valid_flag.json")))
                 if valid_flag['0']: # temporary for one intersection
                     if min_duration > duration_gens / cnt_gen:
                         min_duration = duration_gens / cnt_gen
                         min_duration_ind = int(round[6:])
                 #print(nan_num, nan_thres)
+                '''
 
             except:
                 # change anomaly label from nan to -1000 for the convenience of following computation
@@ -472,7 +474,7 @@ def summary_detail_test(memo, total_summary):
                     min_queue_length = queue_length_each_round / sample_num
                     min_queue_length_id = int(round[6:])
 
-                valid_flag = json.load(open(os.path.join(ROOT_DIR, round_dir, "valid_flag.json")))
+                #valid_flag = json.load(open(os.path.join(ROOT_DIR, round_dir, "valid_flag.json")))
                 #if valid_flag['0']:  # temporary for one intersection
                 if total_vol is not None and vehicle_out > total_vol * 0.9:
                     if min_duration > ave_duration and ave_duration > 24:
@@ -692,7 +694,7 @@ def single_experiment_summary(memo, records_dir, plots='all', _round=None,
     mode_name = 'test'
     name_base = traffic_name + '-' + mode_name
 
-    movements = dic_traffic_env_conf['list_lane_order']
+    movements = dic_traffic_env_conf['MOVEMENT']
     movement_to_connection = dic_traffic_env_conf['movement_to_connection']
 
     net_file = ROOT_DIR + '/' + records_dir + '/' + dic_traffic_env_conf['ROADNET_FILE']

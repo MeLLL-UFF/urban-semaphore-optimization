@@ -113,8 +113,6 @@ class NetworkAgent(Agent):
 
         # ===== check num actions == num phases ============
 
-        #self.num_actions = self.dic_sumo_env_conf["ACTION_DIM"]
-        #self.num_phases = self.dic_sumo_env_conf["NUM_PHASES"]
         if self.dic_traffic_env_conf["ACTION_PATTERN"] == "switch":
             self.num_actions = 2
         else:

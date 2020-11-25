@@ -34,11 +34,11 @@ class Intersection:
         parser = etree.XMLParser(remove_blank_text=True)
         self.net_file_xml = etree.parse(net_file, parser)
 
-        self.node_light = external_configurations['NODE_LIGHT']
+        self.intersection_id = external_configurations['INTERSECTION_ID']
         self.list_vehicle_variables_to_sub = list_vehicle_variables_to_sub
 
         self.phases = dic_traffic_env_conf["PHASE"]
-        self.movements = dic_traffic_env_conf['list_lane_order']
+        self.movements = dic_traffic_env_conf['MOVEMENT']
 
         # ===== sumo intersection settings =====
 
@@ -48,7 +48,7 @@ class Intersection:
         self.incoming_edges, self.outgoing_edges = sumo_util.get_intersection_edge_ids(self.net_file_xml)
         self.edges = [] + self.incoming_edges + self.outgoing_edges
 
-        self.list_approaches = [str(i) for i in range(dic_traffic_env_conf["N_LEG"])]
+        self.list_approaches = [str(i) for i in range(len(self.incoming_edges))]
         self.dic_entering_approach_to_edge = {approach: self.incoming_edges[index]
                                               for index, approach in enumerate(self.list_approaches)}
         self.dic_exiting_approach_to_edge = {approach: self.outgoing_edges[index]
@@ -182,7 +182,7 @@ class Intersection:
             self.flicker = 0
             if self.current_phase_duration >= yellow_time:  # yellow time reached
 
-                current_traffic_light = sumo_traci_util.get_traffic_light_state(self.node_light, self.execution_name)
+                current_traffic_light = sumo_traci_util.get_traffic_light_state(self.intersection_id, self.execution_name)
 
                 self.current_phase_index = self.next_phase_to_set_index
                 phase = self.phases[self.current_phase_index]
@@ -194,7 +194,7 @@ class Intersection:
                                             new_lane_traffic_light + \
                                             current_traffic_light[traffic_light_index + 1:]
 
-                sumo_traci_util.set_traffic_light_state(self.node_light, current_traffic_light, self.execution_name)
+                sumo_traci_util.set_traffic_light_state(self.intersection_id, current_traffic_light, self.execution_name)
                 self.all_yellow_flag = False
             else:
                 pass
@@ -223,7 +223,7 @@ class Intersection:
                         self.current_min_action_duration = 0
                 else:  # the light phase needs to change
                     # change to yellow first, and activate the counter and flag
-                    current_traffic_light = sumo_traci_util.get_traffic_light_state(self.node_light, self.execution_name)
+                    current_traffic_light = sumo_traci_util.get_traffic_light_state(self.intersection_id, self.execution_name)
 
                     phase = self.phases[self.next_phase_to_set_index]
 
@@ -239,7 +239,7 @@ class Intersection:
                                                     new_lane_traffic_light + \
                                                     current_traffic_light[traffic_light_index + 1:]
 
-                    sumo_traci_util.set_traffic_light_state(self.node_light, current_traffic_light, self.execution_name)
+                    sumo_traci_util.set_traffic_light_state(self.intersection_id, current_traffic_light, self.execution_name)
                     self.current_phase_index = self.all_yellow_phase_index
                     self.all_yellow_flag = True
                     self.flicker = 1

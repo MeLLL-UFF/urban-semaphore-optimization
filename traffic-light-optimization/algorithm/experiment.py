@@ -28,10 +28,6 @@ class Experiment:
 
         experiment_name = run_batch.run(external_configurations)
 
-        output_folder = output_file.rsplit('/', 1)[0] + '/' + experiment_name        
-
-        Experiment._consolidate_output_file(output_folder, experiment_name)
-
         return experiment_name
 
     @staticmethod
@@ -138,100 +134,6 @@ class Experiment:
                                           plots, _round, baseline_comparison, baseline_experiments)
 
     @staticmethod
-    def _consolidate_output_file(output_folder, experiment_name):
-        
-        duration_df = pd.DataFrame()
-        for _file in os.listdir(output_folder):
-
-            if '.out' not in _file:
-                continue
-            
-            try:
-                duration = sumo_util.get_average_duration_statistic(os.path.join(output_folder,  _file))
-            except:
-                duration = np.NaN
-
-            round_split = _file.split('_round_')
-            round_number = int(round_split[1].split('__')[0])
-            
-            if '_train_' in _file:
-                generator_number = round_split[0].split('_generator_')[1]
-                duration_df.loc[round_number, 'train_generator' + '_' + generator_number] = duration
-            elif '_test_' in _file:
-                duration_df.loc[round_number, 'test'] = duration          
-
-        duration_df = duration_df.reindex(sorted(duration_df.index))
-        duration_df = duration_df.reindex(sorted(duration_df.columns), axis=1)
-
-        duration_df.to_csv(os.path.join(output_folder, experiment_name + '_' + 'avg_trip_duration_result' + '.csv'))
-
-        split_experiment_name = experiment_name.split('__')
-        scenario = split_experiment_name[0]
-        traffic_level_configuration = split_experiment_name[2]
-
-        if 'test' in duration_df:
-            Experiment._plot_consolidate_output(output_folder, experiment_name, duration_df['test'],
-                                                scenario, traffic_level_configuration)
-
-
-    @staticmethod
-    def _plot_consolidate_output(output_folder, experiment_name, duration_list,
-                                 scenario, traffic_level_configuration):
-        
-        duration_list = np.array(duration_list)
-
-        right_on_red_output_folder = ROOT_DIR + os.path.join(
-            config.SCENARIO_PATH, 'test_i', scenario, 'output', 'None', 'right_on_red',
-            scenario + '__' + 'right_on_red' + '__' + traffic_level_configuration)
-        
-        unregulated_output_folder = ROOT_DIR + os.path.join(
-            config.SCENARIO_PATH, 'test_i', scenario, 'output', 'None', 'unregulated',
-            scenario + '__' + 'unregulated' + '__' + traffic_level_configuration)
-
-        right_on_red_result_file = right_on_red_output_folder + '/' + scenario + '__' + 'right_on_red' + '__' + \
-                                   traffic_level_configuration + '_result.csv'
-
-        unregulated_result_file = unregulated_output_folder + '/' + scenario + '__' + 'unregulated' + '__' + \
-                                  traffic_level_configuration + '_result.csv'
-
-        tail_length = 10
-        duration_tail = duration_list[-tail_length:]
-        final_duration = np.round(np.mean(duration_tail[duration_tail > 0]), decimals=2)
-
-        # simple plot for each training instance
-        f, ax = plt.subplots(1, 1, figsize=(20, 9), dpi=100)
-        ax.plot(duration_list, linewidth=2, color='k', label='frap' + ' ' + '(' + str(final_duration) + ')')
-
-        if os.path.isfile(right_on_red_result_file):
-            right_on_red_df = pd.read_csv(right_on_red_result_file)
-            ax.plot([0, len(duration_list)], [right_on_red_df['test'], right_on_red_df['test']],
-                    linewidth=2, linestyle=':', color='r',
-                    label='right on red' + ' ' + '(' + str(right_on_red_df['test'][0]) + ')')
-        
-        if os.path.isfile(unregulated_result_file):
-            unregulated_df = pd.read_csv(unregulated_result_file)
-            ax.plot([0, len(duration_list)], [unregulated_df['test'], unregulated_df['test']],
-                    linewidth=2, linestyle=':', color='g',
-                    label='unregulated' + ' ' + '(' + str(unregulated_df['test'][0]) + ')')
-
-        ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
-        ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
-        ax.yaxis.set_minor_locator(MultipleLocator(10))
-
-        ax.xaxis.set_major_locator(MaxNLocator(nbins=12))
-        ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
-        ax.xaxis.set_minor_locator(MultipleLocator(10))
-
-        ax.set_axisbelow(True)
-        ax.grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
-
-        ax.legend()
-
-        ax.set_title('average trip duration')
-        plt.savefig(os.path.join(output_folder, experiment_name + '_' + 'result' + '.png'))
-        plt.close()
-
-    @staticmethod
     def _create_external_configurations_dict(net_file, route_file, sumocfg_file, output_file,
                                              traffic_level_configuration):
 
@@ -261,10 +163,7 @@ class Experiment:
         parser = etree.XMLParser(remove_blank_text=True)
         net_xml = etree.parse(net_file, parser)
         intersection_id = sumo_util.get_intersections_ids(net_xml)[0]
-        external_configurations['NODE_LIGHT'] = intersection_id
-
-        incoming_edges, _ = sumo_util.get_intersection_edge_ids(net_xml)
-        external_configurations['N_LEG'] = len(incoming_edges)
+        external_configurations['INTERSECTION_ID'] = intersection_id
 
         external_configurations['NUMBER_OF_LEGS_NETWORK_COMPATIBILITY'] = 5
 

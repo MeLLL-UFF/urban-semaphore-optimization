@@ -2,6 +2,7 @@ import os
 import argparse
 import time
 
+from algorithm.frap_pub import config
 import algorithm.frap_pub.runexp as runexp
 import algorithm.frap_pub.summary as summary
 from algorithm.frap_pub.definitions import ROOT_DIR
@@ -10,36 +11,10 @@ from algorithm.frap_pub.definitions import ROOT_DIR
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--memo", type=str, default="Frap")
-    parser.add_argument("--algorithm", type=str, default="Frap")
-    parser.add_argument("--num_phase", type=int, default=8)
-    parser.add_argument("--rotation", action="store_true")
-    parser.add_argument("--run_round", type=int, default=400)
-
-    parser.add_argument("--done", action="store_true")
-    parser.add_argument("--priority", action="store_true")
-    parser.add_argument("--rotation_input", action="store_true")
-    parser.add_argument("--conflict_matrix", action="store_true")
-
-    parser.add_argument("--run_counts", type=int, default=3600)
-    parser.add_argument("--test_run_counts", type=int, default=3600)
-    parser.add_argument("--sample_size", type=int, default=1000)
-    parser.add_argument("--epochs", type=int, default=100)
-    parser.add_argument("--learning_rate", type=float, default=0.001)
-    parser.add_argument("--lr_decay", type=float, default=0.98)
-    parser.add_argument("--min_lr", type=float, default=0.001)
-    parser.add_argument("--update_q_bar_every_c_round", type=bool, default=False)
-    parser.add_argument("--early_stop_loss", type=str, default="val_loss")
-    parser.add_argument("--dropout_rate", type=float, default=0)
-
-    parser.add_argument("--replay", action="store_true")
-    parser.add_argument("--debug", action="store_true")
-    parser.add_argument("--sumo_gui", action="store_true")
-    parser.add_argument("--min_action_time", type=int, default=10)
+    parser.add_argument("--memo", type=str, default=config.DIC_EXP_CONF['MODEL_NAME'])
     parser.add_argument("--workers", type=int, default=12)
 
-
-    parser.add_argument("--visible_gpu", type=str, default="")
+    #parser.add_argument("--visible_gpu", type=str, default="")
 
     return parser.parse_args()
 

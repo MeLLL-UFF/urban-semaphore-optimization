@@ -11,14 +11,10 @@ from algorithm.frap_pub.anon_env import AnonEnv
 DIC_EXP_CONF = {
     "RUN_COUNTS": 3600,
     "TEST_RUN_COUNTS": 3600,
-    "TRAFFIC_FILE": [
-        "cross.2phases_rou01_equal_450.xml"
-    ],
-    "MODEL_NAME": "SimpleDQN",
+    "TRAFFIC_FILE": [],  # Added in runexp
+    "MODEL_NAME": "Frap",
     "NUM_ROUNDS": 400,
     "NUM_GENERATORS": 3,
-    "LIST_MODEL":
-        ["Frap"],
     "LIST_MODEL_NEED_TO_UPDATE_BETWEEN_ROUNDS":
         ["Frap", "FrapWithPlanning"],
     "LIST_MODEL_NEED_TO_UPDATE_BETWEEN_STEPS":
@@ -34,35 +30,29 @@ DIC_EXP_CONF = {
     "AGGREGATE": False,
     "DEBUG": False,
     "EARLY_STOP": False,
-
-    "MULTI_TRAFFIC": False,
-    "MULTI_RANDOM": False,
 }
-
-dic_traffic_env_conf = {
+DIC_TRAFFIC_ENV_CONF = {
+    "SIMULATOR_TYPE": 'sumo',
     "ACTION_PATTERN": "set",
-    "NUM_INTERSECTIONS": 1,
+    "NUM_INTERSECTIONS": 1,  # review
     "PER_SECOND_DECISION": False,
     "MIN_ACTION_TIME": 10,
+    "MEASURE_TIME": 10,
     "YELLOW_TIME": 3,
     "ALL_RED_TIME": 0,
-    "NUM_PHASES": 2,
-    "NUM_LANES": 1,
-    "ACTION_DIM": 2,
-    "MEASURE_TIME": 10,
     "WAITING_TIME_RESTRICTION": 120,
     "DEADLOCK_WAITING_TOO_LONG_THRESHOLD": 10,
-    "IF_GUI": True,
+    "IF_GUI": False,
     "DEBUG": False,
-    "BINARY_PHASE_EXPANSION": False,
-    "DONE_ENABLE": False,
+    "BINARY_PHASE_EXPANSION": True,
+    "DONE_ENABLE": True,
 
     "INTERVAL": 1,
     "THREADNUM": 1,
     "SAVEREPLAY": True,
     "RLTRAFFICLIGHT": True,
 
-    "DIC_FEATURE_DIM": dict(
+    "DIC_FEATURE_DIM": dict(  # review
         D_LANE_QUEUE_LENGTH=(4,),
         #D_LANE_NUM_VEHICLE=(4,),
         D_LANE_NUM_VEHICLE=(1,),
@@ -110,81 +100,21 @@ dic_traffic_env_conf = {
         "time_loss": 0
     },
 
-    "LANE_NUM": {
+    "LANE_NUM": {  # review
         "LEFT": 1,
         "RIGHT": 0,
         "STRAIGHT": 1
     },
 
-    "PHASE": [
-        'WT_ET',
-        'NT_ST',
-        'WL_EL',
-        'NL_SL',
-        # 'WL_WT',
-        # 'EL_ET',
-        # 'SL_ST',
-        # 'NL_NT',
-    ],
-
-    "list_lane_order": ["WL", "WT", "EL", "ET", "NL", "NT", "SL", "ST"],
-
-    "phase_expansion": {
-        1: [0, 1, 0, 1, 0, 0, 0, 0],
-        2: [0, 0, 0, 0, 0, 1, 0, 1],
-        3: [1, 0, 1, 0, 0, 0, 0, 0],
-        4: [0, 0, 0, 0, 1, 0, 1, 0],
-        5: [1, 1, 0, 0, 0, 0, 0, 0],
-        6: [0, 0, 1, 1, 0, 0, 0, 0],
-        7: [0, 0, 0, 0, 0, 0, 1, 1],
-        8: [0, 0, 0, 0, 1, 1, 0, 0]
-    },
-
-    "phase_expansion_4_lane": {
-        1: [1, 1, 0, 0],
-        2: [0, 0, 1, 1],
-    },
-
-    "VALID_THRESHOLD": 30,
-
     "LOG_DEGUB": False,
 
-    "N_LEG": 4,
-
 }
 
-_LS = {"LEFT": 1,
-       "RIGHT": 0,
-       "STRAIGHT": 1
-       }
-_S = {
-    "LEFT": 0,
-    "RIGHT": 0,
-    "STRAIGHT": 1
-}
-
-
-
-dic_two_phase_expansion = {
-    1: [1, 1, 0, 0],
-    2: [0, 0, 1, 1],
-}
-
-# dic_four_phase_expansion = {
-#     1: [0, 1, 0, 1, 0, 0, 0, 0],
-#     2: [0, 0, 0, 0, 0, 1, 0, 1],
-#     3: [1, 0, 1, 0, 0, 0, 0, 0],
-#     4: [0, 0, 0, 0, 1, 0, 1, 0],
-#     5: [1, 1, 0, 0, 0, 0, 0, 0],
-#     6: [0, 0, 1, 1, 0, 0, 0, 0],
-#     7: [0, 0, 0, 0, 0, 0, 1, 1],
-#     8: [0, 0, 0, 0, 1, 1, 0, 0]
-# }
 
 DIC_FRAP_AGENT_CONF = {
     "LEARNING_RATE": 0.001,
-    "LR_DECAY": 1,
-    "MIN_LR": 0.0001,
+    "LR_DECAY": 0.98,  # review default=0.98 or 1
+    "MIN_LR": 0.001,  # review default=0.001 or 0.0001
     "SAMPLE_SIZE": 1000,
     "BATCH_SIZE": 20,
     "EPOCHS": 100,
@@ -194,14 +124,11 @@ DIC_FRAP_AGENT_CONF = {
     "MAX_MEMORY_LEN": 10000,
     "PATIENCE": 10,
     "D_DENSE": 20,
-    "N_LAYER": 2,
     "EPSILON": 0.8,
     "EPSILON_DECAY": 0.95,
     "MIN_EPSILON": 0.2,
     "LOSS_FUNCTION": "mean_squared_error",
-    "SEPARATE_MEMORY": False,
     "NORMAL_FACTOR": 20,
-    "TRAFFIC_FILE": "cross.2phases_rou01_equal_450.xml",
     "EARLY_STOP_LOSS": "val_loss",
     "DROPOUT_RATE": 0,
     "MERGE": "multiply"
@@ -209,8 +136,8 @@ DIC_FRAP_AGENT_CONF = {
 
 DIC_FRAPPLUSPLUS_AGENT_CONF = {
     "LEARNING_RATE": 0.001,
-    "LR_DECAY": 1,
-    "MIN_LR": 0.0001,
+    "LR_DECAY": 0.98,  # review default=0.98 or 1
+    "MIN_LR": 0.001,  # review default=0.001 or 0.0001
     "SAMPLE_SIZE": 30,
     'UPDATE_START': 100,
     'UPDATE_PERIOD': 10,
@@ -222,14 +149,11 @@ DIC_FRAPPLUSPLUS_AGENT_CONF = {
     "MAX_MEMORY_LEN": 2000,
     "PATIENCE": 10,
     "D_DENSE": 20,
-    "N_LAYER": 2,
     "EPSILON": 0.8,
     "EPSILON_DECAY": 0.95,
     "MIN_EPSILON": 0.2,
     "LOSS_FUNCTION": "mean_squared_error",
-    "SEPARATE_MEMORY": False,
     "NORMAL_FACTOR": 20,
-    "TRAFFIC_FILE": "cross.2phases_rou01_equal_450.xml",
     "EARLY_STOP_LOSS": "val_loss",
     "DROPOUT_RATE": 0,
     "MERGE": "multiply"
@@ -246,8 +170,8 @@ DIC_PLANNINGONLY_AGENT_CONF = {
 
 DIC_FRAPWITHPLANNING_AGENT_CONF = {
     "LEARNING_RATE": 0.001,
-    "LR_DECAY": 1,
-    "MIN_LR": 0.0001,
+    "LR_DECAY": 0.98,  # review default=0.98 or 1
+    "MIN_LR": 0.001,  # review default=0.001 or 0.0001
     "SAMPLE_SIZE": 1000,
     "BATCH_SIZE": 20,
     "EPOCHS": 100,
@@ -257,17 +181,15 @@ DIC_FRAPWITHPLANNING_AGENT_CONF = {
     "MAX_MEMORY_LEN": 10000,
     "PATIENCE": 10,
     "D_DENSE": 20,
-    "N_LAYER": 2,
     "EPSILON": 0.8,
     "EPSILON_DECAY": 0.95,
     "MIN_EPSILON": 0.2,
     "LOSS_FUNCTION": "mean_squared_error",
-    "SEPARATE_MEMORY": False,
     "NORMAL_FACTOR": 20,
-    "TRAFFIC_FILE": "cross.2phases_rou01_equal_450.xml",
     "EARLY_STOP_LOSS": "val_loss",
     "DROPOUT_RATE": 0,
     "MERGE": "multiply",
+
     "PLANNING_ITERATIONS": 3,
     "PICK_ACTION_AND_KEEP_WITH_IT": False,
     "TIEBREAK_POLICY": 'random',  # 'random', 'maintain', 'change'

@@ -211,20 +211,6 @@ class SumoEnv:
 
         if self.write_mode:
 
-            valid_flag = {}
-            for inter_ind, inter in enumerate(self.list_intersection):
-                path_to_log_file = os.path.join(self.path_to_log, "vehicle_inter_{0}.csv".format(inter_ind))
-                dic_vehicle = self.list_intersection[inter_ind].get_dic_vehicle_arrive_leave_time()
-                df = self.convert_dic_to_df(dic_vehicle)
-                df.to_csv(ROOT_DIR + '/' + path_to_log_file, na_rep="nan")
-
-                lane_num_vehicle = inter.get_feature('lane_num_vehicle')
-                if max(lane_num_vehicle) > self.dic_traffic_env_conf["VALID_THRESHOLD"]:
-                    valid_flag[inter_ind] = 0
-                else:
-                    valid_flag[inter_ind] = 1
-            json.dump(valid_flag, open(os.path.join(ROOT_DIR, self.path_to_log, "valid_flag.json"), "w"))
-
             for inter_ind in range(len(self.list_inter_log)):
                 path_to_log_file = os.path.join(self.path_to_log, "inter_{0}.pkl".format(inter_ind))
                 f = open(ROOT_DIR + '/' + path_to_log_file, "wb+")
@@ -274,7 +260,7 @@ class SumoEnv:
 
             if self.mode == 'test':
 
-                traffic_light = sumo_traci_util.get_traffic_light_state(inter.node_light, self.execution_name)
+                traffic_light = sumo_traci_util.get_traffic_light_state(inter.intersection_id, self.execution_name)
                 time_loss = sumo_traci_util.get_time_loss(inter.dic_vehicle_sub_current_step, self.execution_name)
                 relative_occupancy = sumo_traci_util.get_lane_relative_occupancy(
                     inter.dic_lane_sub_current_step,

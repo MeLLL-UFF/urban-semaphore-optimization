@@ -577,23 +577,6 @@ class AnonEnv:
 
     def bulk_log(self):
 
-        valid_flag = {}
-        for inter_ind in range(len(self.list_intersection)):
-            path_to_log_file = os.path.join(self.path_to_log, "vehicle_inter_{0}.csv".format(inter_ind))
-            dic_vehicle = self.list_intersection[inter_ind].get_dic_vehicle_arrive_leave_time()
-            df = self.convert_dic_to_df(dic_vehicle)
-            df.to_csv(ROOT_DIR + '/' + path_to_log_file, na_rep="nan")
-
-            inter = self.list_intersection[inter_ind]
-            feature = inter.get_dic_feature()
-            print(feature['lane_num_vehicle'])
-            if max(feature['lane_num_vehicle']) > self.dic_traffic_env_conf["VALID_THRESHOLD"]:
-                valid_flag[inter_ind] = 0
-            else:
-                valid_flag[inter_ind] = 1
-        json.dump(valid_flag, open(os.path.join(ROOT_DIR, self.path_to_log, "valid_flag.json"), "w"))
-
-
         for inter_ind in range(len(self.list_inter_log)):
             path_to_log_file = os.path.join(self.path_to_log, "inter_{0}.pkl".format(inter_ind))
             f = open(ROOT_DIR + '/' + path_to_log_file, "wb+")

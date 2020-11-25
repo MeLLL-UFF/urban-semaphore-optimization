@@ -71,7 +71,6 @@ def main(args=None, memo=None, external_configurations=None):
     traffic_file_list = external_configurations['TRAFFIC_FILE_LIST']
     roadnet_file = external_configurations['ROADNET_FILE']
     traffic_level_configuration = external_configurations['TRAFFIC_LEVEL_CONFIGURATION']
-    number_of_legs = external_configurations['N_LEG']
     number_of_legs_network_compatibility = external_configurations.get('NUMBER_OF_LEGS_NETWORK_COMPATIBILITY', 'same')
     use_sumo_directions_in_movement_detection = external_configurations.get('USE_SUMO_DIRECTIONS_IN_MOVEMENT_DETECTION',
                                                                           False)
@@ -82,17 +81,11 @@ def main(args=None, memo=None, external_configurations=None):
 
     multi_process = True
 
-
-    if not memo:
-        memo = "headway_test"
-
     for traffic_file in traffic_file_list:
-
-        postfix = "_" + str(args.min_action_time)
 
         template = "template_ls"
 
-        suffix = time.strftime('%m_%d_%H_%M_%S', time.localtime(time.time())) + postfix + '__' + unique_id
+        suffix = time.strftime('%m_%d_%H_%M_%S', time.localtime(time.time())) + '__' + unique_id
 
         roadnet_file_name = roadnet_file.rsplit('.', 2)[0]
         experiment_name_base = roadnet_file_name + '__' + '_'.join(traffic_level_configuration)
@@ -119,17 +112,10 @@ def main(args=None, memo=None, external_configurations=None):
         execution_base = split_output_filename[0].rsplit('/', 1)[1]
         dic_path_extra["EXECUTION_BASE"] = execution_base
 
-        model_name = args.algorithm
-        ratio = 1
+        model_name = config.DIC_EXP_CONF['MODEL_NAME']
         dic_exp_conf_extra = {
-            "RUN_COUNTS": args.run_counts,
-            "TEST_RUN_COUNTS": args.test_run_counts,
-            "MODEL_NAME": model_name,
-            "TRAFFIC_FILE": [traffic_file], # here: change to multi_traffic
+            "TRAFFIC_FILE": [traffic_file],  # here: change to multi_traffic
             "ROADNET_FILE": roadnet_file,
-
-            "NUM_ROUNDS": args.run_round,
-            "NUM_GENERATORS": 3,
 
             "MODEL_POOL": False,
             "NUM_BEST_MODEL": 1,
@@ -144,48 +130,13 @@ def main(args=None, memo=None, external_configurations=None):
         }
 
         dic_agent_conf_extra = {
-            "LEARNING_RATE": args.learning_rate,
-            "LR_DECAY": args.lr_decay,
-            "MIN_LR": args.min_lr,
-            "EPOCHS": args.epochs,
-            "SAMPLE_SIZE": args.sample_size,
-            "MAX_MEMORY_LEN": 10000,
-            "UPDATE_Q_BAR_EVERY_C_ROUND": args.update_q_bar_every_c_round,
-            "UPDATE_Q_BAR_FREQ": 5,
-            # network
-
-            "N_LAYER": 2,
-            "TRAFFIC_FILE": traffic_file,
-
             "ROTATION": True,
-            "ROTATION_INPUT": args.rotation_input,
-            "PRIORITY": args.priority,
-            "CONFLICT_MATRIX": args.conflict_matrix,
-
-            "EARLY_STOP_LOSS": args.early_stop_loss,
-            "DROPOUT_RATE": args.dropout_rate,
-            "MERGE": "multiply",  # concat, weight
-            "PHASE_SELECTOR": True,
+            "ROTATION_INPUT": False,
+            "PRIORITY": False,
+            "CONFLICT_MATRIX": True,
         }
 
         dic_traffic_env_conf_extra = {
-            "ACTION_PATTERN": "set",
-            "MEASURE_TIME": 10,
-
-            "MIN_ACTION_TIME": args.min_action_time,
-            "IF_GUI": args.sumo_gui,
-            "DEBUG": False,
-            "BINARY_PHASE_EXPANSION": True, # default, args.binary_phase,
-            "DONE_ENABLE": args.done,
-
-            "SIMULATOR_TYPE": [
-                "sumo",
-                "anon"
-            ][1],
-
-            "SAVEREPLAY": args.replay,
-            "NUM_ROW": 1,
-            "NUM_COL": 1,
 
             "TRAFFIC_FILE": traffic_file,
             "ROADNET_FILE": roadnet_file,
@@ -197,7 +148,7 @@ def main(args=None, memo=None, external_configurations=None):
                 # "vehicle_speed_img",
                 # "vehicle_acceleration_img",
                 # "vehicle_waiting_time_img",
-                "lane_num_vehicle",
+                #"lane_num_vehicle",
                 # "lane_num_vehicle_been_stopped_thres01",
                 # "lane_num_vehicle_been_stopped_thres1",
                 # "lane_queue_length",
@@ -205,7 +156,7 @@ def main(args=None, memo=None, external_configurations=None):
                 # "lane_sum_duration_vehicle_left",
                 # "lane_sum_waiting_time",
                 # "terminal"
-                # "pressure",
+                 "pressure",
                 # "time_loss"
             ],
 
@@ -216,41 +167,13 @@ def main(args=None, memo=None, external_configurations=None):
                 "sum_lane_num_vehicle_left": 0,
                 "sum_duration_vehicle_left": 0,
                 "sum_num_vehicle_been_stopped_thres01": 0,
-                "sum_num_vehicle_been_stopped_thres1": -1,
-                "pressure": 0,
+                "sum_num_vehicle_been_stopped_thres1": 0,
+                "pressure": -1,
                 "time_loss": 0
             },
 
-            "LOG_DEBUG": args.debug,
-
-            "N_LEG": number_of_legs,
+            "LOG_DEBUG": True,
         }
-
-        if ".json" in traffic_file:
-            dic_traffic_env_conf_extra.update({"SIMULATOR_TYPE": "anon"})
-        else:
-            dic_traffic_env_conf_extra.update({"SIMULATOR_TYPE": "sumo"})
-
-        # if "Lit" == model_name:
-        #     dic_traffic_env_conf_extra["BINARY_PHASE_EXPANSION"] = False
-
-        '''
-        if number_of_legs_network_compatibility == 'same':
-            dic_traffic_env_conf_extra.update(
-                {
-                    "list_lane_order_compatibility": dic_traffic_env_conf_extra['list_lane_order']
-                }
-            )
-        else:
-
-            compatibility_dict = _configure_intersection(number_of_legs_network_compatibility, args.num_phase)
-
-            dic_traffic_env_conf_extra.update(
-                {
-                    "list_lane_order_compatibility": compatibility_dict['list_lane_order']
-                }
-            )
-        '''
 
         net_file = os.path.join(ROOT_DIR, dic_path_extra["PATH_TO_DATA"], roadnet_file)
         parser = etree.XMLParser(remove_blank_text=True)
@@ -258,7 +181,7 @@ def main(args=None, memo=None, external_configurations=None):
 
         movements, movement_to_connection = \
             sumo_util.detect_movements(net_xml, use_sumo_directions_in_movement_detection)
-        dic_traffic_env_conf_extra['list_lane_order'] = movements
+        dic_traffic_env_conf_extra['MOVEMENT'] = movements
 
         serializable_movement_to_connection = dict(copy.deepcopy(movement_to_connection))
         for movement in serializable_movement_to_connection.keys():
@@ -276,7 +199,7 @@ def main(args=None, memo=None, external_configurations=None):
         deploy_dic_exp_conf = merge(config.DIC_EXP_CONF, dic_exp_conf_extra)
         deploy_dic_agent_conf = merge(getattr(config, "DIC_{0}_AGENT_CONF".format(model_name.upper())),
                                       dic_agent_conf_extra)
-        deploy_dic_traffic_env_conf = merge(config.dic_traffic_env_conf, dic_traffic_env_conf_extra)
+        deploy_dic_traffic_env_conf = merge(config.DIC_TRAFFIC_ENV_CONF, dic_traffic_env_conf_extra)
         deploy_dic_path = merge(config.DIC_PATH, dic_path_extra)
 
         if multi_process:
@@ -319,6 +242,7 @@ def main(args=None, memo=None, external_configurations=None):
             p.join()
 
     return memo, deploy_dic_path
+
 
 def continue_(existing_experiment, round_='FROM_THE_LAST', args=None, memo=None, external_configurations=None):
 
