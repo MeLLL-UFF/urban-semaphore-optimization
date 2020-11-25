@@ -218,8 +218,8 @@ class SumoEnv:
                 df = self.convert_dic_to_df(dic_vehicle)
                 df.to_csv(ROOT_DIR + '/' + path_to_log_file, na_rep="nan")
 
-                feature = inter.get_dic_feature()
-                if max(feature['lane_num_vehicle']) > self.dic_traffic_env_conf["VALID_THRESHOLD"]:
+                lane_num_vehicle = inter.get_feature('lane_num_vehicle')
+                if max(lane_num_vehicle) > self.dic_traffic_env_conf["VALID_THRESHOLD"]:
                     valid_flag[inter_ind] = 0
                 else:
                     valid_flag[inter_ind] = 1
@@ -248,9 +248,9 @@ class SumoEnv:
         traci_connection = traci.getConnection(self.execution_name)
         return traci_connection.simulation.getTime()
 
-    def get_feature(self):
+    def get_feature(self, feature_list):
 
-        list_feature = [inter.get_dic_feature() for inter in self.list_intersection]
+        list_feature = [inter.get_feature(feature_list) for inter in self.list_intersection]
         return list_feature
 
     def get_state(self):
@@ -361,7 +361,7 @@ class SumoEnv:
 
             instant_time = self.get_current_time()
 
-            before_action_feature = self.get_feature()
+            before_action_feature = self.get_feature(['cur_phase', 'time_this_phase'])
             state = self.get_state()
 
             # _step
@@ -374,8 +374,8 @@ class SumoEnv:
             if step == 0 or self.dic_traffic_env_conf['DEBUG']:
                 print("time: {0}, phase: {1}, time this phase: {2}, action: {3}, reward: {4}".
                       format(instant_time,
-                             before_action_feature[0]["cur_phase"],
-                             before_action_feature[0]["time_this_phase"],
+                             before_action_feature[0]['cur_phase'],
+                             before_action_feature[0]['time_this_phase'],
                              action[0],
                              reward[0]))
 

@@ -81,7 +81,10 @@ def get_time_loss_by_lane(lane_vehicle_subscription_data, lanes, traci_label=Non
     time_loss_by_lane = []
     for lane in lanes:
 
-        time_loss = get_time_loss(lane_vehicle_subscription_data[lane], traci_label)
+        if lane in lane_vehicle_subscription_data:
+            time_loss = get_time_loss(lane_vehicle_subscription_data[lane], traci_label)
+        else:
+            time_loss = 0
         time_loss_by_lane.append(time_loss)
 
     return time_loss_by_lane

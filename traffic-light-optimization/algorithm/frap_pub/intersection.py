@@ -479,14 +479,28 @@ class Intersection:
     def get_dic_vehicle_arrive_leave_time(self):
         return self.dic_vehicle_arrive_leave_time
 
-    def get_feature(self, feature_name):
-        feature = self.dic_feature[feature_name]
+    def get_feature(self, feature_names):
 
-        if feature is None:
-            feature = self.dic_feature_function[feature_name]()
-            self.dic_feature[feature_name] = feature
+        single_output = False
+        if isinstance(feature_names, str):
+            feature_names = [feature_names]
+            single_output = True
 
-        return feature
+        features = {}
+        for feature_name in feature_names:
+            if feature_name in self.dic_feature:
+                feature = self.dic_feature[feature_name]
+            elif feature_name in self.dic_feature_function:
+                feature = self.dic_feature_function[feature_name]()
+                self.dic_feature[feature_name] = feature
+            else:
+                raise ValueError("There is no " + str(feature_name))
+            features[feature_name] = feature
+
+        if single_output:
+            return feature
+        else:
+            return features
 
     def _update_feature(self):
 
@@ -495,9 +509,6 @@ class Intersection:
             dic_feature[f] = self.dic_feature_function[f]()
 
         self.dic_feature = dic_feature
-
-    def get_dic_feature(self):
-        return self.dic_feature
 
     def get_state(self, list_state_features):
         dic_state = {state_feature_name: self.dic_feature[state_feature_name]

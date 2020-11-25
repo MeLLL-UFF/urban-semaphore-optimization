@@ -75,6 +75,8 @@ dic_traffic_env_conf = {
         D_VEHICLE_POSITION_IMG=(4, 60,),
         D_VEHICLE_SPEED_IMG=(4, 60,),
         D_VEHICLE_WAITING_TIME_IMG=(4, 60,),
+        D_PRESSURE=(1,),
+        D_TIME_LOSS=(1,)
     ),
 
     "LIST_STATE_FEATURE": [

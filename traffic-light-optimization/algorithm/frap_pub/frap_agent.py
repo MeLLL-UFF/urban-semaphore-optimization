@@ -118,13 +118,21 @@ class FrapAgent(NetworkAgent):
         dic_input_node = {}
         feature_shape = {}
         for feature_name in self.dic_traffic_env_conf["LIST_STATE_FEATURE"]:
+
+            vec_feature = False
             if "phase" in feature_name and self.dic_traffic_env_conf["BINARY_PHASE_EXPANSION"]:
-                _shape = (self.dic_traffic_env_conf["DIC_FEATURE_DIM"]["D_" + feature_name.upper()][0] * number_of_movements,)
+                _shape = (self.dic_traffic_env_conf["DIC_FEATURE_DIM"]
+                          ["D_" + feature_name.upper()][0] * number_of_movements,)
             elif "phase" in feature_name and not self.dic_traffic_env_conf["BINARY_PHASE_EXPANSION"]:
                 _shape = self.dic_traffic_env_conf["DIC_FEATURE_DIM"]["D_" + feature_name.upper()]
             else:
-                _shape = (self.dic_traffic_env_conf["DIC_FEATURE_DIM"]["D_" + feature_name.upper()][0] * number_of_movements,)
+                _shape = (self.dic_traffic_env_conf["DIC_FEATURE_DIM"]
+                          ["D_" + feature_name.upper()][0] * number_of_movements,)
+                vec_feature = True
+
             dic_input_node[feature_name] = Input(shape=_shape, name="input_" + feature_name)
+            if vec_feature:
+                vec_input_node = dic_input_node[feature_name]
             feature_shape[feature_name] = _shape[0]
 
         p = Activation('sigmoid')(Embedding(2, 4, input_length=number_of_movements)(dic_input_node["cur_phase"]))
@@ -132,7 +140,7 @@ class FrapAgent(NetworkAgent):
         dic_lane = {}
         for i, m in enumerate(self.dic_traffic_env_conf["list_lane_order"]):
             tmp_vec = d(
-                Lambda(slice_tensor, arguments={"index": i}, name="vec_%d" % i)(dic_input_node["lane_num_vehicle"]))
+                Lambda(slice_tensor, arguments={"index": i}, name="vec_%d" % i)(vec_input_node))
             tmp_phase = Lambda(slice_tensor, arguments={"index": i}, name="phase_%d" % i)(p)
             dic_lane[m] = concatenate([tmp_vec, tmp_phase], name="lane_%d" % i)
         list_phase_pressure = []
@@ -142,7 +150,7 @@ class FrapAgent(NetworkAgent):
             list_phase_pressure.append(add([lane_embedding(dic_lane[m]) for m in movements], name=phase))
 
         constant = Lambda(relation, arguments={"dic_traffic_env_conf": self.dic_traffic_env_conf},
-                        name="constant")(dic_input_node["lane_num_vehicle"])
+                        name="constant")(vec_input_node)
         relation_embedding = Embedding(max_number_of_movements_per_phase, 4, name="relation_embedding")(constant)
 
         # rotate the phase pressure
@@ -184,9 +192,9 @@ class FrapAgent(NetworkAgent):
 
         else:
             if self.dic_agent_conf['CONFLICT_MATRIX']:
-                phase_pressure = Reshape((feature_shape["lane_num_vehicle"],), name="phase_pressure")(phase_pressure)
+                phase_pressure = Reshape((vec_input_node,), name="phase_pressure")(phase_pressure)
             else:
-                phase_pressure = Reshape((feature_shape["lane_num_vehicle"] * 2,), name="phase_pressure")(lane_demand)
+                phase_pressure = Reshape((vec_input_node * 2,), name="phase_pressure")(lane_demand)
             q_values = competing_network(phase_pressure, self.dic_agent_conf, self.num_actions)
 
         network = Model(inputs=[dic_input_node[feature_name]
