@@ -205,6 +205,8 @@ def main(args=None, memo=None, external_configurations=None):
                 # "lane_sum_duration_vehicle_left",
                 # "lane_sum_waiting_time",
                 # "terminal"
+                # "pressure",
+                # "time_loss"
             ],
 
             "DIC_REWARD_INFO": {
@@ -215,7 +217,8 @@ def main(args=None, memo=None, external_configurations=None):
                 "sum_duration_vehicle_left": 0,
                 "sum_num_vehicle_been_stopped_thres01": 0,
                 "sum_num_vehicle_been_stopped_thres1": -1,
-                "pressure": 0
+                "pressure": 0,
+                "time_loss": 0
             },
 
             "LOG_DEBUG": args.debug,

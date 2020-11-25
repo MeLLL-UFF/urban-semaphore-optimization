@@ -76,6 +76,17 @@ def get_time_loss(vehicle_subscription_data, traci_label=None):
     return time_loss
 
 
+def get_time_loss_by_lane(lane_vehicle_subscription_data, lanes, traci_label=None):
+
+    time_loss_by_lane = []
+    for lane in lanes:
+
+        time_loss = get_time_loss(lane_vehicle_subscription_data[lane], traci_label)
+        time_loss_by_lane.append(time_loss)
+
+    return time_loss_by_lane
+
+
 def get_lane_relative_occupancy(lane_subscription_data, lane_vehicle_subscription_data, vehicle_subscription_data,
                                 edges, traci_label=None):
 

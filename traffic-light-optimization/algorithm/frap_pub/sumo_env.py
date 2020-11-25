@@ -218,7 +218,7 @@ class SumoEnv:
                 df = self.convert_dic_to_df(dic_vehicle)
                 df.to_csv(ROOT_DIR + '/' + path_to_log_file, na_rep="nan")
 
-                feature = inter.get_feature()
+                feature = inter.get_dic_feature()
                 if max(feature['lane_num_vehicle']) > self.dic_traffic_env_conf["VALID_THRESHOLD"]:
                     valid_flag[inter_ind] = 0
                 else:
@@ -250,7 +250,7 @@ class SumoEnv:
 
     def get_feature(self):
 
-        list_feature = [inter.get_feature() for inter in self.list_intersection]
+        list_feature = [inter.get_dic_feature() for inter in self.list_intersection]
         return list_feature
 
     def get_state(self):

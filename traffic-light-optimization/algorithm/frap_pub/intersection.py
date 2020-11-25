@@ -131,6 +131,50 @@ class Intersection:
 
         self.dic_feature = {}  # this second
 
+        self.list_state_feature = dic_traffic_env_conf["LIST_STATE_FEATURE"]
+
+        self.dic_feature_function = {
+            'cur_phase': lambda: [self.current_phase_index],
+            'time_this_phase': lambda: [self.current_phase_duration],
+            'vehicle_position_img': lambda: self._get_lane_vehicle_position(self.list_entering_lanes),
+            'vehicle_speed_img': lambda: self._get_lane_vehicle_speed(self.list_entering_lanes),
+            'vehicle_acceleration_img': lambda: None,
+            'vehicle_waiting_time_img': lambda:
+                self._get_lane_vehicle_accumulated_waiting_time(self.list_entering_lanes),
+            'lane_num_vehicle': lambda: self._get_lane_num_vehicle(self.list_entering_lanes),
+            'lane_num_vehicle_been_stopped_thres01': lambda:
+                self._get_lane_num_vehicle_been_stopped(0.1, self.list_entering_lanes),
+            'lane_num_vehicle_been_stopped_thres1': lambda:
+                self._get_lane_num_vehicle_been_stopped(1, self.list_entering_lanes),
+            'lane_queue_length': lambda: self._get_lane_queue_length(self.list_entering_lanes),
+            'lane_num_vehicle_left': lambda: None,
+            'lane_sum_duration_vehicle_left': lambda: None,
+            'lane_sum_waiting_time': lambda: self._get_lane_sum_waiting_time(self.list_entering_lanes),
+            'terminal': lambda: None,
+            'pressure': lambda:
+                np.array(self._get_lane_num_vehicle_been_stopped(1, self.list_entering_lanes)) -
+                np.array(self._get_lane_num_vehicle_been_stopped(1, self.list_exiting_lanes)),
+            'time_loss': lambda: sumo_traci_util.get_time_loss_by_lane(
+                self.dic_lane_vehicle_sub_current_step, self.list_entering_lanes)
+        }
+
+        self.dic_reward_function = {
+            'flickering': lambda: None,
+            'sum_lane_queue_length': lambda: None,
+            'sum_lane_wait_time': lambda: None,
+            'sum_lane_num_vehicle_left': lambda: None,
+            'sum_duration_vehicle_left': lambda: None,
+            'sum_num_vehicle_been_stopped_thres01': lambda: None,
+            'sum_num_vehicle_been_stopped_thres1':
+                lambda: np.sum(self.get_feature("lane_num_vehicle_been_stopped_thres1")),
+            'pressure': lambda:
+                np.sum(self._get_lane_num_vehicle_been_stopped(1, self.list_entering_lanes)) -
+                np.sum(self._get_lane_num_vehicle_been_stopped(1, self.list_exiting_lanes)),
+            'time_loss': lambda:
+                np.sum(self.get_feature("time_loss"))
+        }
+
+
     def set_signal(self, action, action_pattern, yellow_time, all_red_time):
 
         if self.all_yellow_flag:
@@ -323,28 +367,9 @@ class Intersection:
 
     def _update_feature(self):
 
-        dic_feature = {
-            'cur_phase': [self.current_phase_index],
-            'time_this_phase': [self.current_phase_duration],
-            'vehicle_position_img': None,  # self._get_lane_vehicle_position(self.list_entering_lanes)
-            'vehicle_speed_img': None,  # self._get_lane_vehicle_speed(self.list_entering_lanes)
-            'vehicle_acceleration_img': None,
-            'vehicle_waiting_time_img': None,
-                # self._get_lane_vehicle_accumulated_waiting_time(self.list_entering_lanes)
-            'lane_num_vehicle': self._get_lane_num_vehicle(self.list_entering_lanes),
-            'lane_num_vehicle_been_stopped_thres01':
-                self._get_lane_num_vehicle_been_stopped(0.1, self.list_entering_lanes),
-            'lane_num_vehicle_been_stopped_thres1':
-                self._get_lane_num_vehicle_been_stopped(1, self.list_entering_lanes),
-            'lane_queue_length': self._get_lane_queue_length(self.list_entering_lanes),
-            'lane_num_vehicle_left': None,
-            'lane_sum_duration_vehicle_left': None,
-            'lane_sum_waiting_time': self._get_lane_sum_waiting_time(self.list_entering_lanes),
-            'terminal': None,
-            'pressure':
-                np.array(self._get_lane_num_vehicle_been_stopped(1, self.list_entering_lanes)) -
-                np.array(self._get_lane_num_vehicle_been_stopped(1, self.list_exiting_lanes))
-        }
+        dic_feature = {}
+        for f in self.list_state_feature:
+            dic_feature[f] = self.dic_feature_function[f]()
 
         self.dic_feature = dic_feature
 
@@ -454,7 +479,24 @@ class Intersection:
     def get_dic_vehicle_arrive_leave_time(self):
         return self.dic_vehicle_arrive_leave_time
 
-    def get_feature(self):
+    def get_feature(self, feature_name):
+        feature = self.dic_feature[feature_name]
+
+        if feature is None:
+            feature = self.dic_feature_function[feature_name]()
+            self.dic_feature[feature_name] = feature
+
+        return feature
+
+    def _update_feature(self):
+
+        dic_feature = {}
+        for f in self.list_state_feature:
+            dic_feature[f] = self.dic_feature_function[f]()
+
+        self.dic_feature = dic_feature
+
+    def get_dic_feature(self):
         return self.dic_feature
 
     def get_state(self, list_state_features):
@@ -464,24 +506,11 @@ class Intersection:
 
     def get_reward(self, dic_reward_info):
 
-        dic_reward_function = {
-            'flickering': lambda self: None,
-            'sum_lane_queue_length': lambda self: None,
-            'sum_lane_wait_time': lambda self: None,
-            'sum_lane_num_vehicle_left': lambda self: None,
-            'sum_duration_vehicle_left': lambda self: None,
-            'sum_num_vehicle_been_stopped_thres01': lambda self: None,
-            'sum_num_vehicle_been_stopped_thres1':
-                lambda self: np.sum(self.dic_feature["lane_num_vehicle_been_stopped_thres1"]),
-            'pressure': lambda self:
-                np.sum(self._get_lane_num_vehicle_been_stopped(1, self.list_entering_lanes)) -
-                np.sum(self._get_lane_num_vehicle_been_stopped(1, self.list_exiting_lanes))
-        }
-
         reward = 0
         for r in dic_reward_info:
             if dic_reward_info[r] != 0:
-                reward += dic_reward_info[r] * dic_reward_function[r](self)
+                reward += dic_reward_info[r] * self.dic_reward_function[r]()
+
         return reward
 
     def _get_vehicle_info(self, veh_id):

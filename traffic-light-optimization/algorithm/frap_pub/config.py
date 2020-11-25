@@ -91,7 +91,9 @@ dic_traffic_env_conf = {
         "lane_num_vehicle_left",
         "lane_sum_duration_vehicle_left",
         "lane_sum_waiting_time",
-        "terminal"
+        "terminal",
+        "pressure",
+        "time_loss"
     ],
 
     "DIC_REWARD_INFO": {
@@ -102,7 +104,8 @@ dic_traffic_env_conf = {
         "sum_duration_vehicle_left": 0,
         "sum_num_vehicle_been_stopped_thres01": 0,
         "sum_num_vehicle_been_stopped_thres1": -1,
-        "pressure": 0
+        "pressure": 0,
+        "time_loss": 0
     },
 
     "LANE_NUM": {

@@ -550,7 +550,7 @@ class AnonEnv:
         return pd.DataFrame(list_df)
 
     def get_feature(self):
-        list_feature = [inter.get_feature() for inter in self.list_intersection]
+        list_feature = [inter.get_dic_feature() for inter in self.list_intersection]
         return list_feature
 
     def get_state(self):
@@ -585,7 +585,7 @@ class AnonEnv:
             df.to_csv(ROOT_DIR + '/' + path_to_log_file, na_rep="nan")
 
             inter = self.list_intersection[inter_ind]
-            feature = inter.get_feature()
+            feature = inter.get_dic_feature()
             print(feature['lane_num_vehicle'])
             if max(feature['lane_num_vehicle']) > self.dic_traffic_env_conf["VALID_THRESHOLD"]:
                 valid_flag[inter_ind] = 0
