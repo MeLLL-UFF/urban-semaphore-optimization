@@ -361,7 +361,8 @@ class SumoEnv:
 
             instant_time = self.get_current_time()
 
-            before_action_feature = self.get_feature(['cur_phase', 'time_this_phase'])
+            before_action_feature = self.get_feature(
+                list(set(self.dic_traffic_env_conf['LIST_STATE_FEATURE'] + ['cur_phase', 'time_this_phase'])))
             state = self.get_state()
 
             # _step
