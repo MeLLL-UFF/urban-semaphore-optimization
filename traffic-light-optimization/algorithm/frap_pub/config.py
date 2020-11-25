@@ -45,11 +45,11 @@ DIC_TRAFFIC_ENV_CONF = {
     "IF_GUI": False,
     "DEBUG": False,
     "BINARY_PHASE_EXPANSION": True,
-    "DONE_ENABLE": True,
+    "DONE_ENABLE": False,
 
     "INTERVAL": 1,
     "THREADNUM": 1,
-    "SAVEREPLAY": True,
+    "SAVEREPLAY": False,
     "RLTRAFFICLIGHT": True,
 
     "DIC_FEATURE_DIM": dict(  # review

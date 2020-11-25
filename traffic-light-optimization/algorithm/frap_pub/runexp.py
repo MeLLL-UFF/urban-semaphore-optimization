@@ -133,7 +133,7 @@ def main(args=None, memo=None, external_configurations=None):
             "ROTATION": True,
             "ROTATION_INPUT": False,
             "PRIORITY": False,
-            "CONFLICT_MATRIX": True,
+            "CONFLICT_MATRIX": False,
         }
 
         dic_traffic_env_conf_extra = {
@@ -148,7 +148,7 @@ def main(args=None, memo=None, external_configurations=None):
                 # "vehicle_speed_img",
                 # "vehicle_acceleration_img",
                 # "vehicle_waiting_time_img",
-                #"lane_num_vehicle",
+                "lane_num_vehicle",
                 # "lane_num_vehicle_been_stopped_thres01",
                 # "lane_num_vehicle_been_stopped_thres1",
                 # "lane_queue_length",
@@ -156,7 +156,7 @@ def main(args=None, memo=None, external_configurations=None):
                 # "lane_sum_duration_vehicle_left",
                 # "lane_sum_waiting_time",
                 # "terminal"
-                 "pressure",
+                # "pressure",
                 # "time_loss"
             ],
 
@@ -167,12 +167,10 @@ def main(args=None, memo=None, external_configurations=None):
                 "sum_lane_num_vehicle_left": 0,
                 "sum_duration_vehicle_left": 0,
                 "sum_num_vehicle_been_stopped_thres01": 0,
-                "sum_num_vehicle_been_stopped_thres1": 0,
-                "pressure": -1,
+                "sum_num_vehicle_been_stopped_thres1": -1,
+                "pressure": 0,
                 "time_loss": 0
             },
-
-            "LOG_DEBUG": True,
         }
 
         net_file = os.path.join(ROOT_DIR, dic_path_extra["PATH_TO_DATA"], roadnet_file)
