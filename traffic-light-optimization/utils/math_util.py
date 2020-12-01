@@ -67,3 +67,17 @@ def retrieve_remaining_path(position, polyline_path):
         new_polyline.append(p2)
 
     return LineString(new_polyline)
+
+
+def translate_polyline(polyline, x=0, y=0):
+
+    polyline_points = polyline.split()
+
+    translated_polyline = []
+    for point in polyline_points:
+        coordinates = point.split(',')
+        coordinates[0] = str(float(coordinates[0]) + x)
+        coordinates[1] = str(float(coordinates[1]) + y)
+        translated_polyline.append(coordinates[0] + ',' + coordinates[1])
+
+    return ' '.join(translated_polyline)

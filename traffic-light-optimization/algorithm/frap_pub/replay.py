@@ -29,8 +29,8 @@ def check_all_workers_working(list_cur_p):
     return -1
 
 
-def downsample(path_to_log):
-    path_to_pkl = os.path.join(path_to_log, "inter_0.pkl")
+def downsample(path_to_log, intersection_id):
+    path_to_pkl = os.path.join(path_to_log, "inter_{0}.pkl".format(intersection_id))
     with open(ROOT_DIR + '/' + path_to_pkl, "rb") as f_logging_data:
         logging_data = pickle.load(f_logging_data)
     subset_data = logging_data[::10]
@@ -113,16 +113,17 @@ def run(dir, round_number, run_cnt, execution_name, if_gui, rewrite_mode=False, 
 
             action_list[index] = action
 
-        next_state, reward, done, steps_iterated, next_action, _ = env.step(action_list)
+        next_state, reward, done, steps_iterated, next_action = env.step(action_list)
 
         state = next_state
         step += steps_iterated
-    env.bulk_log()
+    env.save_log()
     env.end_sumo()
     
     if rewrite_mode:
         path_to_log = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round", model_round)
-        downsample(path_to_log)
+        for intersection_id in dic_traffic_env_conf["INTERSECTION_ID"]:
+            downsample(path_to_log, intersection_id)
 
 
 
@@ -198,16 +199,17 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations=None):
 
                 action_list[index] = action
 
-            next_state, reward, done,  steps_iterated, next_action, _ = env.step(action_list)
+            next_state, reward, done,  steps_iterated, next_action = env.step(action_list)
 
             state = next_state
             step += steps_iterated
-        env.bulk_log()
+        env.save_log()
         env.end_sumo()
         if not __debug__:
             path_to_log = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round", model_round)
             # print("downsample", path_to_log)
-            downsample(path_to_log)
+            for intersection_id in dic_traffic_env_conf["INTERSECTION_ID"]:
+                downsample(path_to_log, intersection_id)
             # print("end down")
 
     #except:

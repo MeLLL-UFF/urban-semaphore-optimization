@@ -35,7 +35,8 @@ def run(external_configurations=None):
     f_timing.write(str(t2 - t1) + '\n')
     f_timing.close()
     records_dir = dic_path["PATH_TO_WORK_DIRECTORY"]
-    summary.single_experiment_summary(memo, records_dir, plots='summary_only')
+    summary.single_experiment_network_summary(memo, records_dir, plots='summary_only')
+    summary.single_experiment_intersection_summary(memo, records_dir, intersection_id='gneJ0', plots='summary_only')
     print("****************************** summary_detail ends ******************************")
     experiment_name = dic_path["EXECUTION_BASE"]
 

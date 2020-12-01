@@ -93,8 +93,8 @@ def conv2d_bn(input_layer, index_layer,
 
 class NetworkAgent(Agent):
 
-    def __init__(self, dic_agent_conf, dic_traffic_env_conf, dic_path, dic_exp_conf, cnt_round, best_round=None, bar_round=None, mode='test',
-                 *args, **kwargs):
+    def __init__(self, dic_agent_conf, dic_traffic_env_conf, dic_path, dic_exp_conf, cnt_round, best_round=None,
+                 bar_round=None, mode='test', *args, **kwargs):
 
         import tensorflow as tf
 
@@ -113,12 +113,11 @@ class NetworkAgent(Agent):
 
         # ===== check num actions == num phases ============
 
+        self.num_phases = len(self.dic_traffic_env_conf["UNIQUE_PHASE"])
         if self.dic_traffic_env_conf["ACTION_PATTERN"] == "switch":
             self.num_actions = 2
         else:
-            self.num_actions = len(self.dic_traffic_env_conf["PHASE"])
-        self.num_phases = len(self.dic_traffic_env_conf["PHASE"])
-        self.num_lanes = np.sum(np.array(list(self.dic_traffic_env_conf["LANE_NUM"].values())))
+            self.num_actions = self.num_phases
 
         self.memory = self.build_memory()
 
@@ -126,59 +125,62 @@ class NetworkAgent(Agent):
         self.best_round = best_round
         self.bar_round = bar_round
 
-        if cnt_round == 0:
-            # initialization
-            if os.listdir(ROOT_DIR + '/' + self.dic_path["PATH_TO_MODEL"]):
-                self.load_network("round_0")
-            else:
-                self.q_network = self.build_network()
-            #self.load_network(self.dic_agent_conf["TRAFFIC_FILE"], file_path=self.dic_path["PATH_TO_PRETRAIN_MODEL"])
-            self.q_network_bar = self.build_network_from_copy(self.q_network)
-        else:
-            try:
-                if best_round:
-                    # use model pool
-                    self.load_network("round_{0}".format(best_round))
+        if cnt_round is not None:
 
-                    if bar_round and bar_round != best_round and cnt_round > 10:
-                        # load q_bar network from model pool
-                        self.load_network_bar("round_{0}".format(bar_round))
-                    else:
-                        if "UPDATE_Q_BAR_EVERY_C_ROUND" in self.dic_agent_conf:
-                            if self.dic_agent_conf["UPDATE_Q_BAR_EVERY_C_ROUND"]:
-                                self.load_network_bar("round_{0}".format(
-                                    max((best_round - 1) // self.dic_agent_conf["UPDATE_Q_BAR_FREQ"] * self.dic_agent_conf["UPDATE_Q_BAR_FREQ"], 0)))
+            if cnt_round == 0:
+                # initialization
+                if os.listdir(ROOT_DIR + '/' + self.dic_path["PATH_TO_MODEL"]):
+                    self.load_network("round_0")
+                else:
+                    self.q_network = self.build_network()
+                #self.load_network(self.dic_agent_conf["TRAFFIC_FILE"], file_path=self.dic_path["PATH_TO_PRETRAIN_MODEL"])
+                self.q_network_bar = self.build_network_from_copy(self.q_network)
+            else:
+                try:
+                    if best_round:
+                        # use model pool
+                        self.load_network("round_{0}".format(best_round))
+
+                        if bar_round and bar_round != best_round and cnt_round > 10:
+                            # load q_bar network from model pool
+                            self.load_network_bar("round_{0}".format(bar_round))
+                        else:
+                            if "UPDATE_Q_BAR_EVERY_C_ROUND" in self.dic_agent_conf:
+                                if self.dic_agent_conf["UPDATE_Q_BAR_EVERY_C_ROUND"]:
+                                    self.load_network_bar("round_{0}".format(
+                                        max((best_round - 1) // self.dic_agent_conf["UPDATE_Q_BAR_FREQ"] *
+                                            self.dic_agent_conf["UPDATE_Q_BAR_FREQ"], 0)))
+                                else:
+                                    self.load_network_bar("round_{0}".format(
+                                        max(best_round - self.dic_agent_conf["UPDATE_Q_BAR_FREQ"], 0)))
                             else:
                                 self.load_network_bar("round_{0}".format(
                                     max(best_round - self.dic_agent_conf["UPDATE_Q_BAR_FREQ"], 0)))
-                        else:
-                            self.load_network_bar("round_{0}".format(
-                                max(best_round - self.dic_agent_conf["UPDATE_Q_BAR_FREQ"], 0)))
 
-                else:
-                    # not use model pool
-                    self.load_network("round_{0}".format(cnt_round-1))
+                    else:
+                        # not use model pool
+                        self.load_network("round_{0}".format(cnt_round-1))
 
-                    if "UPDATE_Q_BAR_EVERY_C_ROUND" in self.dic_agent_conf:
-                        if self.dic_agent_conf["UPDATE_Q_BAR_EVERY_C_ROUND"]:
-                            self.load_network_bar("round_{0}".format(
-                                max((cnt_round - 1) // self.dic_agent_conf["UPDATE_Q_BAR_FREQ"] * self.dic_agent_conf["UPDATE_Q_BAR_FREQ"], 0)))
+                        if "UPDATE_Q_BAR_EVERY_C_ROUND" in self.dic_agent_conf:
+                            if self.dic_agent_conf["UPDATE_Q_BAR_EVERY_C_ROUND"]:
+                                self.load_network_bar("round_{0}".format(
+                                    max((cnt_round - 1) // self.dic_agent_conf["UPDATE_Q_BAR_FREQ"] * self.dic_agent_conf["UPDATE_Q_BAR_FREQ"], 0)))
+                            else:
+                                self.load_network_bar("round_{0}".format(
+                                    max(cnt_round - self.dic_agent_conf["UPDATE_Q_BAR_FREQ"], 0)))
                         else:
                             self.load_network_bar("round_{0}".format(
                                 max(cnt_round - self.dic_agent_conf["UPDATE_Q_BAR_FREQ"], 0)))
-                    else:
-                        self.load_network_bar("round_{0}".format(
-                            max(cnt_round - self.dic_agent_conf["UPDATE_Q_BAR_FREQ"], 0)))
-            except Exception as e:
-                print("fail to load network, current round: {0}".format(cnt_round))
+                except Exception as e:
+                    print("fail to load network, current round: {0}".format(cnt_round))
 
-        # decay the epsilon
+            # decay the epsilon
 
-        decayed_epsilon = self.dic_agent_conf["EPSILON"] * pow(self.dic_agent_conf["EPSILON_DECAY"], cnt_round)
-        self.dic_agent_conf["EPSILON"] = max(decayed_epsilon, self.dic_agent_conf["MIN_EPSILON"])
+            decayed_epsilon = self.dic_agent_conf["EPSILON"] * pow(self.dic_agent_conf["EPSILON_DECAY"], cnt_round)
+            self.dic_agent_conf["EPSILON"] = max(decayed_epsilon, self.dic_agent_conf["MIN_EPSILON"])
 
-        decayed_lr = self.dic_agent_conf["LEARNING_RATE"] * pow(self.dic_agent_conf["LR_DECAY"], cnt_round)
-        self.dic_agent_conf["LEARNING_RATE"] = max(decayed_lr, self.dic_agent_conf["MIN_LR"])
+            decayed_lr = self.dic_agent_conf["LEARNING_RATE"] * pow(self.dic_agent_conf["LR_DECAY"], cnt_round)
+            self.dic_agent_conf["LEARNING_RATE"] = max(decayed_lr, self.dic_agent_conf["MIN_LR"])
 
     @staticmethod
     def _unison_shuffled_copies(Xs, Y, sample_weight):
@@ -288,8 +290,9 @@ class NetworkAgent(Agent):
                 sample_size = min(self.dic_agent_conf["SAMPLE_SIZE"], len(sample_slice))
                 sample_slice = random.sample(sample_slice, sample_size)
                 ## log
-                pkl.dump(sample_slice, file=open(os.path.join(ROOT_DIR, self.dic_path['PATH_TO_WORK_DIRECTORY'],
-                                                              "train_round", "round_"+str(self.cnt_round), "update_sample.pkl"), "ab"))
+                pkl.dump(sample_slice, file=open(
+                    os.path.join(ROOT_DIR, self.dic_path['PATH_TO_WORK_DIRECTORY'],
+                                 "train_round", "round_"+str(self.cnt_round), "update_sample.pkl"), "ab"))
                 #f = open(os.path.join(self.dic_path['PATH_TO_WORK_DIRECTORY'], "train_round", "update_sample_log.txt"), "a")
                 #f.write('%d, %d, %d, %d\n'%(num_sample_list[0], num_sample_list[1], num_sample_list[2], num_sample_list[3]))
             else:
@@ -306,7 +309,7 @@ class NetworkAgent(Agent):
 
                 new_sample_slice = []
                 for sample in sample_slice:
-                    #print(sample[0]['lane_num_vehicle'], sample[0]['cur_phase'])
+                    #print(sample[0]['lane_num_vehicle'], sample[0]['current_phase'])
                     if len(sample[0]['lane_num_vehicle']) == 8:
                         rotation_matrix = rotation_matrix_4_p
                     elif len(sample[0]['lane_num_vehicle']) == 4:
@@ -315,30 +318,30 @@ class NetworkAgent(Agent):
                     new_sample = copy.deepcopy(sample)
                     new_sample[0]['lane_num_vehicle'] = np.dot(new_sample[0]['lane_num_vehicle'],
                                                                rotation_matrix)
-                    new_sample[0]['cur_phase'] = np.dot(new_sample[0]['cur_phase'],
+                    new_sample[0]['current_phase'] = np.dot(new_sample[0]['current_phase'],
                                                         rotation_matrix)
                     new_sample[2]['lane_num_vehicle'] = np.dot(new_sample[2]['lane_num_vehicle'],
                                                                rotation_matrix)
-                    new_sample[2]['cur_phase'] = np.dot(new_sample[2]['cur_phase'],
+                    new_sample[2]['current_phase'] = np.dot(new_sample[2]['current_phase'],
                                                         rotation_matrix)
                     new_sample_slice.append(sample)
                     new_sample_slice.append(new_sample)
                 sample_slice = new_sample_slice
 
         dic_state_feature_arrays = {}
-        for feature_name in self.dic_traffic_env_conf["LIST_STATE_FEATURE"]:
+        for feature_name in self.dic_traffic_env_conf["STATE_FEATURE_LIST"]:
             dic_state_feature_arrays[feature_name] = []
         Y = []
 
         for i in range(len(sample_slice)):
             state, action, next_state, reward, instant_reward, _ = sample_slice[i]
 
-            for feature_name in self.dic_traffic_env_conf["LIST_STATE_FEATURE"]:
+            for feature_name in self.dic_traffic_env_conf["STATE_FEATURE_LIST"]:
                 dic_state_feature_arrays[feature_name].append(state[feature_name])
 
             _state = []
             _next_state = []
-            for feature_name in self.dic_traffic_env_conf["LIST_STATE_FEATURE"]:
+            for feature_name in self.dic_traffic_env_conf["STATE_FEATURE_LIST"]:
                 _state.append([state[feature_name]])
                 _next_state.append([next_state[feature_name]])
             target = self.q_network.predict(_state)
@@ -355,7 +358,7 @@ class NetworkAgent(Agent):
             Y.append(final_target)
 
         self.Xs = [np.array(dic_state_feature_arrays[feature_name]) for feature_name in
-                   self.dic_traffic_env_conf["LIST_STATE_FEATURE"]]
+                   self.dic_traffic_env_conf["STATE_FEATURE_LIST"]]
         self.Y = np.array(Y)
 
 
@@ -364,14 +367,14 @@ class NetworkAgent(Agent):
         if self.dic_traffic_env_conf["BINARY_PHASE_EXPANSION"]:
             inputs = []
             dic_phase_expansion = self.dic_traffic_env_conf["phase_expansion"]
-            for feature in self.dic_traffic_env_conf["LIST_STATE_FEATURE"]:
-                if feature == "cur_phase":
+            for feature in self.dic_traffic_env_conf["STATE_FEATURE_LIST"]:
+                if feature == "current_phase":
                     inputs.append(np.array([dic_phase_expansion[s[feature][0]]]))
                 else:
                     inputs.append(np.array([s[feature]]))
             return inputs
         else:
-            return [np.array([s[feature]]) for feature in self.dic_traffic_env_conf["LIST_STATE_FEATURE"]]
+            return [np.array([s[feature]]) for feature in self.dic_traffic_env_conf["STATE_FEATURE_LIST"]]
 
 
     def choose_action(self, step, state, *args, **kwargs):

@@ -34,7 +34,6 @@ DIC_EXP_CONF = {
 DIC_TRAFFIC_ENV_CONF = {
     "SIMULATOR_TYPE": 'sumo',
     "ACTION_PATTERN": "set",
-    "NUM_INTERSECTIONS": 1,  # review
     "PER_SECOND_DECISION": False,
     "MIN_ACTION_TIME": 10,
     "MEASURE_TIME": 10,
@@ -56,8 +55,9 @@ DIC_TRAFFIC_ENV_CONF = {
         D_LANE_QUEUE_LENGTH=(4,),
         #D_LANE_NUM_VEHICLE=(4,),
         D_LANE_NUM_VEHICLE=(1,),
-        D_LANE_NUM_VEHICLE_BEEN_STOPPED_THRES1=(4,),
-        D_CUR_PHASE=(1,),
+        D_LANE_NUM_VEHICLE_BEEN_STOPPED_THRESHOLD01=(4,),
+        D_LANE_NUM_VEHICLE_BEEN_STOPPED_THRESHOLD1=(4,),
+        D_CURRENT_PHASE=(1,),
         D_NEXT_PHASE=(1,),
         D_TIME_THIS_PHASE=(1,),
         D_TERMINAL=(1,),
@@ -65,49 +65,42 @@ DIC_TRAFFIC_ENV_CONF = {
         D_VEHICLE_POSITION_IMG=(4, 60,),
         D_VEHICLE_SPEED_IMG=(4, 60,),
         D_VEHICLE_WAITING_TIME_IMG=(4, 60,),
-        D_PRESSURE=(1,),
-        D_TIME_LOSS=(1,)
+        D_LANE_PRESSURE=(1,),
+        D_LANE_SUM_TIME_LOSS=(1,)
     ),
 
-    "LIST_STATE_FEATURE": [
-        "cur_phase",
+    "STATE_FEATURE_LIST": [
+        "current_phase",
         "time_this_phase",
         "vehicle_position_img",
         "vehicle_speed_img",
         "vehicle_acceleration_img",
         "vehicle_waiting_time_img",
         "lane_num_vehicle",
-        "lane_num_vehicle_been_stopped_thres01",
-        "lane_num_vehicle_been_stopped_thres1",
+        "lane_num_vehicle_been_stopped_threshold_01",
+        "lane_num_vehicle_been_stopped_threshold_1",
         "lane_queue_length",
         "lane_num_vehicle_left",
         "lane_sum_duration_vehicle_left",
         "lane_sum_waiting_time",
         "terminal",
-        "pressure",
-        "time_loss"
+        "lane_pressure",
+        "lane_sum_time_loss"
     ],
 
-    "DIC_REWARD_INFO": {
+    "REWARD_INFO_DICT": {
         "flickering": 0,
         "sum_lane_queue_length": 0,
         "sum_lane_wait_time": 0,
         "sum_lane_num_vehicle_left": 0,
         "sum_duration_vehicle_left": 0,
-        "sum_num_vehicle_been_stopped_thres01": 0,
-        "sum_num_vehicle_been_stopped_thres1": -1,
+        "sum_num_vehicle_been_stopped_threshold_01": 0,
+        "sum_num_vehicle_been_stopped_threshold_1": -1,
         "pressure": 0,
         "time_loss": 0
     },
 
-    "LANE_NUM": {  # review
-        "LEFT": 1,
-        "RIGHT": 0,
-        "STRAIGHT": 1
-    },
-
     "LOG_DEGUB": False,
-
 }
 
 

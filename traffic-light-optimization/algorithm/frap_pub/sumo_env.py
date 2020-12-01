@@ -1,68 +1,67 @@
 import os
 import sys
 import pickle
-import json
 import uuid
 from sys import platform
 
 import numpy as np
-import pandas as pd
 import traci
 import traci.constants as tc
 from sumolib import checkBinary
 
-from utils import sumo_util, sumo_traci_util
+from utils import sumo_util, sumo_traci_util, xml_util
 
 from algorithm.frap_pub.definitions import ROOT_DIR
 from algorithm.frap_pub.intersection import Intersection
 from algorithm.frap_pub import synchronization_util
 
+
 class SumoEnv:
 
-    LIST_LANE_VARIABLES_TO_SUB = [
-        "LAST_STEP_VEHICLE_NUMBER",
-        "LAST_STEP_VEHICLE_ID_LIST",
-        "LAST_STEP_VEHICLE_HALTING_NUMBER",
-        "VAR_WAITING_TIME",
+    LANE_VARIABLES_TO_SUBSCRIBE = [
+        tc.LAST_STEP_VEHICLE_NUMBER,
+        tc.LAST_STEP_VEHICLE_ID_LIST,
+        tc.LAST_STEP_VEHICLE_HALTING_NUMBER,
+        tc.VAR_WAITING_TIME,
 
-        "LANE_EDGE_ID",
-        ### "LAST_STEP_VEHICLE_ID_LIST",
-        "VAR_LENGTH",
-        "LAST_STEP_MEAN_SPEED",
-        "VAR_MAXSPEED"
+        tc.LANE_EDGE_ID,
+        ### tc.LAST_STEP_VEHICLE_ID_LIST,
+        tc.VAR_LENGTH,
+        tc.LAST_STEP_MEAN_SPEED,
+        tc.VAR_MAXSPEED
     ]
 
-    LIST_VEHICLE_VARIABLES_TO_SUB = [
-        "VAR_POSITION",
-        "VAR_SPEED",
-        # "VAR_ACCELERATION",
-        # "POSITION_LON_LAT",
-        "VAR_WAITING_TIME",
-        "VAR_ACCUMULATED_WAITING_TIME",
-        # "VAR_LANEPOSITION_LAT",
-        "VAR_LANEPOSITION",
+    VEHICLE_VARIABLES_TO_SUBSCRIBE = [
+        tc.VAR_POSITION,
+        tc.VAR_SPEED,
+        # tc.VAR_ACCELERATION,
+        # tc.POSITION_LON_LAT,
+        tc.VAR_WAITING_TIME,
+        tc.VAR_ACCUMULATED_WAITING_TIME,
+        # tc."VAR_LANEPOSITION_LAT,
+        tc.VAR_LANEPOSITION,
         
-        ### "VAR_SPEED",
-        "VAR_ALLOWED_SPEED",
-        "VAR_MINGAP",
-        "VAR_TAU",
-        ### "VAR_LANEPOSITION",
-        # "VAR_LEADER",  # Problems with subscription
-        # "VAR_SECURE_GAP",  # Problems with subscription
-        "VAR_LENGTH",
-        "VAR_LANE_ID",
-        "VAR_DECEL",
+        ### tc."VAR_SPEED",
+        tc.VAR_ALLOWED_SPEED,
+        tc.VAR_MINGAP,
+        tc.VAR_TAU,
+        ### tc.VAR_LANEPOSITION,
+        # tc.VAR_LEADER,  # Problems with subscription
+        # tc.VAR_SECURE_GAP,  # Problems with subscription
+        tc.VAR_LENGTH,
+        tc.VAR_LANE_ID,
+        tc.VAR_DECEL,
 
-        'VAR_WIDTH',
-        ### 'VAR_LENGTH',
-        ### 'VAR_POSITION',
-        'VAR_ANGLE',
-        ### 'VAR_SPEED',
-        'VAR_STOPSTATE',
-        ### 'VAR_LANE_ID',
-        ### 'VAR_WAITING_TIME',
-        'VAR_EDGES',
-        'VAR_ROUTE_INDEX'
+        tc.VAR_WIDTH,
+        ### tc.VAR_LENGTH,
+        ### tc.VAR_POSITION,
+        tc.VAR_ANGLE,
+        ### tc.VAR_SPEED,
+        tc.VAR_STOPSTATE,
+        ### tc.VAR_LANE_ID,
+        ### tc.VAR_WAITING_TIME,
+        tc.VAR_EDGES,
+        tc.VAR_ROUTE_INDEX
     ]
 
     def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf, dic_path,
@@ -85,12 +84,17 @@ class SumoEnv:
         self.dic_path = dic_path
         self.external_configurations = external_configurations
 
+        net_file = os.path.join(ROOT_DIR, dic_path["PATH_TO_WORK_DIRECTORY"], dic_traffic_env_conf['NET_FILE'])
+        self.net_file_xml = xml_util.get_xml(net_file)
+
         base_dir = self.path_to_work_directory.rsplit('/', 1)[0]
         self.environment_state_path = os.path.join(base_dir, 'environment', 'temp')
 
-        self.list_intersection = None
-        self.list_inter_log = None
-        self.list_lanes = None
+        self.intersections = None
+        self.intersection_logs = None
+        self.network_logs = None
+        self.lanes_list = None
+        self.edges_list = None
 
         # check min action time
         if self.dic_traffic_env_conf["MIN_ACTION_TIME"] <= self.dic_traffic_env_conf["YELLOW_TIME"]:
@@ -100,35 +104,51 @@ class SumoEnv:
 
         if self.write_mode:
             # touch new inter_{}.pkl (if exists, remove)
-            for inter_ind in range(self.dic_traffic_env_conf["NUM_INTERSECTIONS"]):
-                path_to_log_file = os.path.join(self.path_to_log, "inter_{0}.pkl".format(inter_ind))
+            for intersection_id in self.dic_traffic_env_conf['INTERSECTION_ID']:
+                path_to_log_file = os.path.join(self.path_to_log, "inter_{0}.pkl".format(intersection_id))
                 f = open(ROOT_DIR + '/' + path_to_log_file, "wb")
                 f.close()
 
         self.execution_name = None
 
+        self.current_step_lane_subscription = None
+        self.previous_step_lane_subscription = None
+        self.current_step_vehicle_subscription = None
+        self.previous_step_vehicle_subscription = None
+        self.current_step_lane_vehicle_subscription = None
+        self.previous_step_lane_vehicle_subscription = None
+        self.current_step_vehicles = []
+        self.previous_step_vehicles = []
+
+        self.vehicle_arrive_leave_time_dict = {}  # cumulative
+
     def reset(self, execution_name):
 
         self.execution_name = execution_name + '__' + str(uuid.uuid4())
 
-        # initialize intersections
-        # self.list_intersection = [Intersection(i, self.LIST_VEHICLE_VARIABLES_TO_SUB)
-        #                           for i in range(self.dic_sumo_env_conf["NUM_INTERSECTIONS"])]
+        self.intersections = []
 
-        self.list_intersection = []
-        for i in range(self.dic_traffic_env_conf["NUM_INTERSECTIONS"]):
-            for j in range(self.dic_traffic_env_conf["NUM_INTERSECTIONS"]):
-                self.list_intersection.append(Intersection("{0}_{1}".format(i, j), self.LIST_VEHICLE_VARIABLES_TO_SUB,
-                                                           self.dic_traffic_env_conf, self.dic_path,
-                                                           execution_name=self.execution_name,
-                                                           external_configurations=self.external_configurations))
+        intersection_ids = self.dic_traffic_env_conf['INTERSECTION_ID']
 
-        self.list_inter_log = [[] for _ in range(len(self.list_intersection))]
-        # get lanes list
-        self.list_lanes = []
-        for inter in self.list_intersection:
-            self.list_lanes += inter.list_lanes
-        self.list_lanes = np.unique(self.list_lanes).tolist()
+        for intersection_index in range(0, len(intersection_ids)):
+            self.intersections.append(Intersection(intersection_index,
+                                                   self.VEHICLE_VARIABLES_TO_SUBSCRIBE,
+                                                   self.dic_traffic_env_conf,
+                                                   self.dic_path,
+                                                   execution_name=self.execution_name,
+                                                   external_configurations=self.external_configurations))
+
+        self.intersection_logs = [[] for _ in range(len(self.intersections))]
+        self.network_logs = []
+
+        self.edges_list = []
+        self.lanes_list = []
+        for intersection in self.intersections:
+            self.edges_list += intersection.all_edges
+            self.lanes_list += intersection.all_lanes
+
+        self.edges_list = np.unique(self.edges_list).tolist()
+        self.lanes_list = np.unique(self.lanes_list).tolist()
 
         if self.sumo_output_enabled:
 
@@ -167,7 +187,7 @@ class SumoEnv:
                 time = self.external_configurations['SUMOCFG_PARAMETERS']['--begin']
 
                 net_file = self.external_configurations['SUMOCFG_PARAMETERS']['-n']
-                net_xml = sumo_util.get_xml(net_file)
+                net_xml = xml_util.get_xml(net_file)
                 stops_to_issue = sumo_util.fix_save_state_stops(net_xml, save_state, time)
 
             try:
@@ -186,113 +206,218 @@ class SumoEnv:
             traci_connection.vehicle.setStop(**stop_info)
 
         # start subscription
-        for lane in self.list_lanes:
-            traci_connection.lane.subscribe(lane, [getattr(tc, var) for var in self.LIST_LANE_VARIABLES_TO_SUB])
+        for lane in self.lanes_list:
+            traci_connection.lane.subscribe(lane, [var for var in self.LANE_VARIABLES_TO_SUBSCRIBE])
 
         # get new measurements
-        for inter in self.list_intersection:
-            inter.update_current_measurements()
+        for intersection in self.intersections:
+            intersection.update_current_measurements()
 
         state, done = self.get_state()
 
-        next_action = [None]*len(self.list_intersection)
+        next_action = [None]*len(self.intersections)
 
         return state, next_action
-
-    @staticmethod
-    def convert_dic_to_df(dic):
-        list_df = []
-        for key in dic:
-            df = pd.Series(dic[key], name=key)
-            list_df.append(df)
-        return pd.DataFrame(list_df)
-
-    def bulk_log(self):
-
-        if self.write_mode:
-
-            for inter_ind in range(len(self.list_inter_log)):
-                path_to_log_file = os.path.join(self.path_to_log, "inter_{0}.pkl".format(inter_ind))
-                f = open(ROOT_DIR + '/' + path_to_log_file, "wb+")
-                pickle.dump(self.list_inter_log[inter_ind], f)
-                f.close()
-
-                if self.mode == 'test':
-                    path_to_detailed_log_file = os.path.join(
-                        self.path_to_log, "inter_{0}_detailed.pkl".format(inter_ind))
-                    f = open(ROOT_DIR + '/' + path_to_detailed_log_file, "wb+")
-                    pickle.dump(self.list_inter_log[inter_ind], f)
-                    f.close()
-
-            self.list_inter_log = [[] for _ in range(len(self.list_intersection))]
 
     def end_sumo(self):
         traci_connection = traci.getConnection(self.execution_name)
         traci_connection.close()
 
+    def update_previous_measurements(self):
+
+        self.previous_step_lane_subscription = self.current_step_lane_subscription
+        self.previous_step_vehicle_subscription = self.current_step_vehicle_subscription
+        self.previous_step_lane_vehicle_subscription = self.current_step_lane_vehicle_subscription
+        self.previous_step_vehicles = self.current_step_vehicles
+
+    def update_current_measurements(self):
+
+        traci_connection = traci.getConnection(self.execution_name)
+
+        # ====== lane level observations =======
+
+        self.current_step_lane_subscription = {lane_id: traci_connection.lane.getSubscriptionResults(lane_id)
+                                               for lane_id in self.lanes_list}
+
+        # ====== vehicle level observations =======
+
+        # get vehicle list
+        current_step_vehicles = []
+        for lane_id, values in self.current_step_lane_subscription.items():
+            lane_vehicles = self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_ID_LIST]
+            current_step_vehicles += lane_vehicles
+
+        self.current_step_vehicles = current_step_vehicles
+        recently_arrived_vehicles = list(set(self.current_step_vehicles) - set(self.previous_step_vehicles))
+        recently_left_vehicles = list(set(self.previous_step_vehicles) - set(self.current_step_vehicles))
+
+        # update subscriptions
+        for vehicle_id in recently_arrived_vehicles:
+            traci_connection.vehicle.subscribe(vehicle_id, [var for var in self.VEHICLE_VARIABLES_TO_SUBSCRIBE])
+
+        # vehicle level observations
+        self.current_step_vehicle_subscription = {vehicle: traci_connection.vehicle.getSubscriptionResults(vehicle)
+                                                  for vehicle in self.current_step_vehicles}
+        self.current_step_lane_vehicle_subscription = {}
+        for vehicle_id, values in self.current_step_vehicle_subscription.items():
+            lane_id = values[tc.VAR_LANE_ID]
+            if lane_id in self.current_step_lane_vehicle_subscription:
+                self.current_step_lane_vehicle_subscription[lane_id][vehicle_id] = \
+                    self.current_step_vehicle_subscription[vehicle_id]
+            else:
+                self.current_step_lane_vehicle_subscription[lane_id] = \
+                    {vehicle_id: self.current_step_vehicle_subscription[vehicle_id]}
+
+        # update vehicle arrive and left time
+        self._update_arrive_time(recently_arrived_vehicles)
+        self._update_left_time(recently_left_vehicles)
+
+    def _update_arrive_time(self, list_vehicles_arrive):
+
+        time = self.get_current_time()
+        # get dic vehicle enter leave time
+        for vehicle_id in list_vehicles_arrive:
+            if vehicle_id not in self.vehicle_arrive_leave_time_dict:
+                self.vehicle_arrive_leave_time_dict[vehicle_id] = \
+                    {"enter_time": time, "leave_time": np.nan}
+            else:
+                print("vehicle already exists!")
+                sys.exit(-1)
+
+    def _update_left_time(self, list_vehicles_left):
+
+        time = self.get_current_time()
+        # update the time for vehicle to leave
+        for vehicle_id in list_vehicles_left:
+            try:
+                self.vehicle_arrive_leave_time_dict[vehicle_id]["leave_time"] = time
+            except KeyError:
+                print("vehicle not recorded when entering")
+                sys.exit(-1)
+
     def get_current_time(self):
         traci_connection = traci.getConnection(self.execution_name)
         return traci_connection.simulation.getTime()
 
-    def get_feature(self, feature_list):
+    def get_feature(self, feature_name_list):
 
-        list_feature = [inter.get_feature(feature_list) for inter in self.list_intersection]
-        return list_feature
+        feature_list = [intersection.get_feature(feature_name_list) for intersection in self.intersections]
+        return feature_list
 
     def get_state(self):
 
-        list_state = [inter.get_state(self.dic_traffic_env_conf["LIST_STATE_FEATURE"])
-                      for inter in self.list_intersection]
-        done = self._check_episode_done(list_state)
+        state_list = [intersection.get_state(self.dic_traffic_env_conf["STATE_FEATURE_LIST"])
+                      for intersection in self.intersections]
+        done = self._check_episode_done(state_list)
 
-        return list_state, done
+        return state_list, done
 
     def get_reward(self):
 
-        list_reward = [inter.get_reward(self.dic_traffic_env_conf["DIC_REWARD_INFO"])
-                       for inter in self.list_intersection]
+        reward_list = [intersection.get_reward(self.dic_traffic_env_conf["REWARD_INFO_DICT"])
+                       for intersection in self.intersections]
 
-        return list_reward
+        return reward_list
 
-    def log(self, cur_time, before_action_feature, action, reward):
+    def log(self, current_time, state_feature, action, reward):
 
-        for inter_ind, inter in enumerate(self.list_intersection):
+        relative_occupancy_by_lane = {}
+        relative_mean_speed_by_lane = {}
+        absolute_number_of_cars_by_lane = {}
+
+        if self.mode == 'test':
+
+            time_loss = sumo_traci_util.get_time_loss(
+                self.current_step_vehicle_subscription,
+                self.execution_name)
+            relative_occupancy_by_lane = sumo_traci_util.get_lane_relative_occupancy(
+                self.current_step_lane_subscription,
+                self.current_step_lane_vehicle_subscription,
+                self.current_step_vehicle_subscription,
+                self.execution_name)
+            relative_mean_speed_by_lane = sumo_traci_util.get_lane_relative_mean_speed(
+                self.current_step_lane_subscription)
+            absolute_number_of_cars_by_lane = sumo_traci_util.get_lane_absolute_number_of_cars(
+                self.current_step_lane_subscription)
+
+            extra = {
+                "time_loss": time_loss,
+                "relative_occupancy": relative_occupancy_by_lane,
+                "relative_mean_speed": relative_mean_speed_by_lane,
+                "absolute_number_of_cars": absolute_number_of_cars_by_lane
+            }
+
+            self.network_logs.append({
+                "time": current_time,
+                "extra": extra})
+
+        for intersection_index, intersection in enumerate(self.intersections):
 
             if self.mode == 'test':
 
-                traffic_light = sumo_traci_util.get_traffic_light_state(inter.intersection_id, self.execution_name)
-                time_loss = sumo_traci_util.get_time_loss(inter.dic_vehicle_sub_current_step, self.execution_name)
-                relative_occupancy = sumo_traci_util.get_lane_relative_occupancy(
-                    inter.dic_lane_sub_current_step,
-                    inter.dic_lane_vehicle_sub_current_step,
-                    inter.dic_vehicle_sub_current_step,
-                    inter.edges, 
+                traffic_light = sumo_traci_util.get_traffic_light_state(
+                    intersection.id,
                     self.execution_name)
-                relative_mean_speed = sumo_traci_util.get_relative_mean_speed(
-                    inter.dic_lane_sub_current_step, inter.edges)
-                absolute_number_of_cars = sumo_traci_util.get_absolute_number_of_cars(
-                    inter.dic_lane_sub_current_step, inter.edges)
+                time_loss = sumo_traci_util.get_time_loss(
+                    intersection.current_step_vehicle_subscription,
+                    self.execution_name)
+
+                lanes = intersection.all_lanes
+
+                intersection_relative_occupancy_by_lane = {
+                    lane: relative_occupancy_by_lane[lane] for lane in lanes
+                }
+                intersection_relative_mean_speed_by_lane = {
+                    lane: relative_mean_speed_by_lane[lane] for lane in lanes
+                }
+                intersection_absolute_number_of_cars_by_lane = {
+                    lane: absolute_number_of_cars_by_lane[lane] for lane in lanes
+                }
 
                 extra = {
                     "traffic_light": traffic_light,
                     "time_loss": time_loss,
-                    "relative_occupancy": relative_occupancy,
-                    "relative_mean_speed": relative_mean_speed,
-                    "absolute_number_of_cars": absolute_number_of_cars
+                    "relative_occupancy": intersection_relative_occupancy_by_lane,
+                    "relative_mean_speed": intersection_relative_mean_speed_by_lane,
+                    "absolute_number_of_cars": intersection_absolute_number_of_cars_by_lane
                 }
 
-                self.list_inter_log[inter_ind].append({
-                    "time": cur_time,
-                    "state": before_action_feature[inter_ind],
-                    "action": action[inter_ind],
-                    "reward": reward[inter_ind],
-                    "extra": extra})
             else:
-                self.list_inter_log[inter_ind].append({
-                    "time": cur_time,
-                    "state": before_action_feature[inter_ind],
-                    "action": action[inter_ind],
-                    "reward": reward[inter_ind]})
+                extra = {}
+
+            self.intersection_logs[intersection_index].append({
+                "time": current_time,
+                "state": state_feature[intersection_index],
+                "action": action[intersection_index],
+                "reward": reward[intersection_index],
+                "extra": extra})
+
+    def save_log(self):
+
+        if self.write_mode:
+
+            if self.mode == 'test':
+                path_to_detailed_log_file = os.path.join(self.path_to_log, "network_detailed.pkl")
+                f = open(ROOT_DIR + '/' + path_to_detailed_log_file, "wb+")
+                pickle.dump(self.network_logs, f)
+                f.close()
+
+            for intersection_index, intersection in enumerate(self.intersections):
+
+                path_to_log_file = os.path.join(self.path_to_log, "inter_{0}.pkl".format(intersection.id))
+                f = open(ROOT_DIR + '/' + path_to_log_file, "wb+")
+                pickle.dump(self.intersection_logs[intersection_index], f)
+                f.close()
+
+                if self.mode == 'test':
+                    path_to_detailed_log_file = os.path.join(
+                        self.path_to_log, "inter_{0}_detailed.pkl".format(intersection.id))
+                    f = open(ROOT_DIR + '/' + path_to_detailed_log_file, "wb+")
+                    pickle.dump(self.intersection_logs[intersection_index], f)
+                    f.close()
+
+            self.intersection_logs = [[] for _ in range(len(self.intersections))]
+            self.network_logs = []
 
     def save_state(self, name=None):
 
@@ -311,23 +436,23 @@ class SumoEnv:
 
     def check_for_active_action_time_actions(self, action):
         
-        for inter_ind, inter in enumerate(self.list_intersection):
+        for intersection_index, intersection in enumerate(self.intersections):
             
-            action_time_action = inter.select_active_action_time_action()
+            action_time_action = intersection.select_active_action_time_action()
             
             if action_time_action != -1:
-                action[inter_ind] = action_time_action
+                action[intersection_index] = action_time_action
 
         return action
     
     def check_for_time_restricted_actions(self, action, waiting_time_restriction=120):
 
-        for inter_ind, inter in enumerate(self.list_intersection):
+        for intersection_index, intersection in enumerate(self.intersections):
 
-            time_restricted_action = inter.select_action_based_on_time_restriction(waiting_time_restriction)
+            time_restricted_action = intersection.select_action_based_on_time_restriction(waiting_time_restriction)
             
             if time_restricted_action != -1:
-                action[inter_ind] = time_restricted_action
+                action[intersection_index] = time_restricted_action
 
         return action
 
@@ -342,56 +467,52 @@ class SumoEnv:
             raise ValueError('Action cannot be None')
 
         step = 0
-        average_reward_action = 0
         while None not in action:
 
             instant_time = self.get_current_time()
 
-            before_action_feature = self.get_feature(
-                list(set(self.dic_traffic_env_conf['LIST_STATE_FEATURE'] + ['cur_phase', 'time_this_phase'])))
-            state = self.get_state()
+            state_feature = self.get_feature(
+                list(set(self.dic_traffic_env_conf['STATE_FEATURE_LIST'] + ['current_phase', 'time_this_phase'])))
 
             # _step
             self._inner_step(action)
 
             # get reward
             reward = self.get_reward()
-            average_reward_action = (average_reward_action*step + reward[0])/(step+1)
 
             if step == 0 or self.dic_traffic_env_conf['DEBUG']:
                 print("time: {0}, phase: {1}, time this phase: {2}, action: {3}, reward: {4}".
                       format(instant_time,
-                             before_action_feature[0]['cur_phase'],
-                             before_action_feature[0]['time_this_phase'],
+                             state_feature[0]['current_phase'],
+                             state_feature[0]['time_this_phase'],
                              action[0],
                              reward[0]))
 
-            # log
-            self.log(cur_time=instant_time, before_action_feature=before_action_feature, action=action,
-                     reward=reward)
+            self.log(current_time=instant_time, state_feature=state_feature, action=action, reward=reward)
 
             next_state, done = self.get_state()
 
             step += 1
 
-            action = [None]*len(self.list_intersection)
+            action = [None]*len(self.intersections)
             action = self.check_for_active_action_time_actions(action)
 
         next_action = action
 
-        return next_state, reward, done, step, next_action, [average_reward_action]
+        return next_state, reward, done, step, next_action
 
     def _inner_step(self, action):
 
         # copy current measurements to previous measurements
-        for inter in self.list_intersection:
-            inter.update_previous_measurements()
+        self.update_previous_measurements()
+        for intersection in self.intersections:
+            intersection.update_previous_measurements()
 
         # set signals
-        for inter_ind, inter in enumerate(self.list_intersection):
+        for intersection_index, intersection in enumerate(self.intersections):
 
-            inter.set_signal(
-                action=action[inter_ind],
+            intersection.set_signal(
+                action=action[intersection_index],
                 action_pattern=self.dic_traffic_env_conf["ACTION_PATTERN"],
                 yellow_time=self.dic_traffic_env_conf["YELLOW_TIME"],
                 all_red_time=self.dic_traffic_env_conf["ALL_RED_TIME"]
@@ -406,15 +527,26 @@ class SumoEnv:
         deadlock_waiting_too_long_threshold = self.dic_traffic_env_conf["DEADLOCK_WAITING_TOO_LONG_THRESHOLD"]
 
         # get new measurements
-        for inter in self.list_intersection:
-            inter.update_current_measurements()
+        self.update_current_measurements()
+        for intersection in self.intersections:
+            intersection.update_current_measurements()
 
-            blocked_vehicles = sumo_traci_util.detect_deadlock(inter.net_file_xml, inter.dic_vehicle_sub_current_step, 
-                waiting_too_long_threshold=deadlock_waiting_too_long_threshold, traci_label=self.execution_name)
-            sumo_traci_util.resolve_deadlock(blocked_vehicles, inter.net_file_xml, inter.dic_vehicle_sub_current_step, 
-                traci_label=self.execution_name)
+            blocked_vehicles = sumo_traci_util.detect_deadlock(
+                intersection.id,
+                intersection.net_file_xml,
+                intersection.current_step_vehicle_subscription,
+                waiting_too_long_threshold=deadlock_waiting_too_long_threshold,
+                traci_label=self.execution_name
+            )
 
-    def _check_episode_done(self, list_state):
+            sumo_traci_util.resolve_deadlock(
+                blocked_vehicles,
+                intersection.net_file_xml,
+                intersection.current_step_vehicle_subscription,
+                traci_label=self.execution_name
+            )
+
+    def _check_episode_done(self, state_list):
 
         # ======== to implement ========
 

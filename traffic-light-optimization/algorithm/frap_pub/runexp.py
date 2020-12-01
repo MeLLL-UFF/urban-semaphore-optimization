@@ -4,9 +4,7 @@ import copy
 import json
 from multiprocessing import Process
 
-from lxml import etree
-
-from utils import sumo_util
+from utils import sumo_util, xml_util
 
 import algorithm.frap_pub.config as config
 from algorithm.frap_pub.pipeline import Pipeline
@@ -69,9 +67,8 @@ def main(args=None, memo=None, external_configurations=None):
         external_configurations = {}
 
     traffic_file_list = external_configurations['TRAFFIC_FILE_LIST']
-    roadnet_file = external_configurations['ROADNET_FILE']
+    net_file = external_configurations['NET_FILE']
     traffic_level_configuration = external_configurations['TRAFFIC_LEVEL_CONFIGURATION']
-    number_of_legs_network_compatibility = external_configurations.get('NUMBER_OF_LEGS_NETWORK_COMPATIBILITY', 'same')
     use_sumo_directions_in_movement_detection = external_configurations.get('USE_SUMO_DIRECTIONS_IN_MOVEMENT_DETECTION',
                                                                           False)
     unique_id = external_configurations['UNIQUE_ID']
@@ -87,8 +84,8 @@ def main(args=None, memo=None, external_configurations=None):
 
         suffix = time.strftime('%m_%d_%H_%M_%S', time.localtime(time.time())) + '__' + unique_id
 
-        roadnet_file_name = roadnet_file.rsplit('.', 2)[0]
-        experiment_name_base = roadnet_file_name + '__' + '_'.join(traffic_level_configuration)
+        net_file_name = net_file.rsplit('.', 2)[0]
+        experiment_name_base = net_file_name + '__' + '_'.join(traffic_level_configuration)
 
         print(traffic_file)
         dic_path_extra = {
@@ -115,7 +112,7 @@ def main(args=None, memo=None, external_configurations=None):
         model_name = config.DIC_EXP_CONF['MODEL_NAME']
         dic_exp_conf_extra = {
             "TRAFFIC_FILE": [traffic_file],  # here: change to multi_traffic
-            "ROADNET_FILE": roadnet_file,
+            "NET_FILE": net_file,
 
             "MODEL_POOL": False,
             "NUM_BEST_MODEL": 1,
@@ -139,59 +136,66 @@ def main(args=None, memo=None, external_configurations=None):
         dic_traffic_env_conf_extra = {
 
             "TRAFFIC_FILE": traffic_file,
-            "ROADNET_FILE": roadnet_file,
+            "NET_FILE": net_file,
 
-            "LIST_STATE_FEATURE": [
-                "cur_phase",
+            "STATE_FEATURE_LIST": [
+                "current_phase",
                 # "time_this_phase",
                 # "vehicle_position_img",
                 # "vehicle_speed_img",
                 # "vehicle_acceleration_img",
                 # "vehicle_waiting_time_img",
                 "lane_num_vehicle",
-                # "lane_num_vehicle_been_stopped_thres01",
-                # "lane_num_vehicle_been_stopped_thres1",
+                # "lane_num_vehicle_been_stopped_threshold_01",
+                # "lane_num_vehicle_been_stopped_threshold_1",
                 # "lane_queue_length",
                 # "lane_num_vehicle_left",
                 # "lane_sum_duration_vehicle_left",
                 # "lane_sum_waiting_time",
                 # "terminal"
-                # "pressure",
-                # "time_loss"
+                # "lane_pressure",
+                # "lane_sum_time_loss"
             ],
 
-            "DIC_REWARD_INFO": {
+            "REWARD_INFO_DICT": {
                 "flickering": 0,
                 "sum_lane_queue_length": 0,
                 "sum_lane_wait_time": 0,
                 "sum_lane_num_vehicle_left": 0,
                 "sum_duration_vehicle_left": 0,
-                "sum_num_vehicle_been_stopped_thres01": 0,
-                "sum_num_vehicle_been_stopped_thres1": -1,
+                "sum_num_vehicle_been_stopped_threshold_01": 0,
+                "sum_num_vehicle_been_stopped_threshold_1": -1,
                 "pressure": 0,
                 "time_loss": 0
             },
         }
 
-        net_file = os.path.join(ROOT_DIR, dic_path_extra["PATH_TO_DATA"], roadnet_file)
-        parser = etree.XMLParser(remove_blank_text=True)
-        net_xml = etree.parse(net_file, parser)
+        net_file = os.path.join(ROOT_DIR, dic_path_extra["PATH_TO_DATA"], net_file)
+        net_xml = xml_util.get_xml(net_file)
 
-        movements, movement_to_connection = \
+        intersection_id_list = sumo_util.get_intersection_ids(net_xml)
+        dic_traffic_env_conf_extra['INTERSECTION_ID'] = intersection_id_list
+
+        unique_movements, movement_list, movement_to_connection_list = \
             sumo_util.detect_movements(net_xml, use_sumo_directions_in_movement_detection)
-        dic_traffic_env_conf_extra['MOVEMENT'] = movements
+        dic_traffic_env_conf_extra['UNIQUE_MOVEMENT'] = unique_movements
+        dic_traffic_env_conf_extra['MOVEMENT'] = movement_list
 
-        serializable_movement_to_connection = dict(copy.deepcopy(movement_to_connection))
-        for movement in serializable_movement_to_connection.keys():
-            serializable_movement_to_connection[movement] = dict(serializable_movement_to_connection[movement].attrib)
-        dic_traffic_env_conf_extra['movement_to_connection'] = serializable_movement_to_connection
+        serializable_movement_to_connection_list = [dict(copy.deepcopy(d)) for d in movement_to_connection_list]
+        for serializable_movement_to_connection in serializable_movement_to_connection_list:
+            for movement in serializable_movement_to_connection.keys():
+                serializable_movement_to_connection[movement] = \
+                    dict(serializable_movement_to_connection[movement].attrib)
+        dic_traffic_env_conf_extra['movement_to_connection'] = serializable_movement_to_connection_list
 
-        conflicts = sumo_util.detect_movement_conflicts(net_xml, movement_to_connection)
-        phases = sumo_util.detect_phases(movements, conflicts)
-        dic_traffic_env_conf_extra['PHASE'] = phases
-        dic_traffic_env_conf_extra['CONFLICTS'] = conflicts
+        conflicts_list = sumo_util.detect_movement_conflicts(net_xml, movement_to_connection_list)
+        dic_traffic_env_conf_extra['CONFLICTS'] = conflicts_list
 
-        phase_expansion = sumo_util.build_phase_expansions(movements, phases)
+        unique_phases, phases_list = sumo_util.detect_phases(movement_list, conflicts_list)
+        dic_traffic_env_conf_extra['UNIQUE_PHASE'] = unique_phases
+        dic_traffic_env_conf_extra['PHASE'] = phases_list
+
+        phase_expansion = sumo_util.build_phase_expansions(unique_movements, unique_phases)
         dic_traffic_env_conf_extra["phase_expansion"] = phase_expansion
 
         deploy_dic_exp_conf = merge(config.DIC_EXP_CONF, dic_exp_conf_extra)
@@ -281,12 +285,12 @@ def continue_(existing_experiment, round_='FROM_THE_LAST', args=None, memo=None,
         process_list.append(ppl)
     else:
         pipeline_wrapper(dic_exp_conf=dic_exp_conf,
-                            dic_agent_conf=dic_agent_conf,
-                            dic_traffic_env_conf=dic_traffic_env_conf,
-                            dic_path=dic_path,
-                            external_configurations=external_configurations,
-                            existing_experiment=existing_experiment,
-                            round_=round_)
+                         dic_agent_conf=dic_agent_conf,
+                         dic_traffic_env_conf=dic_traffic_env_conf,
+                         dic_path=dic_path,
+                         external_configurations=external_configurations,
+                         existing_experiment=existing_experiment,
+                         round_=round_)
 
     if multi_process:
         i = 0

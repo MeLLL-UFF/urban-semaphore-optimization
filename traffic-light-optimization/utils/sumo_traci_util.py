@@ -91,7 +91,7 @@ def get_time_loss_by_lane(lane_vehicle_subscription_data, lanes, traci_label=Non
 
 
 def get_lane_relative_occupancy(lane_subscription_data, lane_vehicle_subscription_data, vehicle_subscription_data,
-                                edges, traci_label=None):
+                                traci_label=None):
 
     if traci_label is None:
         traci_connection = traci
@@ -103,11 +103,6 @@ def get_lane_relative_occupancy(lane_subscription_data, lane_vehicle_subscriptio
     all_vehicles = vehicle_subscription_data
 
     for lane_id, lane in lane_subscription_data.items():
-
-        edge_id = lane[tc.LANE_EDGE_ID]
-
-        if edge_id not in edges:
-            continue
 
         vehicles = lane_vehicle_subscription_data.get(lane_id, {})
         lane_length = lane[tc.VAR_LENGTH]
@@ -155,16 +150,11 @@ def get_lane_relative_occupancy(lane_subscription_data, lane_vehicle_subscriptio
     return result
 
 
-def get_relative_mean_speed(lane_subscription_data, edges):
+def get_lane_relative_mean_speed(lane_subscription_data):
 
     result = {}
 
     for lane_id, lane in lane_subscription_data.items():
-
-        edge_id = lane[tc.LANE_EDGE_ID]
-
-        if edge_id not in edges:
-            continue
 
         vehicles = lane[tc.LAST_STEP_VEHICLE_ID_LIST]
 
@@ -178,16 +168,11 @@ def get_relative_mean_speed(lane_subscription_data, edges):
     return result
 
 
-def get_absolute_number_of_cars(lane_subscription_data, edges):
+def get_lane_absolute_number_of_cars(lane_subscription_data):
 
     result = {}
 
     for lane_id, lane in lane_subscription_data.items():
-
-        edge_id = lane[tc.LANE_EDGE_ID]
-
-        if edge_id not in edges:
-            continue
 
         vehicles = lane[tc.LAST_STEP_VEHICLE_ID_LIST]
 
@@ -258,7 +243,8 @@ def get_next_lane(vehicle, net_xml, vehicle_subscription_data):
     return next_lane
 
 
-def detect_deadlock(net_xml, vehicle_subscription_data, waiting_too_long_threshold=10, traci_label=None):
+def detect_deadlock(intersection_id, net_xml, vehicle_subscription_data,
+                    waiting_too_long_threshold=10, traci_label=None):
 
     if waiting_too_long_threshold == -1:
         return []
@@ -268,13 +254,15 @@ def detect_deadlock(net_xml, vehicle_subscription_data, waiting_too_long_thresho
     else:
         traci_connection = traci.getConnection(traci_label)
 
-    internal_lanes = sumo_util.get_internal_lanes(net_xml)
-    lane_path_dict = sumo_util.get_internal_lane_paths(net_xml)
+    internal_lane = sumo_util.get_internal_lanes(net_xml, intersection_id)
+    lane_path_dict = sumo_util.get_internal_lane_paths(net_xml, intersection_id, internal_lane)
 
     vehicle_lane_dict = {}
     vehicle_waiting_times = {}
 
-    for lane_id in internal_lanes:
+    for lane in internal_lane:
+
+        lane_id = lane.get('id')
         vehicles = traci_connection.lane.getLastStepVehicleIDs(lane_id)
         
         for vehicle_id in vehicles:
@@ -315,8 +303,8 @@ def detect_deadlock(net_xml, vehicle_subscription_data, waiting_too_long_thresho
             [vehicle_id for vehicle_id in vehicles_stopped
                 if vehicles_stopped != vehicle_id]
 
-        lane_id = vehicle_subscription_data[vehicle_waiting_too_long][tc.VAR_LANE_ID]
-        polyline_path = lane_path_dict[lane_id]
+        lane = vehicle_subscription_data[vehicle_waiting_too_long][tc.VAR_LANE_ID]
+        polyline_path = lane_path_dict[lane]
 
         blocking_vehicles = get_blocking_vehicles(
             vehicle_waiting_too_long,
@@ -326,7 +314,7 @@ def detect_deadlock(net_xml, vehicle_subscription_data, waiting_too_long_thresho
             vehicle_subscription_data)
 
         if blocking_vehicles:
-            blocked_vehicles[vehicle_waiting_too_long] = lane_id
+            blocked_vehicles[vehicle_waiting_too_long] = lane
 
     return blocked_vehicles
 

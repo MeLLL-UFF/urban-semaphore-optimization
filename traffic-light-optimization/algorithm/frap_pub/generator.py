@@ -118,12 +118,12 @@ class Generator:
 
                 action_list[index] = action
 
-            next_state, reward, done, steps_iterated, next_action, _ = self.env.step(action_list)
+            next_state, reward, done, steps_iterated, next_action = self.env.step(action_list)
 
             if self.agent_name in self.dic_exp_conf["LIST_MODEL_NEED_TO_UPDATE_BETWEEN_STEPS"]:
                 if step > self.dic_agent_conf['UPDATE_START'] and step % self.dic_agent_conf['UPDATE_PERIOD'] == 0:
 
-                    self.env.bulk_log()
+                    self.env.save_log()
 
                     # synchronize here
                     i = synchronization_util.network_update_begin_barrier.wait()
@@ -142,7 +142,7 @@ class Generator:
             step += steps_iterated
             stop_cnt += steps_iterated
 
-        self.env.bulk_log()
+        self.env.save_log()
         self.env.end_sumo()
 
         if self.dic_traffic_env_conf["DONE_ENABLE"]:

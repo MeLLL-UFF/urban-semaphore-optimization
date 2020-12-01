@@ -21,7 +21,7 @@ def slice_tensor(x, index):
 
 def cal_lane_demand(num_vec, phase, feature_shape, dic_agent_conf):
     # process inputs
-    expand_cur_phase = Reshape((1, feature_shape["cur_phase"]), name="reshaped_phase")(phase)
+    expand_cur_phase = Reshape((1, feature_shape["current_phase"]), name="reshaped_phase")(phase)
     reshaped_num_vec = Reshape((1, feature_shape["lane_num_vehicle"]), name="reshaped_vec_num")(num_vec)
     concat_feature = concatenate([reshaped_num_vec, expand_cur_phase], axis=1, name="concat_feature")
 
@@ -85,7 +85,7 @@ def competing_network(p, dic_agent_conf, num_actions):
 
 def relation(x, dic_traffic_env_conf):
     relations = []
-    phases = dic_traffic_env_conf["PHASE"]
+    phases = dic_traffic_env_conf["UNIQUE_PHASE"]
     for phase_1 in phases:
         zeros = [0]*(len(phases) - 1)
         count = 0
@@ -110,14 +110,15 @@ class FrapAgent(NetworkAgent):
 
     def build_network(self):
 
-        phases = self.dic_traffic_env_conf["PHASE"]
-        max_number_of_movements_per_phase = max(map(lambda x: len(x.split('_')), phases))
-        number_of_phases = len(self.dic_traffic_env_conf["PHASE"])
-        number_of_movements = len(self.dic_traffic_env_conf['MOVEMENT'])
+        unique_phases = self.dic_traffic_env_conf["UNIQUE_PHASE"]
+        max_number_of_movements_per_phase = max(map(lambda x: len(x.split('_')), unique_phases))
+        number_of_phases = len(unique_phases)
+        unique_movements = self.dic_traffic_env_conf['UNIQUE_MOVEMENT']
+        number_of_movements = len(unique_movements)
 
         dic_input_node = {}
         feature_shape = {}
-        for feature_name in self.dic_traffic_env_conf["LIST_STATE_FEATURE"]:
+        for feature_name in self.dic_traffic_env_conf["STATE_FEATURE_LIST"]:
 
             vec_feature = False
             if "phase" in feature_name and self.dic_traffic_env_conf["BINARY_PHASE_EXPANSION"]:
@@ -135,17 +136,17 @@ class FrapAgent(NetworkAgent):
                 vec_input_node = dic_input_node[feature_name]
             feature_shape[feature_name] = _shape[0]
 
-        p = Activation('sigmoid')(Embedding(2, 4, input_length=number_of_movements)(dic_input_node["cur_phase"]))
+        p = Activation('sigmoid')(Embedding(2, 4, input_length=number_of_movements)(dic_input_node["current_phase"]))
         d = Dense(4, activation="sigmoid", name="num_vec_mapping")
         dic_lane = {}
-        for i, m in enumerate(self.dic_traffic_env_conf["MOVEMENT"]):
+        for i, m in enumerate(unique_movements):
             tmp_vec = d(
                 Lambda(slice_tensor, arguments={"index": i}, name="vec_%d" % i)(vec_input_node))
             tmp_phase = Lambda(slice_tensor, arguments={"index": i}, name="phase_%d" % i)(p)
             dic_lane[m] = concatenate([tmp_vec, tmp_phase], name="lane_%d" % i)
         list_phase_pressure = []
         lane_embedding = Dense(self.num_actions*2, activation="relu", name="lane_embedding")
-        for phase in self.dic_traffic_env_conf["PHASE"]:
+        for phase in unique_phases:
             movements = phase.split("_")
             list_phase_pressure.append(add([lane_embedding(dic_lane[m]) for m in movements], name=phase))
 
@@ -198,7 +199,7 @@ class FrapAgent(NetworkAgent):
             q_values = competing_network(phase_pressure, self.dic_agent_conf, self.num_actions)
 
         network = Model(inputs=[dic_input_node[feature_name]
-                                for feature_name in self.dic_traffic_env_conf["LIST_STATE_FEATURE"]],
+                                for feature_name in self.dic_traffic_env_conf["STATE_FEATURE_LIST"]],
                         outputs=q_values)
         # network.compile(optimizer=RMSprop(lr=self.dic_agent_conf["LEARNING_RATE"]),
         #                 loss=self.dic_agent_conf["LOSS_FUNCTION"])

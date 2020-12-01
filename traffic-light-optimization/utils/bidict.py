@@ -1,6 +1,7 @@
 
 # Code adapted from https://stackoverflow.com/questions/3318625/how-to-implement-an-efficient-bidirectional-hash-table
 
+
 class bidict(dict):
 
     def __init__(self, *args, **kwargs):
@@ -10,7 +11,7 @@ class bidict(dict):
         # initialize inverse dict
         self.inverse = {}
         for key, value in self.items():
-            self.inverse.setdefault(value,[]).append(key)
+            self.inverse.setdefault(value, []).append(key)
 
     def __setitem__(self, key, value):
 
@@ -24,7 +25,7 @@ class bidict(dict):
 
         # insert references
         super(bidict, self).__setitem__(key, value)
-        self.inverse.setdefault(value,[]).append(key)
+        self.inverse.setdefault(value, []).append(key)
 
     def __delitem__(self, key):
 

@@ -17,7 +17,7 @@ class PlanningOnlyAgent(Agent):
     def __init__(self, dic_agent_conf, dic_traffic_env_conf, dic_path, dic_exp_conf, mode='test',
                  *args, **kwargs):
 
-        if dic_traffic_env_conf["NUM_INTERSECTIONS"] > 1:
+        if len(dic_traffic_env_conf['INTERSECTION_ID']) > 1:
             raise NotImplementedError("Planning supports one intersection only at this time")
 
         super().__init__(dic_agent_conf, dic_traffic_env_conf, dic_path, dic_exp_conf, mode)
@@ -183,7 +183,7 @@ class PlanningOnlyAgent(Agent):
                     action_list = ['no_op']*len(next_action)
                     action_list[intersection_index] = action
 
-                    next_state, reward, done, steps_iterated, next_action, _ = env.step(action_list)
+                    next_state, reward, done, steps_iterated, next_action = env.step(action_list)
 
                     one_state = next_state[intersection_index]
                     rewards.append(reward[0])
@@ -194,7 +194,7 @@ class PlanningOnlyAgent(Agent):
                 action_list = ['no_op']*len(next_action)
                 action_list[intersection_index] = action
 
-                next_state, reward, done, steps_iterated, _, _ = env.step(action_list)
+                next_state, reward, done, steps_iterated, _ = env.step(action_list)
 
                 one_state = next_state[intersection_index]
                 rewards.append(reward[0])
@@ -223,7 +223,7 @@ class PlanningOnlyAgent(Agent):
                     rewards.extend(future_rewards)
 
             if self.mode == 'train':
-                env.bulk_log()
+                env.save_log()
             env.end_sumo()
 
         except Exception as e:

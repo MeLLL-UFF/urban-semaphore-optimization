@@ -2,90 +2,77 @@ import os
 import sys
 
 import numpy as np
-from lxml import etree
 import traci
 import traci.constants as tc
 
-from utils import sumo_traci_util, sumo_util
+from utils import sumo_traci_util, sumo_util, xml_util
 
 from algorithm.frap_pub.definitions import ROOT_DIR
 
 
-def get_traci_constant_mapping(constant_str):
-    return getattr(tc, constant_str)
-
-
 class Intersection:
 
-    def __init__(self, light_id, list_vehicle_variables_to_sub, dic_traffic_env_conf, dic_path,
+    def __init__(self, intersection_index, vehicle_subscription_variables, dic_traffic_env_conf, dic_path,
                  execution_name, external_configurations=None):
-        '''
-        still need to automate generation
-        '''
 
         if external_configurations is None:
             external_configurations = {}
 
+        self.intersection_index = intersection_index
+        self.id = dic_traffic_env_conf['INTERSECTION_ID'][intersection_index]
         self.execution_name = execution_name
 
-        roadnet_file = external_configurations['ROADNET_FILE']
+        net_file = os.path.join(ROOT_DIR, dic_path["PATH_TO_WORK_DIRECTORY"], dic_traffic_env_conf['NET_FILE'])
+        self.net_file_xml = xml_util.get_xml(net_file)
 
-        net_file = os.path.join(ROOT_DIR, dic_path["PATH_TO_WORK_DIRECTORY"], roadnet_file)
-        parser = etree.XMLParser(remove_blank_text=True)
-        self.net_file_xml = etree.parse(net_file, parser)
+        self.vehicle_subscription_variables = vehicle_subscription_variables
 
-        self.intersection_id = external_configurations['INTERSECTION_ID']
-        self.list_vehicle_variables_to_sub = list_vehicle_variables_to_sub
+        self.movements = dic_traffic_env_conf['MOVEMENT'][intersection_index]
+        self.phases = dic_traffic_env_conf['PHASE'][intersection_index]
+        self.conflicts = dic_traffic_env_conf['CONFLICTS'][intersection_index]
+        self.movement_to_connection = dic_traffic_env_conf['movement_to_connection'][intersection_index]
 
-        self.phases = dic_traffic_env_conf["PHASE"]
-        self.movements = dic_traffic_env_conf['MOVEMENT']
-
-        # ===== sumo intersection settings =====
-
+        self.min_action_time = dic_traffic_env_conf['MIN_ACTION_TIME']
         self.has_per_second_decision = dic_traffic_env_conf.get('PER_SECOND_DECISION', False)
 
         self.dic_path = dic_path
-        self.incoming_edges, self.outgoing_edges = sumo_util.get_intersection_edge_ids(self.net_file_xml)
-        self.edges = [] + self.incoming_edges + self.outgoing_edges
+        self.entering_edges, self.exiting_edges = sumo_util.get_intersection_edge_ids(
+            self.net_file_xml,
+            intersection_ids=self.id
+        )
+        self.edges = [edge.get('id') for edge in self.entering_edges + self.exiting_edges]
+        self.internal_edges = [edge.get('id') for edge in sumo_util.get_internal_edges(self.net_file_xml, self.id)]
+        self.all_edges = self.edges + self.internal_edges
 
-        self.list_approaches = [str(i) for i in range(len(self.incoming_edges))]
-        self.dic_entering_approach_to_edge = {approach: self.incoming_edges[index]
-                                              for index, approach in enumerate(self.list_approaches)}
-        self.dic_exiting_approach_to_edge = {approach: self.outgoing_edges[index]
-                                             for index, approach in enumerate(self.list_approaches)}
+        self.controlled_entering_lanes = []
+        self.controlled_exiting_lanes = []
+        self.entering_lanes = []
+        self.exiting_lanes = []
+        for movement, connection in self.movement_to_connection.items():
 
-        self.min_action_time = dic_traffic_env_conf['MIN_ACTION_TIME']
+            from_lane = connection.get('from') + '_' + connection.get('fromLane')
+            to_lane = connection.get('to') + '_' + connection.get('toLane')
 
-        # grid settings
-        self.length_lane = 300
-        self.length_terminal = 50
-        self.length_grid = 5
-        self.num_grid = int(self.length_lane//self.length_grid)
+            self.entering_lanes.append(from_lane)
+            self.exiting_lanes.append(to_lane)
 
-        self.conflicts = dic_traffic_env_conf['CONFLICTS']
+            if movement in self.movements:
+                self.controlled_entering_lanes.append(from_lane)
+                self.controlled_exiting_lanes.append(to_lane)
 
-        self.movement_to_connection = dic_traffic_env_conf['movement_to_connection']
+        self.lanes = self.entering_lanes + self.exiting_lanes
+        self.internal_lanes = [lane.get('id') for lane in sumo_util.get_internal_lanes(self.net_file_xml, self.id)]
+        self.all_lanes = self.lanes + self.internal_lanes
 
-        self.list_entering_lanes = [connection.get('from') + '_' + connection.get('fromLane') 
-                                    for _, connection in self.movement_to_connection.items() 
-                                    if connection.get('dir') != 'r']
-        self.list_exiting_lanes = [connection.get('to') + '_' + connection.get('toLane')
-                                   for _, connection in self.movement_to_connection.items()
-                                   if connection.get('dir') != 'r']
-        self.list_lanes = self.list_entering_lanes + self.list_exiting_lanes
+        self.controlled_lanes = self.controlled_entering_lanes + self.controlled_exiting_lanes
 
         self.lane_to_traffic_light_index_mapping = sumo_util.get_lane_traffic_light_controller(
             self.net_file_xml,
-            self.list_entering_lanes)
+            self.controlled_entering_lanes)
 
-        self.dic_phase_strs = {}
-
+        self.dic_phase_strings = {}
         for phase in self.phases:
-            list_default_str = ["r"]*len(self.movements)
-
-            for i, m in enumerate(self.movements):
-                if 'r' in m.lower():
-                    list_default_str[i] = 'g'
+            default_signal_phase_str = ["r"]*len(self.movements)
 
             phase_movements = phase.split('_')
             for index, movement in enumerate(phase_movements):
@@ -93,17 +80,23 @@ class Intersection:
                 movement_conflicts = self.conflicts[movement]
 
                 if len(set(phase_movements[0:index]).intersection(set(movement_conflicts))) > 0:
-                    list_default_str[self.movements.index(movement)] = 'g'
+                    default_signal_phase_str[self.movements.index(movement)] = 'g'
                 else:
-                    list_default_str[self.movements.index(movement)] = 'G'
+                    default_signal_phase_str[self.movements.index(movement)] = 'G'
 
-            self.dic_phase_strs[phase] = "".join(list_default_str)
+            self.dic_phase_strings[phase] = "".join(default_signal_phase_str)
 
-        self.all_yellow_phase_str = "y"*len(self.movements)
-        self.all_red_phase_str = "r"*len(self.movements)
+        self.all_yellow_phase_string = "y" * len(self.movements)
+        self.all_red_phase_string = "r" * len(self.movements)
 
         self.all_yellow_phase_index = -1
         self.all_red_phase_index = -2
+
+        # grid settings
+        self.length_lane = 300
+        self.length_terminal = 50
+        self.length_grid = 5
+        self.num_grid = int(self.length_lane//self.length_grid)
 
         # initialization
 
@@ -117,63 +110,119 @@ class Intersection:
         self.all_yellow_flag = False
         self.flicker = 0
 
-        self.dic_lane_sub_current_step = None
-        self.dic_lane_sub_previous_step = None
-        self.dic_vehicle_sub_current_step = None
-        self.dic_vehicle_sub_previous_step = None
-        self.dic_lane_vehicle_sub_current_step = None
-        self.dic_lane_vehicle_sub_previous_step = None
-        self.list_vehicles_current_step = []
-        self.list_vehicles_previous_step = []
+        self.current_step_lane_subscription = None
+        self.previous_step_lane_subscription = None
+        self.current_step_vehicle_subscription = None
+        self.previous_step_vehicle_subscription = None
+        self.current_step_lane_vehicle_subscription = None
+        self.previous_step_lane_vehicle_subscription = None
+        self.current_step_vehicles = []
+        self.previous_step_vehicles = []
 
-        self.dic_vehicle_min_speed = {}  # this second
-        self.dic_vehicle_arrive_leave_time = dict()  # cumulative
+        self.vehicle_min_speed_dict = {}  # this second
 
-        self.dic_feature = {}  # this second
+        self.feature_dict = {}  # this second
 
-        self.list_state_feature = dic_traffic_env_conf["LIST_STATE_FEATURE"]
+        self.state_feature_list = dic_traffic_env_conf["STATE_FEATURE_LIST"]
 
-        self.dic_feature_function = {
-            'cur_phase': lambda: [self.current_phase_index],
+        self.feature_dict_function = {
+            'current_phase': lambda: [self.current_phase_index],
             'time_this_phase': lambda: [self.current_phase_duration],
-            'vehicle_position_img': lambda: self._get_lane_vehicle_position(self.list_entering_lanes),
-            'vehicle_speed_img': lambda: self._get_lane_vehicle_speed(self.list_entering_lanes),
+            'vehicle_position_img': lambda: self._get_lane_vehicle_position(self.controlled_entering_lanes),
+            'vehicle_speed_img': lambda: self._get_lane_vehicle_speed(self.controlled_entering_lanes),
             'vehicle_acceleration_img': lambda: None,
             'vehicle_waiting_time_img': lambda:
-                self._get_lane_vehicle_accumulated_waiting_time(self.list_entering_lanes),
-            'lane_num_vehicle': lambda: self._get_lane_num_vehicle(self.list_entering_lanes),
-            'lane_num_vehicle_been_stopped_thres01': lambda:
-                self._get_lane_num_vehicle_been_stopped(0.1, self.list_entering_lanes),
-            'lane_num_vehicle_been_stopped_thres1': lambda:
-                self._get_lane_num_vehicle_been_stopped(1, self.list_entering_lanes),
-            'lane_queue_length': lambda: self._get_lane_queue_length(self.list_entering_lanes),
+                self._get_lane_vehicle_accumulated_waiting_time(self.controlled_entering_lanes),
+            'lane_num_vehicle': lambda: self._get_lane_num_vehicle(self.controlled_entering_lanes),
+            'lane_num_vehicle_been_stopped_threshold_01': lambda:
+                self._get_lane_num_vehicle_been_stopped(0.1, self.controlled_entering_lanes),
+            'lane_num_vehicle_been_stopped_threshold_1': lambda:
+                self._get_lane_num_vehicle_been_stopped(1, self.controlled_entering_lanes),
+            'lane_queue_length': lambda: self._get_lane_queue_length(self.controlled_entering_lanes),
             'lane_num_vehicle_left': lambda: None,
             'lane_sum_duration_vehicle_left': lambda: None,
-            'lane_sum_waiting_time': lambda: self._get_lane_sum_waiting_time(self.list_entering_lanes),
+            'lane_sum_waiting_time': lambda: self._get_lane_sum_waiting_time(self.controlled_entering_lanes),
             'terminal': lambda: None,
-            'pressure': lambda:
-                np.array(self._get_lane_num_vehicle_been_stopped(1, self.list_entering_lanes)) -
-                np.array(self._get_lane_num_vehicle_been_stopped(1, self.list_exiting_lanes)),
-            'time_loss': lambda: sumo_traci_util.get_time_loss_by_lane(
-                self.dic_lane_vehicle_sub_current_step, self.list_entering_lanes)
+            'lane_pressure': lambda:
+            np.array(self._get_lane_queue_length(self.controlled_entering_lanes)) -
+            np.array(self._get_lane_queue_length(self.controlled_exiting_lanes)),
+            'lane_sum_time_loss': lambda: sumo_traci_util.get_time_loss_by_lane(
+                self.current_step_lane_vehicle_subscription, self.controlled_entering_lanes)
         }
 
-        self.dic_reward_function = {
+        self.reward_dict_function = {
             'flickering': lambda: None,
-            'sum_lane_queue_length': lambda: None,
-            'sum_lane_wait_time': lambda: None,
+            'sum_lane_queue_length': lambda: np.sum(self.get_feature('lane_queue_length')),
+            'sum_lane_wait_time': lambda: np.sum(self.get_feature('lane_sum_waiting_time')),
             'sum_lane_num_vehicle_left': lambda: None,
             'sum_duration_vehicle_left': lambda: None,
-            'sum_num_vehicle_been_stopped_thres01': lambda: None,
-            'sum_num_vehicle_been_stopped_thres1':
-                lambda: np.sum(self.get_feature("lane_num_vehicle_been_stopped_thres1")),
+            'sum_num_vehicle_been_stopped_threshold_01':
+                lambda: np.sum(self.get_feature('lane_num_vehicle_been_stopped_threshold_01')),
+            'sum_num_vehicle_been_stopped_threshold_1':
+                lambda: np.sum(self.get_feature('lane_num_vehicle_been_stopped_threshold_1')),
             'pressure': lambda:
-                np.sum(self._get_lane_num_vehicle_been_stopped(1, self.list_entering_lanes)) -
-                np.sum(self._get_lane_num_vehicle_been_stopped(1, self.list_exiting_lanes)),
+            np.sum(self._get_lane_queue_length(self.controlled_entering_lanes)) -
+            np.sum(self._get_lane_queue_length(self.controlled_exiting_lanes)),
             'time_loss': lambda:
-                np.sum(self.get_feature("time_loss"))
+                np.sum(self.get_feature('lane_sum_time_loss'))
         }
 
+    def update_previous_measurements(self):
+
+        self.previous_phase_index = self.current_phase_index
+        self.previous_step_lane_subscription = self.current_step_lane_subscription
+        self.previous_step_vehicle_subscription = self.current_step_vehicle_subscription
+        self.previous_step_lane_vehicle_subscription = self.current_step_lane_vehicle_subscription
+        self.previous_step_vehicles = self.current_step_vehicles
+
+    def update_current_measurements(self):
+        # need change, debug in seeing format
+        
+        traci_connection = traci.getConnection(self.execution_name)
+
+        if self.current_phase_index == self.previous_phase_index:
+            self.current_phase_duration += 1
+        else:
+            self.current_phase_duration = 1
+
+        self.current_min_action_duration += 1
+
+        # ====== lane level observations =======
+
+        self.current_step_lane_subscription = {lane_id: traci_connection.lane.getSubscriptionResults(lane_id)
+                                               for lane_id in self.all_lanes}
+
+        # ====== vehicle level observations =======
+
+        # get vehicle list
+        current_step_vehicles = []
+        for lane_id, values in self.current_step_lane_subscription.items():
+
+            lane_vehicles = self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_ID_LIST]
+            current_step_vehicles += lane_vehicles
+
+        self.current_step_vehicles = current_step_vehicles
+        recently_arrived_vehicles = list(set(self.current_step_vehicles) - set(self.previous_step_vehicles))
+        recently_left_vehicles = list(set(self.previous_step_vehicles) - set(self.current_step_vehicles))
+
+        # vehicle level observations
+        self.current_step_vehicle_subscription = {vehicle: traci_connection.vehicle.getSubscriptionResults(vehicle)
+                                                  for vehicle in self.current_step_vehicles}
+        self.current_step_lane_vehicle_subscription = {}
+        for vehicle_id, values in self.current_step_vehicle_subscription.items():
+            lane_id = values[tc.VAR_LANE_ID]
+            if lane_id in self.current_step_lane_vehicle_subscription:
+                self.current_step_lane_vehicle_subscription[lane_id][vehicle_id] = \
+                    self.current_step_vehicle_subscription[vehicle_id]
+            else:
+                self.current_step_lane_vehicle_subscription[lane_id] = \
+                    {vehicle_id: self.current_step_vehicle_subscription[vehicle_id]}
+
+        # update vehicle minimum speed in history
+        self._update_vehicle_min_speed()
+
+        # update feature
+        self._update_feature()
 
     def set_signal(self, action, action_pattern, yellow_time, all_red_time):
 
@@ -182,19 +231,20 @@ class Intersection:
             self.flicker = 0
             if self.current_phase_duration >= yellow_time:  # yellow time reached
 
-                current_traffic_light = sumo_traci_util.get_traffic_light_state(self.intersection_id, self.execution_name)
+                current_traffic_light = sumo_traci_util.get_traffic_light_state(self.id, self.execution_name)
 
                 self.current_phase_index = self.next_phase_to_set_index
                 phase = self.phases[self.current_phase_index]
 
-                for lane_index, lane_id in enumerate(self.list_entering_lanes):
+                for lane_index, lane_id in enumerate(self.controlled_entering_lanes):
                     traffic_light_index = int(self.lane_to_traffic_light_index_mapping[lane_id])
-                    new_lane_traffic_light = self.dic_phase_strs[phase][lane_index]
-                    current_traffic_light = current_traffic_light[:traffic_light_index] + \
-                                            new_lane_traffic_light + \
-                                            current_traffic_light[traffic_light_index + 1:]
+                    new_lane_traffic_light = self.dic_phase_strings[phase][lane_index]
+                    current_traffic_light = \
+                        current_traffic_light[:traffic_light_index] + \
+                        new_lane_traffic_light + \
+                        current_traffic_light[traffic_light_index + 1:]
 
-                sumo_traci_util.set_traffic_light_state(self.intersection_id, current_traffic_light, self.execution_name)
+                sumo_traci_util.set_traffic_light_state(self.id, current_traffic_light, self.execution_name)
                 self.all_yellow_flag = False
             else:
                 pass
@@ -223,252 +273,149 @@ class Intersection:
                         self.current_min_action_duration = 0
                 else:  # the light phase needs to change
                     # change to yellow first, and activate the counter and flag
-                    current_traffic_light = sumo_traci_util.get_traffic_light_state(self.intersection_id, self.execution_name)
+                    current_traffic_light = sumo_traci_util.get_traffic_light_state(self.id, self.execution_name)
 
                     phase = self.phases[self.next_phase_to_set_index]
 
-                    for lane_index, lane_id in enumerate(self.list_entering_lanes):
+                    for lane_index, lane_id in enumerate(self.controlled_entering_lanes):
                         traffic_light_index = int(self.lane_to_traffic_light_index_mapping[lane_id])
                         current_lane_traffic_light = current_traffic_light[traffic_light_index]
-                        next_lane_traffic_light = self.dic_phase_strs[phase][lane_index]
-                        
-                        if (current_lane_traffic_light == 'g' or current_lane_traffic_light == 'G') and \
-                        (next_lane_traffic_light != 'g' and next_lane_traffic_light != 'G'):
-                            new_lane_traffic_light = self.all_yellow_phase_str[lane_index]
-                            current_traffic_light = current_traffic_light[:traffic_light_index] + \
-                                                    new_lane_traffic_light + \
-                                                    current_traffic_light[traffic_light_index + 1:]
+                        next_lane_traffic_light = self.dic_phase_strings[phase][lane_index]
 
-                    sumo_traci_util.set_traffic_light_state(self.intersection_id, current_traffic_light, self.execution_name)
+                        if (current_lane_traffic_light == 'g' or current_lane_traffic_light == 'G') and \
+                                (next_lane_traffic_light != 'g' and next_lane_traffic_light != 'G'):
+                            new_lane_traffic_light = self.all_yellow_phase_string[lane_index]
+                            current_traffic_light = \
+                                current_traffic_light[:traffic_light_index] + \
+                                new_lane_traffic_light + \
+                                current_traffic_light[traffic_light_index + 1:]
+
+                    sumo_traci_util.set_traffic_light_state(self.id, current_traffic_light, self.execution_name)
                     self.current_phase_index = self.all_yellow_phase_index
                     self.all_yellow_flag = True
                     self.flicker = 1
 
                     self.current_min_action_duration = 0
 
-    def update_previous_measurements(self):
-
-        self.previous_phase_index = self.current_phase_index
-        self.dic_lane_sub_previous_step = self.dic_lane_sub_current_step
-        self.dic_vehicle_sub_previous_step = self.dic_vehicle_sub_current_step
-        self.dic_lane_vehicle_sub_previous_step = self.dic_lane_vehicle_sub_current_step
-        self.list_vehicles_previous_step = self.list_vehicles_current_step
-
-    def update_current_measurements(self):
-        # need change, debug in seeing format
-        
-        traci_connection = traci.getConnection(self.execution_name)
-
-        if self.current_phase_index == self.previous_phase_index:
-            self.current_phase_duration += 1
-        else:
-            self.current_phase_duration = 1
-
-        self.current_min_action_duration += 1
-
-        # ====== lane level observations =======
-
-        self.dic_lane_sub_current_step = {lane: traci_connection.lane.getSubscriptionResults(lane) for lane in self.list_lanes}
-
-        # ====== vehicle level observations =======
-
-        # get vehicle list
-        self.list_vehicles_current_step = traci_connection.vehicle.getIDList()
-        list_vehicles_new_arrive = list(set(self.list_vehicles_current_step) - set(self.list_vehicles_previous_step))
-        list_vehicles_new_left = list(set(self.list_vehicles_previous_step) - set(self.list_vehicles_current_step))
-        list_vehicles_new_left_entering_lane_by_lane = self._update_leave_entering_approach_vehicle()
-        list_vehicles_new_left_entering_lane = []
-        for l in list_vehicles_new_left_entering_lane_by_lane:
-            list_vehicles_new_left_entering_lane += l
-
-        # update subscriptions
-        for vehicle in list_vehicles_new_arrive:
-            traci_connection.vehicle.subscribe(vehicle, [getattr(tc, var) for var in self.list_vehicle_variables_to_sub])
-
-        # vehicle level observations
-        self.dic_vehicle_sub_current_step = {vehicle: traci_connection.vehicle.getSubscriptionResults(vehicle)
-                                             for vehicle in self.list_vehicles_current_step}
-        self.dic_lane_vehicle_sub_current_step = {}
-        for vehicle, values in self.dic_vehicle_sub_current_step.items():
-            lane = values[tc.VAR_LANE_ID]
-            if lane in self.dic_lane_vehicle_sub_current_step:
-                self.dic_lane_vehicle_sub_current_step[lane][vehicle] = self.dic_vehicle_sub_current_step[vehicle]
-            else:
-                self.dic_lane_vehicle_sub_current_step[lane] = {vehicle: self.dic_vehicle_sub_current_step[vehicle]}
-
-        # update vehicle arrive and left time
-        self._update_arrive_time(list_vehicles_new_arrive)
-        self._update_left_time(list_vehicles_new_left_entering_lane)
-
-        # update vehicle minimum speed in history
-        self._update_vehicle_min_speed()
-
-        # update feature
-        self._update_feature()
-
     # ================= update current step measurements ======================
 
-    def _update_leave_entering_approach_vehicle(self):
+    def _update_recently_left_vehicles_by_entering_lane(self):
 
-        list_entering_lane_vehicle_left = []
+        recently_left_vehicles_by_entering_lane = []
 
         # update vehicles leaving entering lane
-        if self.dic_lane_sub_previous_step is None:
-            for _ in self.list_entering_lanes:
-                list_entering_lane_vehicle_left.append([])
+        if self.previous_step_lane_subscription is None:
+            for _ in self.entering_lanes:
+                recently_left_vehicles_by_entering_lane.append([])
         else:
-            for lane in self.list_entering_lanes:
-                list_entering_lane_vehicle_left.append(
+            for lane in self.entering_lanes:
+                recently_left_vehicles_by_entering_lane.append(
                     list(
-                        set(self.dic_lane_sub_previous_step[lane]
-                            [get_traci_constant_mapping("LAST_STEP_VEHICLE_ID_LIST")]) -
-                        set(self.dic_lane_sub_current_step[lane]
-                            [get_traci_constant_mapping("LAST_STEP_VEHICLE_ID_LIST")])
+                        set(self.previous_step_lane_subscription[lane][tc.LAST_STEP_VEHICLE_ID_LIST]) -
+                        set(self.current_step_lane_subscription[lane][tc.LAST_STEP_VEHICLE_ID_LIST])
                     )
                 )
-        return list_entering_lane_vehicle_left
-
-    def _update_arrive_time(self, list_vehicles_arrive):
-
-        ts = self.get_current_time()
-        # get dic vehicle enter leave time
-        for vehicle in list_vehicles_arrive:
-            if vehicle not in self.dic_vehicle_arrive_leave_time:
-                self.dic_vehicle_arrive_leave_time[vehicle] = \
-                    {"enter_time": ts, "leave_time": np.nan}
-            else:
-                print("vehicle already exists!")
-                sys.exit(-1)
-
-    def _update_left_time(self, list_vehicles_left):
-
-        ts = self.get_current_time()
-        # update the time for vehicle to leave entering lane
-        for vehicle in list_vehicles_left:
-            try:
-                self.dic_vehicle_arrive_leave_time[vehicle]["leave_time"] = ts
-            except KeyError:
-                print("vehicle not recorded when entering")
-                sys.exit(-1)
+        return recently_left_vehicles_by_entering_lane
 
     def _update_vehicle_min_speed(self):
-        '''
-        record the minimum speed of one vehicle so far
-        :return:
-        '''
-        dic_result = {}
-        for vec_id, vec_var in self.dic_vehicle_sub_current_step.items():
-            speed = vec_var[get_traci_constant_mapping("VAR_SPEED")]
-            if vec_id in self.dic_vehicle_min_speed:  # this vehicle appeared in previous time stamps:
-                dic_result[vec_id] = min(speed, self.dic_vehicle_min_speed[vec_id])
+        result_dict = {}
+        for vehicle_id, vehicle in self.current_step_vehicle_subscription.items():
+            speed = vehicle[tc.VAR_SPEED]
+            if vehicle_id in self.vehicle_min_speed_dict:  # this vehicle appeared in previous time stamps:
+                result_dict[vehicle_id] = min(speed, self.vehicle_min_speed_dict[vehicle_id])
             else:
-                dic_result[vec_id] = speed
-        self.dic_vehicle_min_speed = dic_result
+                result_dict[vehicle_id] = speed
+        self.vehicle_min_speed_dict = result_dict
 
     def _update_feature(self):
 
-        dic_feature = {}
-        for f in self.list_state_feature:
-            dic_feature[f] = self.dic_feature_function[f]()
+        feature_dict = {}
+        for f in self.state_feature_list:
+            feature_dict[f] = self.feature_dict_function[f]()
 
-        self.dic_feature = dic_feature
+        self.feature_dict = feature_dict
 
     # ================= calculate features from current observations ======================
 
-    def _get_lane_queue_length(self, list_lanes):
-        '''
-        queue length for each lane
-        '''
-        return [self.dic_lane_sub_current_step[lane][get_traci_constant_mapping("LAST_STEP_VEHICLE_HALTING_NUMBER")]
-                for lane in list_lanes]
+    def _get_lane_queue_length(self, lanes_list):
+        return [self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_HALTING_NUMBER]
+                for lane_id in lanes_list]
 
-    def _get_lane_num_vehicle(self, list_lanes):
-        '''
-        vehicle number for each lane
-        '''
-        return [self.dic_lane_sub_current_step[lane][get_traci_constant_mapping("LAST_STEP_VEHICLE_NUMBER")]
-                for lane in list_lanes]
+    def _get_lane_num_vehicle(self, lanes_list):
+        return [self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_NUMBER]
+                for lane_id in lanes_list]
 
-    def _get_lane_sum_waiting_time(self, list_lanes):
-        '''
-        waiting time for each lane
-        '''
-        return [self.dic_lane_sub_current_step[lane][get_traci_constant_mapping("VAR_WAITING_TIME")]
-                for lane in list_lanes]
+    def _get_lane_sum_waiting_time(self, lanes_list):
+        return [self.current_step_lane_subscription[lane_id][tc.VAR_WAITING_TIME]
+                for lane_id in lanes_list]
 
-    def _get_lane_list_vehicle_left(self, list_lanes):
-        '''
-        get list of vehicles left at each lane
-        ####### need to check
-        '''
+    def _get_lane_list_vehicle_left(self, lanes_list):
 
         return None
 
-    def _get_lane_num_vehicle_left(self, list_lanes):
-
-        list_lane_vehicle_left = self._get_lane_list_vehicle_left(list_lanes)
+    def _get_lane_num_vehicle_left(self, lanes_list):
+        list_lane_vehicle_left = self._get_lane_list_vehicle_left(lanes_list)
         list_lane_num_vehicle_left = [len(lane_vehicle_left) for lane_vehicle_left in list_lane_vehicle_left]
         return list_lane_num_vehicle_left
 
-    def _get_lane_sum_duration_vehicle_left(self, list_lanes):
+    def _get_lane_sum_duration_vehicle_left(self, lanes_list):
 
         # not implemented error
         raise NotImplementedError
 
-    def _get_lane_num_vehicle_been_stopped(self, thres, list_lanes):
+    def _get_lane_num_vehicle_been_stopped(self, threshold, lanes_list):
 
-        list_num_of_vec_ever_stopped = []
-        for lane in list_lanes:
-            cnt_vec = 0
-            list_vec_id = self.dic_lane_sub_current_step[lane][get_traci_constant_mapping("LAST_STEP_VEHICLE_ID_LIST")]
-            for vec in list_vec_id:
-                if self.dic_vehicle_min_speed[vec] < thres:
-                    cnt_vec += 1
-            list_num_of_vec_ever_stopped.append(cnt_vec)
+        num_of_vehicle_ever_stopped = []
+        for lane_id in lanes_list:
+            vehicle_count = 0
+            vehicle_ids = self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_ID_LIST]
+            for vehicle_id in vehicle_ids:
+                if self.vehicle_min_speed_dict[vehicle_id] < threshold:
+                    vehicle_count += 1
+            num_of_vehicle_ever_stopped.append(vehicle_count)
 
-        return list_num_of_vec_ever_stopped
+        return num_of_vehicle_ever_stopped
 
-    def _get_position_grid_along_lane(self, vec):
-        pos = int(self.dic_vehicle_sub_current_step[vec][get_traci_constant_mapping("VAR_LANEPOSITION")])
-        return min(pos//self.length_grid, self.num_grid)
+    def _get_position_grid_along_lane(self, vehicle):
+        position = int(self.current_step_vehicle_subscription[vehicle][tc.VAR_LANEPOSITION])
+        return min(position//self.length_grid, self.num_grid)
 
-    def _get_lane_vehicle_position(self, list_lanes):
+    def _get_lane_vehicle_position(self, lanes_list):
 
-        list_lane_vector = []
-        for lane in list_lanes:
+        lane_vector_list = []
+        for lane in lanes_list:
             lane_vector = np.zeros(self.num_grid)
-            list_vec_id = self.dic_lane_sub_current_step[lane][get_traci_constant_mapping("LAST_STEP_VEHICLE_ID_LIST")]
-            for vec in list_vec_id:
-                pos_grid = self._get_position_grid_along_lane(vec)
+            vehicle_ids = self.current_step_lane_subscription[lane][tc.LAST_STEP_VEHICLE_ID_LIST]
+            for vehicle_id in vehicle_ids:
+                pos_grid = self._get_position_grid_along_lane(vehicle_id)
                 lane_vector[pos_grid] = 1
-            list_lane_vector.append(lane_vector)
-        return np.array(list_lane_vector)
+            lane_vector_list.append(lane_vector)
+        return np.array(lane_vector_list)
 
-    def _get_lane_vehicle_speed(self, list_lanes):
+    def _get_lane_vehicle_speed(self, lanes_list):
 
-        list_lane_vector = []
-        for lane in list_lanes:
+        lane_vector_list = []
+        for lane in lanes_list:
             lane_vector = np.full(self.num_grid, fill_value=np.nan)
-            list_vec_id = self.dic_lane_sub_current_step[lane][get_traci_constant_mapping("LAST_STEP_VEHICLE_ID_LIST")]
-            for vec in list_vec_id:
-                pos_grid = self._get_position_grid_along_lane(vec)
-                lane_vector[pos_grid] = self.dic_vehicle_sub_current_step[vec][get_traci_constant_mapping("VAR_SPEED")]
-            list_lane_vector.append(lane_vector)
-        return np.array(list_lane_vector)
+            vehicle_ids = self.current_step_lane_subscription[lane][tc.LAST_STEP_VEHICLE_ID_LIST]
+            for vehicle_id in vehicle_ids:
+                pos_grid = self._get_position_grid_along_lane(vehicle_id)
+                lane_vector[pos_grid] = self.current_step_vehicle_subscription[vehicle_id][tc.VAR_SPEED]
+            lane_vector_list.append(lane_vector)
+        return np.array(lane_vector_list)
 
-    def _get_lane_vehicle_accumulated_waiting_time(self, list_lanes):
+    def _get_lane_vehicle_accumulated_waiting_time(self, lanes_list):
 
-        list_lane_vector = []
-        for lane in list_lanes:
+        lane_vector_list = []
+        for lane in lanes_list:
             lane_vector = np.full(self.num_grid, fill_value=np.nan)
-            list_vec_id = self.dic_lane_sub_current_step[lane][get_traci_constant_mapping("LAST_STEP_VEHICLE_ID_LIST")]
-            for vec in list_vec_id:
-                pos_grid = self._get_position_grid_along_lane(vec)
-                lane_vector[pos_grid] = self.dic_vehicle_sub_current_step[vec][
-                    get_traci_constant_mapping("VAR_ACCUMULATED_WAITING_TIME")
-                ]
-            list_lane_vector.append(lane_vector)
-        return np.array(list_lane_vector)
+            vehicle_ids = self.current_step_lane_subscription[lane][tc.LAST_STEP_VEHICLE_ID_LIST]
+            for vehicle_id in vehicle_ids:
+                pos_grid = self._get_position_grid_along_lane(vehicle_id)
+                lane_vector[pos_grid] = self.current_step_vehicle_subscription[
+                    vehicle_id][tc.VAR_ACCUMULATED_WAITING_TIME]
+            lane_vector_list.append(lane_vector)
+        return np.array(lane_vector_list)
 
     # ================= get functions from outside ======================
 
@@ -477,7 +424,7 @@ class Intersection:
         return traci_connection.simulation.getTime()
 
     def get_dic_vehicle_arrive_leave_time(self):
-        return self.dic_vehicle_arrive_leave_time
+        return self.vehicle_arrive_leave_time_dict
 
     def get_feature(self, feature_names):
 
@@ -488,11 +435,11 @@ class Intersection:
 
         features = {}
         for feature_name in feature_names:
-            if feature_name in self.dic_feature:
-                feature = self.dic_feature[feature_name]
-            elif feature_name in self.dic_feature_function:
-                feature = self.dic_feature_function[feature_name]()
-                self.dic_feature[feature_name] = feature
+            if feature_name in self.feature_dict:
+                feature = self.feature_dict[feature_name]
+            elif feature_name in self.feature_dict_function:
+                feature = self.feature_dict_function[feature_name]()
+                self.feature_dict[feature_name] = feature
             else:
                 raise ValueError("There is no " + str(feature_name))
             features[feature_name] = feature
@@ -504,34 +451,33 @@ class Intersection:
 
     def _update_feature(self):
 
-        dic_feature = {}
-        for f in self.list_state_feature:
-            dic_feature[f] = self.dic_feature_function[f]()
+        feature_dict = {}
+        for f in self.state_feature_list:
+            feature_dict[f] = self.feature_dict_function[f]()
 
-        self.dic_feature = dic_feature
+        self.feature_dict = feature_dict
 
-    def get_state(self, list_state_features):
-        dic_state = {state_feature_name: self.dic_feature[state_feature_name]
-                     for state_feature_name in list_state_features}
-        return dic_state
+    def get_state(self, state_feature_list):
+        state_dict = {state_feature_name: self.feature_dict[state_feature_name]
+                      for state_feature_name in state_feature_list}
+        return state_dict
 
-    def get_reward(self, dic_reward_info):
+    def get_reward(self, reward_info_dict):
 
         reward = 0
-        for r in dic_reward_info:
-            if dic_reward_info[r] != 0:
-                reward += dic_reward_info[r] * self.dic_reward_function[r]()
+        for r in reward_info_dict:
+            if reward_info_dict[r] != 0:
+                reward += reward_info_dict[r] * self.reward_dict_function[r]()
 
         return reward
 
-    def _get_vehicle_info(self, veh_id):
+    def _get_vehicle_info(self, vehicle_id):
         try:
-            pos = self.dic_vehicle_sub_current_step[veh_id][get_traci_constant_mapping("VAR_LANEPOSITION")]
-            speed = self.dic_vehicle_sub_current_step[veh_id][get_traci_constant_mapping("VAR_SPEED")]
-            return pos, speed
+            lane_position = self.current_step_vehicle_subscription[vehicle_id][tc.VAR_LANEPOSITION]
+            speed = self.current_step_vehicle_subscription[vehicle_id][tc.VAR_SPEED]
+            return lane_position, speed
         except Exception as e:
             return None, None
-
 
     def select_action_based_on_time_restriction(self, threshold=120):
         # order movements by the waiting time of the first car
@@ -542,7 +488,7 @@ class Intersection:
             return -1
 
         lane_waiting_time_dict = sumo_traci_util.get_lane_first_stopped_car_waiting_times(
-            self.list_entering_lanes, self.dic_lane_vehicle_sub_current_step)
+            self.controlled_entering_lanes, self.current_step_lane_vehicle_subscription)
 
         movements_waiting_time_dict = {}
         for movement in self.movements:

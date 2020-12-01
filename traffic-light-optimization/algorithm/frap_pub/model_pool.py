@@ -135,11 +135,11 @@ class ModelPool():
 
                     action_list[index] = action
 
-                next_state, reward, done, steps_iterated, next_action, _ = env.step(action_list)
+                next_state, reward, done, steps_iterated, next_action = env.step(action_list)
 
                 state = next_state
                 step += steps_iterated
-            env.bulk_log()
+            env.save_log()
             env.end_sumo()
 
             # summary items (duration) from csv

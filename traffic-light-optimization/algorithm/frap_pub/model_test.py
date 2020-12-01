@@ -19,8 +19,8 @@ def check_all_workers_working(list_cur_p):
     return -1
 
 
-def downsample(path_to_log):
-    path_to_pkl = os.path.join(path_to_log, "inter_0.pkl")
+def downsample(path_to_log, intersection_id):
+    path_to_pkl = os.path.join(path_to_log, "inter_{0}.pkl".format(intersection_id))
     with open(ROOT_DIR + '/' + path_to_pkl, "rb") as f_logging_data:
         logging_data = pickle.load(f_logging_data)
     subset_data = logging_data[::10]
@@ -128,7 +128,7 @@ def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_c
         dic_traffic_env_conf=dic_traffic_env_conf,
         dic_path=dic_path,
         dic_exp_conf=dic_exp_conf,
-        cnt_round=1,  # useless
+        cnt_round=None,  # useless
         mode='test'
     )
     try:
@@ -165,24 +165,25 @@ def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_c
 
                 action_list[index] = action
 
-            next_state, reward, done, steps_iterated, next_action, _ = env.step(action_list)
+            next_state, reward, done, steps_iterated, next_action = env.step(action_list)
 
             state = next_state
             step += steps_iterated
             stop_cnt += steps_iterated
-        env.bulk_log()
+        env.save_log()
 
         if dic_traffic_env_conf["DONE_ENABLE"]:
             run_cnt_log = open(os.path.join(ROOT_DIR, records_dir, "test_stop_cnt_log.txt"), "a")
             run_cnt_log.write("%s, %10s, %d\n"%("test", "round_"+str(cnt_round), stop_cnt))
             run_cnt_log.close()
 
-        write_summary(dic_path, run_cnt, cnt_round)
+        #write_summary(dic_path, run_cnt, cnt_round)
         env.end_sumo()
         if not dic_exp_conf["DEBUG"]:
             path_to_log = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round", model_round)
             # print("downsample", path_to_log)
-            downsample(path_to_log)
+            for intersection_id in dic_traffic_env_conf["INTERSECTION_ID"]:
+                downsample(path_to_log, intersection_id)
             # print("end down")
 
     except Exception as e:
@@ -190,7 +191,7 @@ def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_c
         if not os.path.exists(ROOT_DIR + '/' + error_dir):
             os.makedirs(ROOT_DIR + '/' + error_dir)
         f = open(os.path.join(ROOT_DIR, error_dir, "error_info.txt"), "a")
-        f.write("round_%d fail to test model"%cnt_round)
+        f.write("round_%d fail to test model" % cnt_round)
         f.close()
         pass
         # import sys

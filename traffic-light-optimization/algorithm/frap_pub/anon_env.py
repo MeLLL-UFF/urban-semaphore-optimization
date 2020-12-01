@@ -229,7 +229,7 @@ class Intersection:
 
         dic_feature = dict()
 
-        dic_feature["cur_phase"] = [self.current_phase_index]
+        dic_feature["current_phase"] = [self.current_phase_index]
         dic_feature["time_this_phase"] = [self.current_phase_duration]
         dic_feature["vehicle_position_img"] = None #self._get_lane_vehicle_position(self.list_entering_lanes)
         dic_feature["vehicle_speed_img"] = None #self._get_lane_vehicle_speed(self.list_entering_lanes)
@@ -237,8 +237,8 @@ class Intersection:
         dic_feature["vehicle_waiting_time_img"] = None #self._get_lane_vehicle_accumulated_waiting_time(self.list_entering_lanes)
 
         dic_feature["lane_num_vehicle"] = self._get_lane_num_vehicle(self.list_entering_lanes)
-        dic_feature["lane_num_vehicle_been_stopped_thres01"] = self._get_lane_num_vehicle_been_stopped(0.1, self.list_entering_lanes)
-        dic_feature["lane_num_vehicle_been_stopped_thres1"] = self._get_lane_num_vehicle_been_stopped(1, self.list_entering_lanes)
+        dic_feature["lane_num_vehicle_been_stopped_threshold_01"] = self._get_lane_num_vehicle_been_stopped(0.1, self.list_entering_lanes)
+        dic_feature["lane_num_vehicle_been_stopped_threshold_1"] = self._get_lane_num_vehicle_been_stopped(1, self.list_entering_lanes)
         dic_feature["lane_queue_length"] = self._get_lane_queue_length(self.list_entering_lanes)
         dic_feature["lane_num_vehicle_left"] = None
         dic_feature["lane_sum_duration_vehicle_left"] = None
@@ -337,27 +337,28 @@ class Intersection:
 
         return self.dic_feature
 
-    def get_state(self, list_state_features):
+    def get_state(self, state_feature_list):
 
-        dic_state = {state_feature_name: self.dic_feature[state_feature_name] for state_feature_name in list_state_features}
+        dic_state = {state_feature_name: self.dic_feature[state_feature_name]
+                     for state_feature_name in state_feature_list}
 
         return dic_state
 
-    def get_reward(self, dic_reward_info):
+    def get_reward(self, reward_info_dict):
 
-        dic_reward = dict()
-        dic_reward["flickering"] = None
-        dic_reward["sum_lane_queue_length"] = None
-        dic_reward["sum_lane_wait_time"] = None
-        dic_reward["sum_lane_num_vehicle_left"] = None
-        dic_reward["sum_duration_vehicle_left"] = None
-        dic_reward["sum_num_vehicle_been_stopped_thres01"] = None
-        dic_reward["sum_num_vehicle_been_stopped_thres1"] = np.sum(self.dic_feature["lane_num_vehicle_been_stopped_thres1"])
+        reward_dict = dict()
+        reward_dict["flickering"] = None
+        reward_dict["sum_lane_queue_length"] = None
+        reward_dict["sum_lane_wait_time"] = None
+        reward_dict["sum_lane_num_vehicle_left"] = None
+        reward_dict["sum_duration_vehicle_left"] = None
+        reward_dict["sum_num_vehicle_been_stopped_thresjold_01"] = None
+        reward_dict["sum_num_vehicle_been_stopped_threshold_1"] = np.sum(self.dic_feature["lane_num_vehicle_been_stopped_threshold_1"])
 
         reward = 0
-        for r in dic_reward_info:
-            if dic_reward_info[r] != 0:
-                reward += dic_reward_info[r] * dic_reward[r]
+        for r in reward_info_dict:
+            if reward_info_dict[r] != 0:
+                reward += reward_info_dict[r] * reward_dict[r]
         return reward
 
 class AnonEnv:
@@ -385,7 +386,7 @@ class AnonEnv:
         #                            self.dic_traffic_env_conf["THREADNUM"],
         #                            self.dic_traffic_env_conf["SAVEREPLAY"],
         #                            self.dic_traffic_env_conf["RLTRAFFICLIGHT"])
-        #self.load_roadnet(self.dic_traffic_env_conf["ROADNET_FILE"])
+        #self.load_roadnet(self.dic_traffic_env_conf["NET_FILE"])
         #self.load_flow(self.dic_traffic_env_conf["TRAFFIC_FILE"])
 
         self.list_intersection = None
@@ -402,7 +403,7 @@ class AnonEnv:
             #raise ValueError
 
         # touch new inter_{}.pkl (if exists, remove)
-        for inter_ind in range(self.dic_traffic_env_conf["NUM_INTERSECTIONS"]):
+        for inter_ind in range(self.dic_traffic_env_conf['INTERSECTION_ID']):
             path_to_log_file = os.path.join(self.path_to_log, "inter_{0}.pkl".format(inter_ind))
             f = open(ROOT_DIR + '/' + path_to_log_file, "wb")
             f.close()
@@ -414,7 +415,7 @@ class AnonEnv:
                                  self.dic_traffic_env_conf["THREADNUM"],
                                  self.dic_traffic_env_conf["SAVEREPLAY"],
                                  self.dic_traffic_env_conf["RLTRAFFICLIGHT"])
-        self.load_roadnet(self.dic_traffic_env_conf["ROADNET_FILE"])
+        self.load_roadnet(self.dic_traffic_env_conf["NET_FILE"])
         self.load_flow(self.dic_traffic_env_conf["TRAFFIC_FILE"])
 
 
@@ -461,15 +462,18 @@ class AnonEnv:
             state = self.get_state()
 
             if self.dic_traffic_env_conf['DEBUG']:
-                print("time: {0}, phase: {1}, time this phase: {2}, action: {3}".format(instant_time, before_action_feature[0]["cur_phase"], before_action_feature[0]["time_this_phase"], action_in_sec_display[0]))
+                print("time: {0}, phase: {1}, time this phase: {2}, action: {3}".format(
+                    instant_time,
+                    before_action_feature[0]["current_phase"],
+                    before_action_feature[0]["time_this_phase"],
+                    action_in_sec_display[0]))
             else:
                 if i == 0:
-                    print("time: {0}, phase: {1}, time this phase: {2}, action: {3}".format(instant_time,
-                                                                                        before_action_feature[0][
-                                                                                            "cur_phase"],
-                                                                                        before_action_feature[0][
-                                                                                            "time_this_phase"],
-                                                                                        action_in_sec_display[0]))
+                    print("time: {0}, phase: {1}, time this phase: {2}, action: {3}".format(
+                        instant_time,
+                        before_action_feature[0]["current_phase"],
+                        before_action_feature[0]["time_this_phase"],
+                        action_in_sec_display[0]))
 
             # _step
             self._inner_step(action_in_sec)
@@ -518,11 +522,11 @@ class AnonEnv:
             self.log_first_vehicle()
             self.log_phase()
 
-    def load_roadnet(self, roadnetFile=None):
-        if not roadnetFile:
-            roadnetFile = "roadnet_1_1.json"
-        self.eng.load_roadnet(os.path.join(ROOT_DIR, self.path_to_work_directory, roadnetFile))
-        print("successfully load roadnet: ", roadnetFile)
+    def load_roadnet(self, net_file=None):
+        if not net_file:
+            net_file = "roadnet_1_1.json"
+        self.eng.load_roadnet(os.path.join(ROOT_DIR, self.path_to_work_directory, net_file))
+        print("successfully load roadnet: ", net_file)
 
     def load_flow(self, flowFile=None):
         if not flowFile:
@@ -555,13 +559,14 @@ class AnonEnv:
 
     def get_state(self):
 
-        list_state = [inter.get_state(self.dic_traffic_env_conf["LIST_STATE_FEATURE"]) for inter in self.list_intersection]
+        list_state = [inter.get_state(self.dic_traffic_env_conf["STATE_FEATURE_LIST"])
+                      for inter in self.list_intersection]
 
         return list_state
 
     def get_reward(self):
 
-        list_reward = [inter.get_reward(self.dic_traffic_env_conf["DIC_REWARD_INFO"]) for inter in self.list_intersection]
+        list_reward = [inter.get_reward(self.dic_traffic_env_conf["REWARD_INFO_DICT"]) for inter in self.list_intersection]
 
         return list_reward
 
@@ -575,7 +580,7 @@ class AnonEnv:
                                                     "state": before_action_feature[inter_ind],
                                                     "action": action[inter_ind]})
 
-    def bulk_log(self):
+    def save_log(self):
 
         for inter_ind in range(len(self.list_inter_log)):
             path_to_log_file = os.path.join(self.path_to_log, "inter_{0}.pkl".format(inter_ind))
@@ -605,7 +610,7 @@ class AnonEnv:
             "road_1_2_3_0": "n"
         }
         for inter in self.list_intersection:
-            for lane in inter.list_entering_lanes:
+            for lane in inter.controlled_entering_lanes:
                 print(str(self.get_current_time()) + ", " + lane + ", " + list_to_str(inter._get_lane_vehicle_position([lane])[0]),
                       file=open(os.path.join(ROOT_DIR, self.path_to_log,
                                              "lane_vehicle_position_%s.txt"%dic_lane_map[lane]), "a"))

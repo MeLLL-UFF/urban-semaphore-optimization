@@ -8,7 +8,7 @@ import lxml.etree as etree
 
 import definitions
 from utils.traffic_util import generate_all_traffic_level_configurations
-from utils.sumo_util import get_intersection_edge_ids, adjusts_intersection_position
+from utils.sumo_util import get_intersection_edge_ids_old, adjusts_intersection_position
 from utils.xml_util import rename_xml_string
 
 
@@ -64,7 +64,7 @@ def _build_experiment_iii_network(type='regular'):
         x_spacing += x2 - x1 + SPACING
 
 
-        number_of_incoming_streets = len(get_intersection_edge_ids(net_xml)[0])
+        number_of_incoming_streets = len(get_intersection_edge_ids_old(net_xml)[0])
         traffic_level_configurations_generator = generate_all_traffic_level_configurations(
             number_of_incoming_streets)
         number_of_traffic_level_configurations = len(list(traffic_level_configurations_generator))
@@ -133,7 +133,7 @@ def _build_experiment_iii_routes():
 
         flows = route_xml.findall(".//flow")
 
-        number_of_incoming_streets = len(get_intersection_edge_ids(net_xml)[0])
+        number_of_incoming_streets = len(get_intersection_edge_ids_old(net_xml)[0])
         traffic_level_configurations_generator = generate_all_traffic_level_configurations(
             number_of_incoming_streets)
         number_of_traffic_level_configurations = len(list(traffic_level_configurations_generator))

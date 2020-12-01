@@ -152,20 +152,13 @@ class Experiment:
             route_file_name
         ]
         external_configurations['SUMOCFG_FILE'] = sumocfg_file_name
-        external_configurations['ROADNET_FILE'] = net_file_name
+        external_configurations['NET_FILE'] = net_file_name
         external_configurations['_LIST_SUMO_FILES'] = [
             external_configurations['SUMOCFG_FILE'],
-            external_configurations['ROADNET_FILE']
+            external_configurations['NET_FILE']
         ]
 
         external_configurations['TRAFFIC_LEVEL_CONFIGURATION'] = traffic_level_configuration
-
-        parser = etree.XMLParser(remove_blank_text=True)
-        net_xml = etree.parse(net_file, parser)
-        intersection_id = sumo_util.get_intersections_ids(net_xml)[0]
-        external_configurations['INTERSECTION_ID'] = intersection_id
-
-        external_configurations['NUMBER_OF_LEGS_NETWORK_COMPATIBILITY'] = 5
 
         external_configurations['USE_SUMO_DIRECTIONS_IN_MOVEMENT_DETECTION'] = False
         external_configurations['UNIQUE_ID'] = str(uuid.uuid4())

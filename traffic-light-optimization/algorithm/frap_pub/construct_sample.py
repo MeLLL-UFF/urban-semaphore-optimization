@@ -20,20 +20,21 @@ class ConstructSample:
         self.logging_data = None
         self.samples = None
 
-    def load_data(self, folder):
+    def load_data(self, folder, intersection_id):
 
         try:
             # load settings
             self.measure_time = self.dic_traffic_env_conf["MEASURE_TIME"]
             self.min_action_time = self.dic_traffic_env_conf["MIN_ACTION_TIME"]
-            f_logging_data = open(os.path.join(ROOT_DIR, self.path_to_samples, folder, "inter_0.pkl"), "rb")
+            f_logging_data = open(os.path.join(ROOT_DIR, self.path_to_samples, folder,
+                                               "inter_{0}.pkl".format(intersection_id)), "rb")
             self.logging_data = pickle.load(f_logging_data)
             f_logging_data.close()
-            return 1
+            return True
 
         except FileNotFoundError:
             print(os.path.join(ROOT_DIR, self.path_to_samples, folder), "files not found")
-            return 0
+            return False
 
     def construct_state(self, features, index, time):
         state = self.logging_data[index]
@@ -42,7 +43,7 @@ class ConstructSample:
             state_after_selection = {}
             for key, value in state["state"].items():
                 if key in features:
-                    if key == "cur_phase":
+                    if key == "current_phase":
                         state_after_selection[key] = self.dic_phase_expansion[value[0]]
                     else:
                         state_after_selection[key] = value
@@ -52,20 +53,20 @@ class ConstructSample:
 
     def construct_reward(self, index, time):
 
-        rs = self.logging_data[index + self.measure_time - 1]
-        assert time + self.measure_time - 1 == rs["time"]
-        r_instant = rs['reward']
+        data = self.logging_data[index + self.measure_time - 1]
+        assert time + self.measure_time - 1 == data["time"]
+        instant_reward = data['reward']
 
         # average
-        list_r = []
+        rewards = []
         for i, t in zip(range(index, index + self.measure_time), range(time, time + self.measure_time)):
-            rs = self.logging_data[i]
-            assert t == rs["time"]
-            r = rs['reward']
-            list_r.append(r)
-        r_average = np.average(list_r)
+            data = self.logging_data[i]
+            assert t == data["time"]
+            reward = data['reward']
+            rewards.append(reward)
+        average_reward = np.average(rewards)
 
-        return r_instant, r_average
+        return instant_reward, average_reward
 
     def judge_action(self, index):
         if self.logging_data[index]['action'] == -1:
@@ -79,44 +80,48 @@ class ConstructSample:
             if "generator" not in folder:
                 continue
 
-            if not self.load_data(folder):
-                continue
-            list_samples = []
-            total_time = int(self.logging_data[-1]['time'] + 1)
-            # construct samples
-            for index in range(start_index, len(self.logging_data) - self.measure_time + 1, self.min_action_time):
-                time = int(self.logging_data[index]['time'])
-                state = self.construct_state(self.dic_traffic_env_conf["LIST_STATE_FEATURE"], index, time)
-                reward_instant, reward_average = self.construct_reward(index, time)
-                action = self.judge_action(index)
+            for intersection_id in self.dic_traffic_env_conf["INTERSECTION_ID"]:
 
-                if time + self.min_action_time == total_time:
-                    next_state = self.construct_state(
-                        self.dic_traffic_env_conf["LIST_STATE_FEATURE"],
-                        index + self.min_action_time - 1,
-                        time + self.min_action_time - 1
-                    )
-                else:
-                    next_state = self.construct_state(
-                        self.dic_traffic_env_conf["LIST_STATE_FEATURE"],
-                        index + self.min_action_time,
-                        time + self.min_action_time
-                    )
+                loaded = self.load_data(folder, intersection_id)
+                if not loaded:
+                    continue
 
-                sample = [state, action, next_state, reward_average, reward_instant, time]
-                list_samples.append(sample)
+                samples = []
+                total_time = int(self.logging_data[-1]['time'] + 1)
+                # construct samples
+                for index in range(start_index, len(self.logging_data) - self.measure_time + 1, self.min_action_time):
+                    time = int(self.logging_data[index]['time'])
+                    state = self.construct_state(self.dic_traffic_env_conf["STATE_FEATURE_LIST"], index, time)
+                    instant_reward, average_reward = self.construct_reward(index, time)
+                    action = self.judge_action(index)
 
-            list_samples = self.evaluate_sample(list_samples)
-            self.samples.extend(list_samples)
+                    if time + self.min_action_time == total_time:
+                        next_state = self.construct_state(
+                            self.dic_traffic_env_conf["STATE_FEATURE_LIST"],
+                            index + self.min_action_time - 1,
+                            time + self.min_action_time - 1
+                        )
+                    else:
+                        next_state = self.construct_state(
+                            self.dic_traffic_env_conf["STATE_FEATURE_LIST"],
+                            index + self.min_action_time,
+                            time + self.min_action_time
+                        )
+
+                    sample = [state, action, next_state, average_reward, instant_reward, time]
+                    samples.append(sample)
+
+                samples = self.evaluate_sample(samples)
+                self.samples.extend(samples)
 
         self.dump_sample(self.samples, "")
 
-    def evaluate_sample(self, list_samples):
-        return list_samples
+    def evaluate_sample(self, samples):
+        return samples
 
     def dump_sample(self, samples, folder):
         if folder == "":
-            with open(os.path.join(ROOT_DIR, self.parent_dir, "total_samples.pkl"),"ab+") as f:
+            with open(os.path.join(ROOT_DIR, self.parent_dir, "total_samples.pkl"), "ab+") as f:
                 pickle.dump(samples, f, -1)
         else:
             with open(os.path.join(ROOT_DIR, self.path_to_samples, folder, "samples_{0}.pkl".format(folder)), 'wb') as f:

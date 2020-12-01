@@ -71,12 +71,12 @@ class Runner:
 
                 action_list[index] = action
 
-            next_state, reward, done, steps_iterated, next_action, _ = self.env.step(action_list)
+            next_state, reward, done, steps_iterated, next_action = self.env.step(action_list)
 
             state = next_state
             step += steps_iterated
             stop_cnt += steps_iterated
-        self.env.bulk_log()
+        self.env.save_log()
         self.env.end_sumo()
 
         if self.dic_traffic_env_conf["DONE_ENABLE"]:

@@ -5,8 +5,19 @@ import lxml.etree as etree
 
 copyreg_registered = False
 
+parser = etree.XMLParser(remove_blank_text=True)
+
+
+def get_xml(file):
+
+    xml = etree.parse(file, parser)
+
+    return xml
+
+
 def etree_unpickler(data):
     return etree.fromstring(data)
+
 
 def etree_pickler(tree):
     data = etree.tostring(tree)

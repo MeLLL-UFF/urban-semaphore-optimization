@@ -145,9 +145,9 @@ class Pipeline:
         #self.best_round = model_pool.get()
         #print("self.best_round", self.best_round)
 
-    def downsample(self, path_to_log):
+    def downsample(self, path_to_log, intersection_id):
 
-        path_to_pkl = os.path.join(path_to_log, "inter_0.pkl")
+        path_to_pkl = os.path.join(path_to_log, "inter_{0}.pkl".format(intersection_id))
         f_logging_data = open(ROOT_DIR + '/' + path_to_pkl, "rb")
         logging_data = pickle.load(f_logging_data)
         subset_data = logging_data[::10]
@@ -356,7 +356,8 @@ class Pipeline:
                 for cnt_gen in range(self.dic_exp_conf["NUM_GENERATORS"]):
                     path_to_log = os.path.join(self.dic_path["PATH_TO_WORK_DIRECTORY"], "train_round",
                                                "round_" + str(cnt_round), "generator_" + str(cnt_gen))
-                    self.downsample(path_to_log)
+                    for intersection_id in self.dic_traffic_env_conf["INTERSECTION_ID"]:
+                        self.downsample(path_to_log, intersection_id)
 
             # ==============  test evaluation =============
             if multi_process:
@@ -517,8 +518,8 @@ class Pipeline:
 
         shutil.copy(os.path.join(ROOT_DIR, self.dic_path["PATH_TO_DATA"], self.dic_exp_conf["TRAFFIC_FILE"][0]),
                         os.path.join(ROOT_DIR, path, self.dic_exp_conf["TRAFFIC_FILE"][0]))
-        shutil.copy(os.path.join(ROOT_DIR, self.dic_path["PATH_TO_DATA"], self.dic_exp_conf["ROADNET_FILE"]),
-                    os.path.join(ROOT_DIR, path, self.dic_exp_conf["ROADNET_FILE"]))
+        shutil.copy(os.path.join(ROOT_DIR, self.dic_path["PATH_TO_DATA"], self.dic_exp_conf["NET_FILE"]),
+                    os.path.join(ROOT_DIR, path, self.dic_exp_conf["NET_FILE"]))
 
     def _modify_sumo_file(self, path=None, sumocfg_file=''):
         if path == None:
