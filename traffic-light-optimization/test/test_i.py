@@ -189,6 +189,7 @@ def _configure_scenario_routes(scenario, traffic_level_configuration):
             '--turn-defaults', turn_default,
             '--route-files', base_route_file,
             '--accept-all-destinations',
+            '--max-edges-factor', str(0.5),
             '-o', route_file]
 
     subprocess.call(args)
