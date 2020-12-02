@@ -908,6 +908,7 @@ def convert_sumo_angle_to_canonical_angle(sumo_angle):
     return canonical_angle
 
 
+# Sumo 1.7.0 only
 def convert_flows_to_trips(route_file):
     
     route_xml = xml_util.get_xml(route_file)
@@ -962,6 +963,7 @@ def convert_flows_to_trips(route_file):
         route_xml.write(handle, pretty_print=True)
 
 
+# Sumo 1.7.0 only
 def fix_save_state_stops(net_xml, save_state, time):
 
     save_state_xml = xml_util.get_xml(save_state)

@@ -35,7 +35,7 @@ traffic_level_mapping = {
     'heavy': 0.7
 }
 
-# test_i_folder = definitions.ROOT_DIR + config.SCENARIO_PATH + '/experimental'
+#test_i_folder = definitions.ROOT_DIR + config.SCENARIO_PATH + '/experimental'
 test_i_folder = definitions.ROOT_DIR + config.SCENARIO_PATH + '/test_i'
 
 NUMBER_OF_PROCESSES = 4
@@ -116,6 +116,7 @@ def _build_experiment_i_routes():
                 '--turn-defaults', turn_default,
                 '--route-files', base_route_file,
                 '--accept-all-destinations',
+                '--max-edges-factor', str(0.5),
                 '-o', route_file]
 
         subprocess.call(args)

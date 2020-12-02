@@ -1,5 +1,4 @@
 import os
-import sys
 import shutil
 import json
 import pickle
@@ -11,8 +10,6 @@ from multiprocessing import Process
 import numpy as np
 import pandas as pd
 import xml.etree.ElementTree as ET
-
-from utils import sumo_util
 
 from algorithm.frap_pub.generator import Generator
 from algorithm.frap_pub.runner import Runner
@@ -52,9 +49,12 @@ class Pipeline:
                 self._copy_sumo_file(_list_sumo_files=_list_sumo_files)
                 self._modify_sumo_file(sumocfg_file=sumocfg_file)
 
+                # Sumo 1.7.0 only
+                '''
                 route_file_name = dic_traffic_env_conf['TRAFFIC_FILE']
                 route_filepath = os.path.join(ROOT_DIR, self.dic_path["PATH_TO_WORK_DIRECTORY"], route_file_name)
                 sumo_util.convert_flows_to_trips(route_filepath)
+                '''
 
             elif self.dic_traffic_env_conf["SIMULATOR_TYPE"] == 'anon':
                 self._copy_anon_file()

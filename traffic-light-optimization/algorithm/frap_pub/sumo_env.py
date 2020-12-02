@@ -2,12 +2,10 @@ import os
 import sys
 import pickle
 import uuid
-from sys import platform
 
 import numpy as np
 import traci
 import traci.constants as tc
-from sumolib import checkBinary
 
 from utils import sumo_util, sumo_traci_util, xml_util
 
@@ -150,6 +148,17 @@ class SumoEnv:
         self.edges_list = np.unique(self.edges_list).tolist()
         self.lanes_list = np.unique(self.lanes_list).tolist()
 
+        self.current_step_lane_subscription = None
+        self.previous_step_lane_subscription = None
+        self.current_step_vehicle_subscription = None
+        self.previous_step_vehicle_subscription = None
+        self.current_step_lane_vehicle_subscription = None
+        self.previous_step_lane_vehicle_subscription = None
+        self.current_step_vehicles = []
+        self.previous_step_vehicles = []
+
+        self.vehicle_arrive_leave_time_dict = {}  # cumulative
+
         if self.sumo_output_enabled:
 
             output_file = self.external_configurations['SUMOCFG_PARAMETERS']['--log']
@@ -181,6 +190,8 @@ class SumoEnv:
         except Exception as e:
             traci.close()
 
+            # Sumo 1.7.0 only
+            '''
             if '--load-state' in self.external_configurations['SUMOCFG_PARAMETERS']:
 
                 save_state = self.external_configurations['SUMOCFG_PARAMETERS']['--load-state']
@@ -189,6 +200,7 @@ class SumoEnv:
                 net_file = self.external_configurations['SUMOCFG_PARAMETERS']['-n']
                 net_xml = xml_util.get_xml(net_file)
                 stops_to_issue = sumo_util.fix_save_state_stops(net_xml, save_state, time)
+            '''
 
             try:
                 traci.start(sumo_cmd_str, label=self.execution_name)
@@ -210,6 +222,7 @@ class SumoEnv:
             traci_connection.lane.subscribe(lane, [var for var in self.LANE_VARIABLES_TO_SUBSCRIBE])
 
         # get new measurements
+        self.update_current_measurements()
         for intersection in self.intersections:
             intersection.update_current_measurements()
 
@@ -256,8 +269,11 @@ class SumoEnv:
             traci_connection.vehicle.subscribe(vehicle_id, [var for var in self.VEHICLE_VARIABLES_TO_SUBSCRIBE])
 
         # vehicle level observations
-        self.current_step_vehicle_subscription = {vehicle: traci_connection.vehicle.getSubscriptionResults(vehicle)
-                                                  for vehicle in self.current_step_vehicles}
+        self.current_step_vehicle_subscription = {
+            vehicle_id: traci_connection.vehicle.getSubscriptionResults(vehicle_id)
+            for vehicle_id in self.current_step_vehicles
+        }
+
         self.current_step_lane_vehicle_subscription = {}
         for vehicle_id, values in self.current_step_vehicle_subscription.items():
             lane_id = values[tc.VAR_LANE_ID]
@@ -531,6 +547,8 @@ class SumoEnv:
         for intersection in self.intersections:
             intersection.update_current_measurements()
 
+            # Sumo 1.7.0 only
+            '''
             blocked_vehicles = sumo_traci_util.detect_deadlock(
                 intersection.id,
                 intersection.net_file_xml,
@@ -545,6 +563,7 @@ class SumoEnv:
                 intersection.current_step_vehicle_subscription,
                 traci_label=self.execution_name
             )
+            '''
 
     def _check_episode_done(self, state_list):
 

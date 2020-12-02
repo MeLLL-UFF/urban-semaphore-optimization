@@ -243,6 +243,7 @@ def get_next_lane(vehicle, net_xml, vehicle_subscription_data):
     return next_lane
 
 
+# Sumo 1.7.0 only
 def detect_deadlock(intersection_id, net_xml, vehicle_subscription_data,
                     waiting_too_long_threshold=10, traci_label=None):
 
@@ -319,6 +320,7 @@ def detect_deadlock(intersection_id, net_xml, vehicle_subscription_data,
     return blocked_vehicles
 
 
+# Sumo 1.7.0 only
 def resolve_deadlock(blocked_vehicles, net_xml, vehicle_subscription_data, traci_label=None):
 
     if traci_label is None:

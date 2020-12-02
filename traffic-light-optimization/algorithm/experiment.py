@@ -2,18 +2,13 @@ import os
 import shutil
 import uuid
 
-import numpy as np
-import lxml.etree as etree
 import pandas as pd
 import matplotlib as mlp
 mlp.use("agg")
-import matplotlib.pyplot as plt
-from matplotlib.ticker import (MultipleLocator, MaxNLocator, FormatStrFormatter)
 
 from algorithm.frap_pub import run_batch, replay, summary
 from algorithm.frap_pub.definitions import ROOT_DIR as FRAP_ROOT_DIR
 
-from utils import sumo_util
 from config import Config as config
 from definitions import ROOT_DIR
 
@@ -174,7 +169,7 @@ class Experiment:
             '--collision.action': 'warn',
             '--collision.check-junctions': True,
             '--device.rerouting.threads': 4,
-            '--ignore-junction-blocker': 10  # Currently not working
+            '--ignore-junction-blocker': 10  # working in Sumo 1.8.0
         }
 
         return external_configurations
