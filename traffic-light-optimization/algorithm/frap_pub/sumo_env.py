@@ -554,29 +554,6 @@ class SumoEnv:
 
     def _get_sumo_cmd(self):
 
-        if platform == "linux" or platform == "linux2":
-            if os.environ['SUMO_HOME'] == '/usr/share/sumo':
-                sumo_binary = r"/usr/bin/sumo-gui"
-                sumo_binary_nogui = r"/usr/bin/sumo"
-            elif os.environ['SUMO_HOME'] == '/headless/sumo':
-                sumo_binary = r"/headless/sumo/bin/sumo-gui"
-                sumo_binary_nogui = r"/headless/sumo/bin/sumo"
-            else:
-                sys.exit("linux sumo binary path error")
-            # for FIB-Server
-            # sumo_binary = r"/usr/bin/sumo/bin/sumo-gui"
-            # sumo_binary_nogui = r"/usr/bin/sumo"
-        elif platform == "darwin":
-            sumo_binary = r"/opt/local/bin/sumo-gui"
-            sumo_binary_nogui = r"/opt/local/bin/sumo"
-        elif platform == "win32":
-            sumo_binary = checkBinary('sumo-gui')
-            sumo_binary_nogui = checkBinary('sumo')
-            # sumo_binary = r'D:\\software\\sumo-0.32.0\\bin\\sumo-gui.exe'
-            # sumo_binary_nogui = r'D:\\software\\sumo-0.32.0\\bin\\sumo.exe'
-        else:
-            sys.exit("platform error")
-
         sumocfg_file = self.external_configurations['SUMOCFG_FILE']
 
         real_path_to_sumo_files = os.path.join(os.path.split(os.path.realpath(__file__))[0],
@@ -598,11 +575,7 @@ class SumoEnv:
                                    for key_value_pair in sumocfg_parameters.items()
                                    for item in key_value_pair]
 
+        sumo_binary = sumo_util.get_sumo_binary(self.dic_traffic_env_conf["IF_GUI"])
         sumo_cmd = [sumo_binary, *sumocfg_parameters_list]
 
-        sumo_cmd_nogui = [sumo_binary_nogui, *sumocfg_parameters_list]
-
-        if self.dic_traffic_env_conf["IF_GUI"]:
-            return sumo_cmd
-        else:
-            return sumo_cmd_nogui
+        return sumo_cmd
