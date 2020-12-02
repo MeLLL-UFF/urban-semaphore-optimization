@@ -1,1 +1,1 @@
-python3.7 python3-pip sumo sumo-tools sumo-doc
+python3.7 python3-pip cmake python g++ libxerces-c-dev libfox-1.6-dev libgdal-dev libproj-dev libgl2ps-dev ccache

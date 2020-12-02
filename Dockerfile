@@ -1,8 +1,6 @@
 
 FROM tensorflow/tensorflow:latest-gpu
 
-ENV SUMO_HOME=/usr/share/sumo
-
 ARG USER_ID
 ARG GROUP_ID
 
@@ -21,6 +19,12 @@ RUN apt-get update -y && \
 COPY --chown=root ./requirements.txt /app
 RUN pip3 install --upgrade pip && \
     pip3 install -r requirements.txt
+
+RUN curl https://sumo.dlr.de/releases/1.8.0/sumo-src-1.8.0.tar.gz \
+    | tar -xz
+ENV SUMO_HOME=sumo-1.8.0
+RUN mkdir sumo-1.8.0/build/cmake-build && cd sumo-1.8.0/build/cmake-build \
+    && cmake ../.. && make -j$(nproc)
 
 ENV REGIONS_PATH=/.regions
 ENV SCENARIO_PATH=/app/scenario
