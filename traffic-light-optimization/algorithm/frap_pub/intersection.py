@@ -144,10 +144,11 @@ class Intersection:
             'lane_sum_waiting_time': lambda: self._get_lane_sum_waiting_time(self.controlled_entering_lanes),
             'terminal': lambda: None,
             'lane_pressure': lambda:
-            np.array(self._get_lane_queue_length(self.controlled_entering_lanes)) -
-            np.array(self._get_lane_queue_length(self.controlled_exiting_lanes)),
+                np.array(self._get_lane_queue_length(self.controlled_entering_lanes)) -
+                np.array(self._get_lane_queue_length(self.controlled_exiting_lanes)),
             'lane_sum_time_loss': lambda: sumo_traci_util.get_time_loss_by_lane(
-                self.current_step_lane_vehicle_subscription, self.controlled_entering_lanes)
+                self.current_step_lane_vehicle_subscription, self.controlled_entering_lanes,
+                self.execution_name)
         }
 
         self.reward_dict_function = {
