@@ -169,6 +169,7 @@ class Experiment:
             '--collision.action': 'warn',
             '--collision.check-junctions': True,
             '--device.rerouting.threads': 4,
+            '--save-state.rng': True,
             '--ignore-junction-blocker': 10  # working in Sumo 1.8.0
         }
 
