@@ -656,11 +656,11 @@ def summary_detail_baseline(memo):
     total_result.to_csv(os.path.join(ROOT_DIR, "summary", memo, "total_baseline_test_results.csv"))
 
 
-def single_experiment_intersection_summary(memo, records_dir, intersection_id, plots='all', _round=None,
+def single_experiment_intersection_summary(memo, records_dir, intersection_id, plots='all', single_round=None,
                                            baseline_comparison=False, baseline_experiments=None):
     # plots: None, 'records_only 'summary_only', 'all'
 
-    if _round is not None:
+    if single_round is not None:
         if plots == 'all':
             print('Changing plots to "records only"')
             plots = 'records_only'
@@ -679,8 +679,8 @@ def single_experiment_intersection_summary(memo, records_dir, intersection_id, p
     round_files = [f for f in round_files if "round" in f]
     round_files.sort(key=lambda x: int(x[6:]))
 
-    if _round is not None:
-        round_files = [round_files[_round]]
+    if single_round is not None:
+        round_files = [round_files[single_round]]
 
     average_reward_each_round = []
     average_time_loss_each_round = []
@@ -769,7 +769,7 @@ def single_experiment_intersection_summary(memo, records_dir, intersection_id, p
             average_relative_occupancy_each_round.append(relative_occupancy_df.mean().to_dict())
             average_relative_mean_speed_each_round.append(relative_mean_speed_df.mean().to_dict())
 
-    if _round is not None:
+    if single_round is not None:
         return
 
     traffic_folder = records_dir.rsplit('/', 1)[1]
@@ -800,19 +800,16 @@ def single_experiment_intersection_summary(memo, records_dir, intersection_id, p
             name_base)
 
 
-def single_experiment_network_summary(memo, records_dir, plots='all', round_=None,
+def single_experiment_network_summary(memo, records_dir, plots='all', single_round=None,
                                       baseline_comparison=False, baseline_experiments=None):
     # plots: None, 'records_only 'summary_only', 'all'
 
-    if round_ is not None:
+    if single_round is not None:
         if plots == 'all':
             print('Changing plots to "records only"')
             plots = 'records_only'
         elif plots == 'summary_only':
             raise ValueError('It is not possible to specify a round and choose summary_only at the same time')
-
-    traffic_env_conf = open(os.path.join(ROOT_DIR, records_dir, "traffic_env.conf"), 'r')
-    dic_traffic_env_conf = json.load(traffic_env_conf)
 
     test_round_dir = os.path.join(records_dir, "test_round")
     try:
@@ -823,8 +820,8 @@ def single_experiment_network_summary(memo, records_dir, plots='all', round_=Non
     round_files = [f for f in round_files if "round" in f]
     round_files.sort(key=lambda x: int(x[6:]))
 
-    if round_ is not None:
-        round_files = [round_files[round_]]
+    if single_round is not None:
+        round_files = [round_files[single_round]]
 
     average_reward_each_round = []
     average_time_loss_each_round = []
@@ -835,9 +832,6 @@ def single_experiment_network_summary(memo, records_dir, plots='all', round_=Non
     traffic_name = traffic_folder
     mode_name = 'test'
     name_base = traffic_name + '-' + mode_name
-
-    movements = dic_traffic_env_conf['MOVEMENT']
-    movement_to_connection = dic_traffic_env_conf['movement_to_connection']
 
     algorithm_label = memo
 
@@ -873,14 +867,6 @@ def single_experiment_network_summary(memo, records_dir, plots='all', round_=Non
                 baseline_comparison=baseline_comparison,
                 baseline_experiments=baseline_experiments)
 
-            summary_util.consolidate_occupancy_and_speed_inflow_outflow(
-                relative_occupancy_each_step,
-                relative_mean_speed_each_step,
-                movements,
-                movement_to_connection,
-                save_path,
-                name_base)
-
         if plots is not None and plots != 'records_only':
 
             relative_occupancy_df = pd.DataFrame(relative_occupancy_each_step)
@@ -891,7 +877,7 @@ def single_experiment_network_summary(memo, records_dir, plots='all', round_=Non
             average_relative_occupancy_each_round.append(relative_occupancy_df.mean().to_dict())
             average_relative_mean_speed_each_round.append(relative_mean_speed_df.mean().to_dict())
 
-    if round_ is not None:
+    if single_round is not None:
         return
 
     traffic_folder = records_dir.rsplit('/', 1)[1]
@@ -913,14 +899,6 @@ def single_experiment_network_summary(memo, records_dir, plots='all', round_=Non
             mean=True)
         summary_util.consolidate_reward(average_reward_each_round, save_path, name_base)
 
-        summary_util.consolidate_occupancy_and_speed_inflow_outflow(
-            average_relative_occupancy_each_round,
-            average_relative_mean_speed_each_round,
-            movements,
-            movement_to_connection,
-            save_path,
-            name_base)
-    
 
 def main(memo=None):
     total_summary = {
