@@ -65,7 +65,8 @@ DIC_TRAFFIC_ENV_CONF = {
         D_VEHICLE_POSITION_IMG=(4, 60,),
         D_VEHICLE_SPEED_IMG=(4, 60,),
         D_VEHICLE_WAITING_TIME_IMG=(4, 60,),
-        D_LANE_PRESSURE=(1,),
+        D_LANE_PRESSURE_PRESSLIGHT=(1,),
+        D_LANE_PRESSURE_MPLIGHT=(1,),
         D_LANE_SUM_TIME_LOSS=(1,)
     ),
 
@@ -84,7 +85,8 @@ DIC_TRAFFIC_ENV_CONF = {
         "lane_sum_duration_vehicle_left",
         "lane_sum_waiting_time",
         "terminal",
-        "lane_pressure",
+        "lane_pressure_presslight",
+        "lane_pressure_mplight",
         "lane_sum_time_loss"
     ],
 
@@ -96,7 +98,8 @@ DIC_TRAFFIC_ENV_CONF = {
         "sum_duration_vehicle_left": 0,
         "sum_num_vehicle_been_stopped_threshold_01": 0,
         "sum_num_vehicle_been_stopped_threshold_1": -1,
-        "pressure": 0,
+        "pressure_presslight": 0,
+        "pressure_mplight": 0,
         "time_loss": 0
     },
 

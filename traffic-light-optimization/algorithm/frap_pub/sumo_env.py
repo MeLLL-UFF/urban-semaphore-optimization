@@ -349,7 +349,6 @@ class SumoEnv:
             relative_occupancy_by_lane = sumo_traci_util.get_lane_relative_occupancy(
                 self.current_step_lane_subscription,
                 self.current_step_lane_vehicle_subscription,
-                self.current_step_vehicle_subscription,
                 self.execution_name)
             relative_mean_speed_by_lane = sumo_traci_util.get_lane_relative_mean_speed(
                 self.current_step_lane_subscription)

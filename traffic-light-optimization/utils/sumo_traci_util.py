@@ -90,8 +90,7 @@ def get_time_loss_by_lane(lane_vehicle_subscription_data, lanes, traci_label=Non
     return time_loss_by_lane
 
 
-def get_lane_relative_occupancy(lane_subscription_data, lane_vehicle_subscription_data, vehicle_subscription_data,
-                                traci_label=None):
+def get_lane_relative_occupancy(lane_subscription_data, lane_vehicle_subscription_data, traci_label=None):
 
     if traci_label is None:
         traci_connection = traci
@@ -100,7 +99,9 @@ def get_lane_relative_occupancy(lane_subscription_data, lane_vehicle_subscriptio
 
     result = {}
 
-    all_vehicles = vehicle_subscription_data
+    all_vehicles = {vehicle_id: vehicle
+                    for lane_id in lane_subscription_data.keys()
+                    for vehicle_id, vehicle in lane_vehicle_subscription_data[lane_id].items()}
 
     for lane_id, lane in lane_subscription_data.items():
 
@@ -122,8 +123,12 @@ def get_lane_relative_occupancy(lane_subscription_data, lane_vehicle_subscriptio
             leader_vehicle_result = traci_connection.vehicle.getLeader(vehicle_id)
 
             if leader_vehicle_result:
-
                 leader_id, leader_vehicle_distance = leader_vehicle_result
+            else:
+                leader_id = None
+                leader_vehicle_distance = None
+
+            if leader_id in all_vehicles:
                 leader_vehicle = all_vehicles[leader_id]
 
                 actual_distance = max(0 + min_gap, leader_vehicle_distance + min_gap)

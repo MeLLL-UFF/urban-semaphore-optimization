@@ -143,9 +143,12 @@ class Intersection:
             'lane_sum_duration_vehicle_left': lambda: None,
             'lane_sum_waiting_time': lambda: self._get_lane_sum_waiting_time(self.controlled_entering_lanes),
             'terminal': lambda: None,
-            'lane_pressure': lambda:
-                np.array(self._get_lane_queue_length(self.controlled_entering_lanes)) -
-                np.array(self._get_lane_queue_length(self.controlled_exiting_lanes)),
+            'lane_pressure_presslight': lambda:
+                np.array(self._get_lane_density(self.controlled_entering_lanes)) -
+                np.array(self._get_lane_density(self.controlled_exiting_lanes)),
+            'lane_pressure_mplight': lambda:
+                np.array(self._get_lane_num_vehicle(self.controlled_entering_lanes)) -
+                np.array(self._get_lane_num_vehicle(self.controlled_exiting_lanes)),
             'lane_sum_time_loss': lambda: sumo_traci_util.get_time_loss_by_lane(
                 self.current_step_lane_vehicle_subscription, self.controlled_entering_lanes,
                 self.execution_name)
@@ -161,9 +164,11 @@ class Intersection:
                 lambda: np.sum(self.get_feature('lane_num_vehicle_been_stopped_threshold_01')),
             'sum_num_vehicle_been_stopped_threshold_1':
                 lambda: np.sum(self.get_feature('lane_num_vehicle_been_stopped_threshold_1')),
-            'pressure': lambda:
-            np.sum(self._get_lane_queue_length(self.controlled_entering_lanes)) -
-            np.sum(self._get_lane_queue_length(self.controlled_exiting_lanes)),
+            'pressure_presslight': lambda:
+                np.abs(np.sum(self.get_feature('lane_pressure_presslight'))),
+            'pressure_mplight': lambda:
+                np.sum(self._get_lane_queue_length(self.controlled_entering_lanes)) -
+                np.sum(self._get_lane_queue_length(self.controlled_exiting_lanes)),
             'time_loss': lambda:
                 np.sum(self.get_feature('lane_sum_time_loss'))
         }
@@ -337,6 +342,21 @@ class Intersection:
         self.feature_dict = feature_dict
 
     # ================= calculate features from current observations ======================
+
+    def _get_lane_density(self, lanes_list):
+
+        lane_subscription_data = {lane_id: self.current_step_lane_subscription[lane_id]
+                                  for lane_id in lanes_list}
+
+        lane_vehicle_subscription_data = {lane_id: self.current_step_lane_vehicle_subscription[lane_id]
+                                          for lane_id in lanes_list}
+
+        lane_density = sumo_traci_util.get_lane_relative_occupancy(
+            lane_subscription_data,
+            lane_vehicle_subscription_data
+        )
+
+        return lane_density
 
     def _get_lane_queue_length(self, lanes_list):
         return [self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_HALTING_NUMBER]

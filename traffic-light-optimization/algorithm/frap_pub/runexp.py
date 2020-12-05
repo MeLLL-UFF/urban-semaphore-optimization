@@ -153,7 +153,8 @@ def main(args=None, memo=None, external_configurations=None):
                 # "lane_sum_duration_vehicle_left",
                 # "lane_sum_waiting_time",
                 # "terminal"
-                # "lane_pressure",
+                # "lane_pressure_presslight",
+                # "lane_pressure_mplight",
                 # "lane_sum_time_loss"
             ],
 
@@ -165,7 +166,8 @@ def main(args=None, memo=None, external_configurations=None):
                 "sum_duration_vehicle_left": 0,
                 "sum_num_vehicle_been_stopped_threshold_01": 0,
                 "sum_num_vehicle_been_stopped_threshold_1": -1,
-                "pressure": 0,
+                "pressure_presslight": 0,
+                "pressure_mplight": 0,
                 "time_loss": 0
             },
         }
