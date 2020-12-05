@@ -101,7 +101,7 @@ def get_lane_relative_occupancy(lane_subscription_data, lane_vehicle_subscriptio
 
     all_vehicles = {vehicle_id: vehicle
                     for lane_id in lane_subscription_data.keys()
-                    for vehicle_id, vehicle in lane_vehicle_subscription_data[lane_id].items()}
+                    for vehicle_id, vehicle in lane_vehicle_subscription_data.get(lane_id, {}).items()}
 
     for lane_id, lane in lane_subscription_data.items():
 
