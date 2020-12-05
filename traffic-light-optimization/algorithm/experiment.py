@@ -125,7 +125,7 @@ class Experiment:
 
     @staticmethod
     def summary(experiment, memo, plots='all', _round=None, baseline_comparison=True, baseline_experiments=None):
-        summary.single_experiment_summary(memo, 'records/' + memo + '/' + experiment,
+        summary.single_experiment_network_summary(memo, 'records/' + memo + '/' + experiment,
                                           plots, _round, baseline_comparison, baseline_experiments)
 
     @staticmethod
