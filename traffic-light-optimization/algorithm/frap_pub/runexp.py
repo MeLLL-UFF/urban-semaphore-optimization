@@ -155,6 +155,7 @@ def main(args=None, memo=None, external_configurations=None):
                 # "terminal"
                 # "lane_pressure_presslight",
                 # "lane_pressure_mplight",
+                # "lane_pressure_time_loss",
                 # "lane_sum_time_loss"
             ],
 
@@ -168,6 +169,7 @@ def main(args=None, memo=None, external_configurations=None):
                 "sum_num_vehicle_been_stopped_threshold_1": -1,
                 "pressure_presslight": 0,
                 "pressure_mplight": 0,
+                "pressure_time_loss": 0,
                 "time_loss": 0
             },
         }

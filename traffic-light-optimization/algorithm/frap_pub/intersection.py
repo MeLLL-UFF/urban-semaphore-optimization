@@ -149,9 +149,10 @@ class Intersection:
             'lane_pressure_mplight': lambda:
                 np.array(self._get_lane_num_vehicle(self.controlled_entering_lanes)) -
                 np.array(self._get_lane_num_vehicle(self.controlled_exiting_lanes)),
-            'lane_sum_time_loss': lambda: sumo_traci_util.get_time_loss_by_lane(
-                self.current_step_lane_vehicle_subscription, self.controlled_entering_lanes,
-                self.execution_name)
+            'lane_pressure_time_loss': lambda:
+                np.array(self._get_lane_time_loss(self.controlled_entering_lanes)) -
+                np.array(self._get_lane_time_loss(self.controlled_exiting_lanes)),
+            'lane_sum_time_loss': lambda: self._get_lane_time_loss(self.controlled_entering_lanes)
         }
 
         self.reward_dict_function = {
@@ -169,6 +170,9 @@ class Intersection:
             'pressure_mplight': lambda:
                 np.sum(self._get_lane_queue_length(self.controlled_entering_lanes)) -
                 np.sum(self._get_lane_queue_length(self.controlled_exiting_lanes)),
+            'pressure_time_loss': lambda:
+                np.sum(self._get_lane_time_loss(self.controlled_entering_lanes)) -
+                np.sum(self._get_lane_time_loss(self.controlled_exiting_lanes)),
             'time_loss': lambda:
                 np.sum(self.get_feature('lane_sum_time_loss'))
         }
@@ -357,6 +361,14 @@ class Intersection:
         )
 
         return lane_density
+
+    def _get_lane_time_loss(self, lanes_list):
+
+        lane_time_loss = sumo_traci_util.get_time_loss_by_lane(
+            self.current_step_lane_vehicle_subscription, lanes_list,
+            self.execution_name)
+
+        return lane_time_loss
 
     def _get_lane_queue_length(self, lanes_list):
         return [self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_HALTING_NUMBER]
