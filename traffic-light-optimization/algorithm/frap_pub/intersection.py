@@ -352,7 +352,7 @@ class Intersection:
         lane_subscription_data = {lane_id: self.current_step_lane_subscription[lane_id]
                                   for lane_id in lanes_list}
 
-        lane_vehicle_subscription_data = {lane_id: self.current_step_lane_vehicle_subscription[lane_id]
+        lane_vehicle_subscription_data = {lane_id: self.current_step_lane_vehicle_subscription.get(lane_id, {})
                                           for lane_id in lanes_list}
 
         lane_density = sumo_traci_util.get_lane_relative_occupancy(
@@ -360,7 +360,7 @@ class Intersection:
             lane_vehicle_subscription_data
         )
 
-        return lane_density
+        return list(lane_density.values())
 
     def _get_lane_time_loss(self, lanes_list):
 
