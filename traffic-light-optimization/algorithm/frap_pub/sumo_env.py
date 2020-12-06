@@ -368,7 +368,7 @@ class SumoEnv:
 
         for intersection_index, intersection in enumerate(self.intersections):
 
-            if self.mode == 'test':
+            if self.mode == 'replay':
 
                 traffic_light = sumo_traci_util.get_traffic_light_state(
                     intersection.id,
@@ -424,7 +424,7 @@ class SumoEnv:
                 pickle.dump(self.intersection_logs[intersection_index], f)
                 f.close()
 
-                if self.mode == 'test':
+                if self.mode == 'replay':
                     path_to_detailed_log_file = os.path.join(
                         self.path_to_log, "inter_{0}_detailed.pkl".format(intersection.id))
                     f = open(ROOT_DIR + '/' + path_to_detailed_log_file, "wb+")
