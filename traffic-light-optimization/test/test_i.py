@@ -103,9 +103,10 @@ def _build_experiment_i_routes():
             routes_xml.write(handle, pretty_print=True)
 
         turn_default = ','.join([
-            str(int(car_turning_policy_dict['right_turn'] * 100)),
-            str(int(car_turning_policy_dict['straight'] * 100)),
-            str(int(car_turning_policy_dict['left_turn'] * 100))
+            str(car_turning_policy_dict['right_turn']),
+            str(car_turning_policy_dict['straight']),
+            str(car_turning_policy_dict['left_turn']),
+            '0'  # necessary padding
         ])
 
         route_file = scenario_folder + '/' + name + '.rou.xml'
@@ -256,7 +257,7 @@ def run_experiment(arguments):
 
     sys.stdout.flush()
 
-    os.remove(route_file)
+    #os.remove(route_file)
 
 
 def continue_experiment(arguments):
@@ -361,11 +362,12 @@ def run():
 
 if __name__ == "__main__":
     #_build_experiment_i_routes()
-    #run()
+    run()
 
     #_run(_type='right_on_red', algorithm='FRAP')
     #_run(_type='unregulated', algorithm='FRAP')
 
+    '''
     Experiment.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___12_03_11_38_13__88ef8bac-dd06-43d6-ac41-448b93b39baa',
                  memo='Frap', plots='summary_only', baseline_comparison=True,
                  baseline_experiments=[
@@ -378,6 +380,7 @@ if __name__ == "__main__":
                      ['Sumo', '0_regular-intersection__right_on_red__custom_4_street_traffic___10_23_10_48_51_10__04092094-1443-4525-99a9-99fa6145a308', 0, 'r', 'right on red'],
                      ['Sumo', '0_regular-intersection__unregulated__custom_4_street_traffic___10_23_10_51_45_10__110ede2f-8a0b-4b1d-85c0-bff18cf64d40', 0, 'g', 'unregulated']
                  ])
+    '''
     '''
     experiment = '0_regular-intersection__right_on_red__custom_4_street_traffic___10_04_21_00_35_10__4ff3043f-4ccb-4877-be7f-f47b2f7291e6'
 
