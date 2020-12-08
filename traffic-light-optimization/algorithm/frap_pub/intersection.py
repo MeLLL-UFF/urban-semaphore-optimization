@@ -157,24 +157,24 @@ class Intersection:
 
         self.reward_dict_function = {
             'flickering': lambda: None,
-            'sum_lane_queue_length': lambda: np.sum(self.get_feature('lane_queue_length')),
-            'sum_lane_wait_time': lambda: np.sum(self.get_feature('lane_sum_waiting_time')),
+            'sum_lane_queue_length': lambda: -np.sum(self.get_feature('lane_queue_length')),
+            'sum_lane_wait_time': lambda: -np.sum(self.get_feature('lane_sum_waiting_time')),
             'sum_lane_num_vehicle_left': lambda: None,
             'sum_duration_vehicle_left': lambda: None,
             'sum_num_vehicle_been_stopped_threshold_01':
-                lambda: np.sum(self.get_feature('lane_num_vehicle_been_stopped_threshold_01')),
+                lambda: -np.sum(self.get_feature('lane_num_vehicle_been_stopped_threshold_01')),
             'sum_num_vehicle_been_stopped_threshold_1':
-                lambda: np.sum(self.get_feature('lane_num_vehicle_been_stopped_threshold_1')),
+                lambda: -np.sum(self.get_feature('lane_num_vehicle_been_stopped_threshold_1')),
             'pressure_presslight': lambda:
-                np.abs(np.sum(self.get_feature('lane_pressure_presslight'))),
+                -np.abs(np.sum(self.get_feature('lane_pressure_presslight'))),
             'pressure_mplight': lambda:
-                np.sum(self._get_lane_queue_length(self.controlled_entering_lanes)) -
-                np.sum(self._get_lane_queue_length(self.controlled_exiting_lanes)),
+                -(np.sum(self._get_lane_queue_length(self.controlled_entering_lanes)) -
+                np.sum(self._get_lane_queue_length(self.controlled_exiting_lanes))),
             'pressure_time_loss': lambda:
-                np.sum(self._get_lane_time_loss(self.controlled_entering_lanes)) -
-                np.sum(self._get_lane_time_loss(self.controlled_exiting_lanes)),
+                -(np.sum(self._get_lane_time_loss(self.controlled_entering_lanes)) -
+                np.sum(self._get_lane_time_loss(self.controlled_exiting_lanes))),
             'time_loss': lambda:
-                np.sum(self.get_feature('lane_sum_time_loss'))
+                -np.sum(self.get_feature('lane_sum_time_loss'))
         }
 
     def update_previous_measurements(self):

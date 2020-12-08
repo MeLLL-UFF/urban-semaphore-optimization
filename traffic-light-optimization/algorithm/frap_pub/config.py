@@ -99,7 +99,7 @@ DIC_TRAFFIC_ENV_CONF = {
         "sum_lane_num_vehicle_left": 0,
         "sum_duration_vehicle_left": 0,
         "sum_num_vehicle_been_stopped_threshold_01": 0,
-        "sum_num_vehicle_been_stopped_threshold_1": -1,
+        "sum_num_vehicle_been_stopped_threshold_1": 1,
         "pressure_presslight": 0,
         "pressure_mplight": 0,
         "pressure_time_loss": 0,
