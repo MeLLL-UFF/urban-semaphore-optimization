@@ -95,6 +95,7 @@ DIC_TRAFFIC_ENV_CONF = {
     "REWARD_INFO_DICT": {
         "flickering": 0,
         "sum_lane_queue_length": 0,
+        "avg_lane_queue_length": 0,
         "sum_lane_wait_time": 0,
         "sum_lane_num_vehicle_left": 0,
         "sum_duration_vehicle_left": 0,

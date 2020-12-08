@@ -158,6 +158,7 @@ class Intersection:
         self.reward_dict_function = {
             'flickering': lambda: None,
             'sum_lane_queue_length': lambda: -np.sum(self.get_feature('lane_queue_length')),
+            'avg_lane_queue_length': lambda: -np.average(self.get_feature('lane_queue_length')),
             'sum_lane_wait_time': lambda: -np.sum(self.get_feature('lane_sum_waiting_time')),
             'sum_lane_num_vehicle_left': lambda: None,
             'sum_duration_vehicle_left': lambda: None,
