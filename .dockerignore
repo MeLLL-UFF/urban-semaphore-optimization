@@ -3,3 +3,7 @@
 
 /output
 /scenario
+/traffic-light-optimization/algorithm/frap_pub/data
+/traffic-light-optimization/algorithm/frap_pub/model
+/traffic-light-optimization/algorithm/frap_pub/records
+/traffic-light-optimization/algorithm/frap_pub/summary
