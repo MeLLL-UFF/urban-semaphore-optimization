@@ -78,151 +78,149 @@ def main(args=None, memo=None, external_configurations=None):
 
     multi_process = True
 
-    for traffic_file in traffic_file_list:
+    template = "template_ls"
 
-        template = "template_ls"
+    suffix = time.strftime('%m_%d_%H_%M_%S', time.localtime(time.time())) + '__' + unique_id
 
-        suffix = time.strftime('%m_%d_%H_%M_%S', time.localtime(time.time())) + '__' + unique_id
+    net_file_name = net_file.rsplit('.', 2)[0]
+    experiment_name_base = net_file_name + '__' + '_'.join(traffic_level_configuration)
 
-        net_file_name = net_file.rsplit('.', 2)[0]
-        experiment_name_base = net_file_name + '__' + '_'.join(traffic_level_configuration)
+    print(traffic_file_list)
+    dic_path_extra = {
+        "PATH_TO_MODEL": os.path.join("model", memo, experiment_name_base + "___" + suffix),
+        "PATH_TO_WORK_DIRECTORY": os.path.join("records", memo, experiment_name_base + "___" + suffix),
+        "PATH_TO_DATA": os.path.join("data", template),
+        "PATH_TO_PRETRAIN_MODEL": os.path.join("model", "initial", experiment_name_base),
+        "PATH_TO_PRETRAIN_WORK_DIRECTORY": os.path.join("records", "initial", experiment_name_base),
+        "PATH_TO_ERROR": os.path.join("errors", memo)
 
-        print(traffic_file)
-        dic_path_extra = {
-            "PATH_TO_MODEL": os.path.join("model", memo, experiment_name_base + "___" + suffix),
-            "PATH_TO_WORK_DIRECTORY": os.path.join("records", memo, experiment_name_base + "___" + suffix),
-            "PATH_TO_DATA": os.path.join("data", template),
-            "PATH_TO_PRETRAIN_MODEL": os.path.join("model", "initial", experiment_name_base),
-            "PATH_TO_PRETRAIN_WORK_DIRECTORY": os.path.join("records", "initial", experiment_name_base),
-            "PATH_TO_ERROR": os.path.join("errors", memo)
+    }
 
-        }
+    output_file = external_configurations['SUMOCFG_PARAMETERS']['--log']
 
-        output_file = external_configurations['SUMOCFG_PARAMETERS']['--log']
+    split_output_filename = output_file.rsplit('.', 2)
+    split_output_filename[0] += '___' + suffix
+    output_file = '.'.join(split_output_filename)
 
-        split_output_filename = output_file.rsplit('.', 2)
-        split_output_filename[0] += '___' + suffix
-        output_file = '.'.join(split_output_filename)
+    external_configurations['SUMOCFG_PARAMETERS']['--log'] = output_file
 
-        external_configurations['SUMOCFG_PARAMETERS']['--log'] = output_file
+    execution_base = split_output_filename[0].rsplit('/', 1)[1]
+    dic_path_extra["EXECUTION_BASE"] = execution_base
 
-        execution_base = split_output_filename[0].rsplit('/', 1)[1]
-        dic_path_extra["EXECUTION_BASE"] = execution_base
+    model_name = config.DIC_EXP_CONF['MODEL_NAME']
+    dic_exp_conf_extra = {
+        "TRAFFIC_FILE": traffic_file_list,
+        "NET_FILE": net_file,
 
-        model_name = config.DIC_EXP_CONF['MODEL_NAME']
-        dic_exp_conf_extra = {
-            "TRAFFIC_FILE": [traffic_file],  # here: change to multi_traffic
-            "NET_FILE": net_file,
+        "MODEL_POOL": False,
+        "NUM_BEST_MODEL": 1,
 
-            "MODEL_POOL": False,
-            "NUM_BEST_MODEL": 1,
+        "PRETRAIN": False,
+        "PRETRAIN_NUM_ROUNDS": 20,
+        "PRETRAIN_NUM_GENERATORS": 15,
 
-            "PRETRAIN": False,
-            "PRETRAIN_NUM_ROUNDS": 20,
-            "PRETRAIN_NUM_GENERATORS": 15,
+        "AGGREGATE": False,
+        "DEBUG": False,
+        "EARLY_STOP": False,
+    }
 
-            "AGGREGATE": False,
-            "DEBUG": False,
-            "EARLY_STOP": False,
-        }
+    dic_agent_conf_extra = {
+        "ROTATION": True,
+        "ROTATION_INPUT": False,
+        "PRIORITY": False,
+        "CONFLICT_MATRIX": False,
+    }
 
-        dic_agent_conf_extra = {
-            "ROTATION": True,
-            "ROTATION_INPUT": False,
-            "PRIORITY": False,
-            "CONFLICT_MATRIX": False,
-        }
+    dic_traffic_env_conf_extra = {
 
-        dic_traffic_env_conf_extra = {
+        "TRAFFIC_FILE": traffic_file_list,
+        "NET_FILE": net_file,
 
-            "TRAFFIC_FILE": traffic_file,
-            "NET_FILE": net_file,
+        "STATE_FEATURE_LIST": [
+            "current_phase",
+            # "time_this_phase",
+            # "vehicle_position_img",
+            # "vehicle_speed_img",
+            # "vehicle_acceleration_img",
+            # "vehicle_waiting_time_img",
+            "lane_num_vehicle",
+            # "lane_num_vehicle_been_stopped_threshold_01",
+            # "lane_num_vehicle_been_stopped_threshold_1",
+            # "lane_queue_length",
+            # "lane_num_vehicle_left",
+            # "lane_sum_duration_vehicle_left",
+            # "lane_sum_waiting_time",
+            # "terminal"
+            # "lane_pressure_presslight",
+            # "lane_pressure_mplight",
+            # "lane_pressure_time_loss",
+            # "lane_sum_time_loss"
+        ],
 
-            "STATE_FEATURE_LIST": [
-                "current_phase",
-                # "time_this_phase",
-                # "vehicle_position_img",
-                # "vehicle_speed_img",
-                # "vehicle_acceleration_img",
-                # "vehicle_waiting_time_img",
-                "lane_num_vehicle",
-                # "lane_num_vehicle_been_stopped_threshold_01",
-                # "lane_num_vehicle_been_stopped_threshold_1",
-                # "lane_queue_length",
-                # "lane_num_vehicle_left",
-                # "lane_sum_duration_vehicle_left",
-                # "lane_sum_waiting_time",
-                # "terminal"
-                # "lane_pressure_presslight",
-                # "lane_pressure_mplight",
-                # "lane_pressure_time_loss",
-                # "lane_sum_time_loss"
-            ],
+        "REWARD_INFO_DICT": {
+            "flickering": 0,
+            "sum_lane_queue_length": 0,
+            "avg_lane_queue_length": 0,
+            "sum_lane_wait_time": 0,
+            "sum_lane_num_vehicle_left": 0,
+            "sum_duration_vehicle_left": 0,
+            "sum_num_vehicle_been_stopped_threshold_01": 0,
+            "sum_num_vehicle_been_stopped_threshold_1": 1,
+            "pressure_presslight": 0,
+            "pressure_mplight": 0,
+            "pressure_time_loss": 0,
+            "time_loss": 0
+        },
+    }
 
-            "REWARD_INFO_DICT": {
-                "flickering": 0,
-                "sum_lane_queue_length": 0,
-                "avg_lane_queue_length": 0,
-                "sum_lane_wait_time": 0,
-                "sum_lane_num_vehicle_left": 0,
-                "sum_duration_vehicle_left": 0,
-                "sum_num_vehicle_been_stopped_threshold_01": 0,
-                "sum_num_vehicle_been_stopped_threshold_1": 1,
-                "pressure_presslight": 0,
-                "pressure_mplight": 0,
-                "pressure_time_loss": 0,
-                "time_loss": 0
-            },
-        }
+    net_file = os.path.join(ROOT_DIR, dic_path_extra["PATH_TO_DATA"], net_file)
+    net_xml = xml_util.get_xml(net_file)
 
-        net_file = os.path.join(ROOT_DIR, dic_path_extra["PATH_TO_DATA"], net_file)
-        net_xml = xml_util.get_xml(net_file)
+    intersection_ids = sumo_util.get_intersections_with_traffic_light(net_xml)
+    dic_traffic_env_conf_extra['INTERSECTION_ID'] = intersection_ids
 
-        intersection_id_list = sumo_util.get_intersection_ids(net_xml)
-        dic_traffic_env_conf_extra['INTERSECTION_ID'] = intersection_id_list
+    unique_movements, movement_list, movement_to_connection_list = \
+        sumo_util.detect_movements(net_xml, intersection_ids, use_sumo_directions_in_movement_detection)
+    dic_traffic_env_conf_extra['UNIQUE_MOVEMENT'] = unique_movements
+    dic_traffic_env_conf_extra['MOVEMENT'] = movement_list
 
-        unique_movements, movement_list, movement_to_connection_list = \
-            sumo_util.detect_movements(net_xml, use_sumo_directions_in_movement_detection)
-        dic_traffic_env_conf_extra['UNIQUE_MOVEMENT'] = unique_movements
-        dic_traffic_env_conf_extra['MOVEMENT'] = movement_list
+    serializable_movement_to_connection_list = [dict(copy.deepcopy(d)) for d in movement_to_connection_list]
+    for serializable_movement_to_connection in serializable_movement_to_connection_list:
+        for movement in serializable_movement_to_connection.keys():
+            serializable_movement_to_connection[movement] = \
+                dict(serializable_movement_to_connection[movement].attrib)
+    dic_traffic_env_conf_extra['movement_to_connection'] = serializable_movement_to_connection_list
 
-        serializable_movement_to_connection_list = [dict(copy.deepcopy(d)) for d in movement_to_connection_list]
-        for serializable_movement_to_connection in serializable_movement_to_connection_list:
-            for movement in serializable_movement_to_connection.keys():
-                serializable_movement_to_connection[movement] = \
-                    dict(serializable_movement_to_connection[movement].attrib)
-        dic_traffic_env_conf_extra['movement_to_connection'] = serializable_movement_to_connection_list
+    conflicts_list = sumo_util.detect_movement_conflicts(net_xml, intersection_ids, movement_to_connection_list)
+    dic_traffic_env_conf_extra['CONFLICTS'] = conflicts_list
 
-        conflicts_list = sumo_util.detect_movement_conflicts(net_xml, movement_to_connection_list)
-        dic_traffic_env_conf_extra['CONFLICTS'] = conflicts_list
+    unique_phases, phases_list = sumo_util.detect_phases(movement_list, conflicts_list)
+    dic_traffic_env_conf_extra['UNIQUE_PHASE'] = unique_phases
+    dic_traffic_env_conf_extra['PHASE'] = phases_list
 
-        unique_phases, phases_list = sumo_util.detect_phases(movement_list, conflicts_list)
-        dic_traffic_env_conf_extra['UNIQUE_PHASE'] = unique_phases
-        dic_traffic_env_conf_extra['PHASE'] = phases_list
+    phase_expansion = sumo_util.build_phase_expansions(unique_movements, unique_phases)
+    dic_traffic_env_conf_extra["phase_expansion"] = phase_expansion
 
-        phase_expansion = sumo_util.build_phase_expansions(unique_movements, unique_phases)
-        dic_traffic_env_conf_extra["phase_expansion"] = phase_expansion
+    deploy_dic_exp_conf = merge(config.DIC_EXP_CONF, dic_exp_conf_extra)
+    deploy_dic_agent_conf = merge(getattr(config, "DIC_{0}_AGENT_CONF".format(model_name.upper())),
+                                  dic_agent_conf_extra)
+    deploy_dic_traffic_env_conf = merge(config.DIC_TRAFFIC_ENV_CONF, dic_traffic_env_conf_extra)
+    deploy_dic_path = merge(config.DIC_PATH, dic_path_extra)
 
-        deploy_dic_exp_conf = merge(config.DIC_EXP_CONF, dic_exp_conf_extra)
-        deploy_dic_agent_conf = merge(getattr(config, "DIC_{0}_AGENT_CONF".format(model_name.upper())),
-                                      dic_agent_conf_extra)
-        deploy_dic_traffic_env_conf = merge(config.DIC_TRAFFIC_ENV_CONF, dic_traffic_env_conf_extra)
-        deploy_dic_path = merge(config.DIC_PATH, dic_path_extra)
-
-        if multi_process:
-            ppl = Process(target=pipeline_wrapper,
-                          args=(deploy_dic_exp_conf,
-                                deploy_dic_agent_conf,
-                                deploy_dic_traffic_env_conf,
-                                deploy_dic_path,
-                                external_configurations))
-            process_list.append(ppl)
-        else:
-            pipeline_wrapper(dic_exp_conf=deploy_dic_exp_conf,
-                             dic_agent_conf=deploy_dic_agent_conf,
-                             dic_traffic_env_conf=deploy_dic_traffic_env_conf,
-                             dic_path=deploy_dic_path,
-                             external_configurations=external_configurations)
+    if multi_process:
+        ppl = Process(target=pipeline_wrapper,
+                      args=(deploy_dic_exp_conf,
+                            deploy_dic_agent_conf,
+                            deploy_dic_traffic_env_conf,
+                            deploy_dic_path,
+                            external_configurations))
+        process_list.append(ppl)
+    else:
+        pipeline_wrapper(dic_exp_conf=deploy_dic_exp_conf,
+                         dic_agent_conf=deploy_dic_agent_conf,
+                         dic_traffic_env_conf=deploy_dic_traffic_env_conf,
+                         dic_path=deploy_dic_path,
+                         external_configurations=external_configurations)
 
     if multi_process:
         i = 0

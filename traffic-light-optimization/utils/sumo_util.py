@@ -150,6 +150,35 @@ def get_intersection_ids(net_xml, sorted_=True):
     return intersection_ids
 
 
+def get_intersections_with_traffic_light(net_xml, sorted_=True):
+    intersections = net_xml.findall(".//junction[@type]")
+
+    intersections = [intersection
+                     for intersection in intersections
+                     if intersection.get('type') == 'traffic_light' or
+                     intersection.get('type') == 'traffic_light_right_on_red' or
+                     intersection.get('type') == 'traffic_light_unregulated']
+
+    if sorted_:
+        intersection_ids = []
+        intersection_points = []
+
+        for intersection in intersections:
+            intersection_id = intersection.get('id')
+            intersection_ids.append(intersection_id)
+            intersection_point = Point([float(intersection.get('x')), float(intersection.get('y'))])
+            intersection_points.append(intersection_point)
+
+        zipped_id_and_location = zip(intersection_ids, intersection_points)
+        sorted_id_and_location = sorted(zipped_id_and_location, key=lambda x: cmp_to_key(location_comparator)(x[1]))
+
+        intersection_ids = list(zip(*sorted_id_and_location))[0]
+    else:
+        intersection_ids = [intersection.get('id') for intersection in intersections]
+
+    return intersection_ids
+
+
 def get_connections(net_xml, from_edge='ALL', to_edge='ALL'):
 
     from_attribute = ''
@@ -476,9 +505,9 @@ def phase_comparator(p1, p2):
     return 0
 
 
-def detect_movements(net_xml, use_sumo_directions=False, is_right_on_red=True):
+def detect_movements(net_xml, intersection_ids, use_sumo_directions=False, is_right_on_red=True):
 
-    intersections_incoming_edges = get_intersections_incoming_edges(net_xml)
+    intersections_incoming_edges = get_intersections_incoming_edges(net_xml, intersection_ids)
 
     movement_set = set()
     movements_list = [[] for _ in range(len(intersections_incoming_edges))]
@@ -552,9 +581,8 @@ def detect_movements(net_xml, use_sumo_directions=False, is_right_on_red=True):
     return unique_movements, movements_list, movement_to_connection
 
 
-def detect_movement_conflicts(net_xml, movement_to_connection_list):
+def detect_movement_conflicts(net_xml, intersection_ids, movement_to_connection_list):
 
-    intersection_ids = get_intersection_ids(net_xml)
     intersections_incoming_edges_list = get_intersections_incoming_edges(net_xml, intersection_ids)
 
     conflicts_list = [{} for _ in range(len(intersections_incoming_edges_list))]

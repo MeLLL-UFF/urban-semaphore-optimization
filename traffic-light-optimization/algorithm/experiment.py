@@ -16,10 +16,14 @@ from definitions import ROOT_DIR
 class Experiment:
 
     @staticmethod
-    def run(net_file, route_file, sumocfg_file, output_file, traffic_level_configuration):
+    def run(net_file, route_files, sumocfg_file, output_file, traffic_level_configuration, additional_files=None):
+
+        if additional_files is None:
+            additional_files = []
 
         external_configurations = Experiment._create_external_configurations_dict(
-            net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
+            net_file, route_files, sumocfg_file, output_file, traffic_level_configuration,
+            additional_files)
 
         experiment_name = run_batch.run(external_configurations)
 
@@ -118,7 +122,7 @@ class Experiment:
         external_configurations = Experiment._create_external_configurations_dict(
             net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
 
-        experiment_name = run_batch.continue_(experiment, _round, external_configurations)
+        experiment_name = run_batch.re_run(experiment, _round, external_configurations)
 
         return experiment_name
 
@@ -129,23 +133,28 @@ class Experiment:
                                           plots, _round, baseline_comparison, baseline_experiments)
 
     @staticmethod
-    def _create_external_configurations_dict(net_file, route_file, sumocfg_file, output_file,
-                                             traffic_level_configuration):
+    def _create_external_configurations_dict(net_file, route_files, sumocfg_file, output_file,
+                                             traffic_level_configuration, additional_files=None):
+
+        if additional_files is None:
+            additional_files = []
 
         input_data_path = os.path.join(FRAP_ROOT_DIR, 'data', 'template_ls')
 
         net_file_name = net_file.rsplit('/', 1)[1]
-        route_file_name = route_file.rsplit('/', 1)[1]
         sumocfg_file_name = sumocfg_file.rsplit('/', 1)[1]
 
         shutil.copy2(net_file, input_data_path)
-        shutil.copy2(route_file, input_data_path)
+        for route_file in route_files:
+            shutil.copy2(route_file, input_data_path)
+        for additional_file in additional_files:
+            shutil.copy2(additional_file, input_data_path)
         shutil.copy2(sumocfg_file, input_data_path)
 
+        route_file_names = [route_file.rsplit('/', 1)[1] for route_file in route_files]
+
         external_configurations = {}
-        external_configurations['TRAFFIC_FILE_LIST'] = [
-            route_file_name
-        ]
+        external_configurations['TRAFFIC_FILE_LIST'] = route_file_names
         external_configurations['SUMOCFG_FILE'] = sumocfg_file_name
         external_configurations['NET_FILE'] = net_file_name
         external_configurations['_LIST_SUMO_FILES'] = [
@@ -160,7 +169,7 @@ class Experiment:
 
         external_configurations['SUMOCFG_PARAMETERS'] = {
             '-n': net_file,
-            '-r': route_file,
+            '-r': ', '.join(route_files),
             '--log': output_file,
             '--duration-log.statistics': True,
             '--time-to-teleport': -1,
@@ -172,5 +181,8 @@ class Experiment:
             '--save-state.rng': True,
             '--ignore-junction-blocker': 10  # working in Sumo 1.8.0
         }
+
+        if additional_files:
+            external_configurations['SUMOCFG_PARAMETERS']['-a'] = ', '.join(additional_files)
 
         return external_configurations

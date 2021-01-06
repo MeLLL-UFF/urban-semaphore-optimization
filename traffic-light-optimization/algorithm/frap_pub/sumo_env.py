@@ -217,6 +217,8 @@ class SumoEnv:
         for stop_info in stops_to_issue:
             traci_connection.vehicle.setStop(**stop_info)
 
+        print('SUMO VERSION', traci_connection.getVersion()[1])
+
         # start subscription
         for lane in self.lanes_list:
             traci_connection.lane.subscribe(lane, [var for var in self.LANE_VARIABLES_TO_SUBSCRIBE])

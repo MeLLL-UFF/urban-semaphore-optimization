@@ -31,6 +31,8 @@ class PlanningOnlyAgent(Agent):
 
         self.tiebreak_policy = self.dic_agent_conf["TIEBREAK_POLICY"]
 
+        self.previous_actions = [None]*len(self.phases)
+
         xml_util.register_copyreg()
 
     def set_simulation_environment(self, env):
@@ -45,25 +47,29 @@ class PlanningOnlyAgent(Agent):
         if intersection_index is None:
             raise ValueError('intersection_index must be declared')
 
-        previous_actions = []
+        previous_planning_actions = []
+        if self.previous_actions[intersection_index] is not None:
+            previous_planning_actions.append(self.previous_actions[intersection_index])
 
         action, _ = self._choose_action(step, state, step, intersection_index, rng,
-                                        self.planning_iterations, previous_actions)
+                                        self.planning_iterations, previous_planning_actions)
+
+        self.previous_actions[intersection_index] = action
 
         return action
     
     def _choose_action(self, initial_step, one_state, original_step, intersection_index, rng, planning_iterations,
-                       previous_actions, possible_actions=None, env=None, *args, **kwargs):
+                       previous_planning_actions, possible_actions=None, env=None, *args, **kwargs):
 
         if possible_actions is None:
-            possible_actions = range(0, len(self.phases))
+            possible_actions = range(0, len(self.phases[intersection_index]))
 
         if env is None:
             env = self.env
 
         save_state_filepath = env.save_state()
 
-        # mutable objects need deep copy in the target funtion
+        # mutable objects need deep copy in the target function
         simulation_possibility_kwargs = {
             'initial_step': initial_step,
             'one_state': one_state,  # deep copy needed
@@ -72,7 +78,7 @@ class PlanningOnlyAgent(Agent):
             'save_state_filepath': save_state_filepath,
             'rng_state': rng.bit_generator.state,  # deep copy needed
             'planning_iterations': planning_iterations,
-            'previous_actions': previous_actions,  # deep copy needed
+            'previous_planning_actions': previous_planning_actions,  # deep copy needed
             'possible_actions': possible_actions,
         }
 
@@ -97,14 +103,14 @@ class PlanningOnlyAgent(Agent):
                 action = rng.choice(best_actions)
 
             elif self.tiebreak_policy == 'maintain':
-                if previous_actions and previous_actions[-1] in best_actions:
-                    action = previous_actions[-1]
+                if previous_planning_actions and previous_planning_actions[-1] in best_actions:
+                    action = previous_planning_actions[-1]
                 else:
                     action = rng.choice(best_actions)
 
             elif self.tiebreak_policy == 'change':
-                if previous_actions and previous_actions[-1] in best_actions:
-                    index = np.argwhere(best_actions == previous_actions[-1])[0]
+                if previous_planning_actions and previous_planning_actions[-1] in best_actions:
+                    index = np.argwhere(best_actions == previous_planning_actions[-1])[0]
                     best_actions = np.delete(best_actions, index)
 
                 action = rng.choice(best_actions)
@@ -129,7 +135,7 @@ class PlanningOnlyAgent(Agent):
             save_state_filepath,
             rng_state,
             planning_iterations,
-            previous_actions,
+            previous_planning_actions,
             possible_actions,
             **kwargs):
             
@@ -137,7 +143,7 @@ class PlanningOnlyAgent(Agent):
 
             one_state = copy.deepcopy(one_state)
             rng_state = copy.deepcopy(rng_state)
-            previous_actions = copy.deepcopy(previous_actions)
+            previous_planning_actions = copy.deepcopy(previous_planning_actions)
 
             env = copy.deepcopy(self.env)
 
@@ -153,8 +159,8 @@ class PlanningOnlyAgent(Agent):
 
             execution_name = 'planning_for_step' + '_' + str(original_step) + '__' + \
                              'previous_phases' + '_' + (
-                                 '-'.join(str(x) for x in previous_actions)
-                                 if len(previous_actions) else str(None)) + '__' + \
+                                 '-'.join(str(x) for x in previous_planning_actions)
+                                 if len(previous_planning_actions) else str(None)) + '__' + \
                              'initial_step' + '_' + str(initial_step) + '__' + \
                              'phase' + '_' + str(action)
 
@@ -199,7 +205,7 @@ class PlanningOnlyAgent(Agent):
                 one_state = next_state[intersection_index]
                 rewards.append(reward[0])
 
-                previous_actions.append(action)
+                previous_planning_actions.append(action)
 
                 planning_iterations -= 1
                 if planning_iterations > 0 or done:
@@ -214,7 +220,7 @@ class PlanningOnlyAgent(Agent):
                         intersection_index,
                         rng,
                         planning_iterations,
-                        previous_actions,
+                        previous_planning_actions,
                         possible_actions,
                         env,
                         **kwargs

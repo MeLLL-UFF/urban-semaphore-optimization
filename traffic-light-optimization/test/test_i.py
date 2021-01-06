@@ -55,7 +55,7 @@ def _build_experiment_i_routes():
         net_file = scenario_folder + '/' + name + '__' + _type + '.net.xml'
         net_xml = xml_util.get_xml(net_file)
 
-        intersection_ids = sumo_util.get_intersection_ids(net_xml)
+        intersection_ids = sumo_util.get_intersections_with_traffic_light(net_xml)
         junction_to_network_incoming_edges_mapping, _ = sumo_util.get_network_border_edges(net_xml)
 
         sorted_edges_id = []
@@ -133,7 +133,7 @@ def _configure_scenario_routes(scenario, traffic_level_configuration):
     net_file = scenario_folder + '/' + name + '__' + _type + '.net.xml'
     net_xml = xml_util.get_xml(net_file)
 
-    intersection_ids = sumo_util.get_intersection_ids(net_xml)
+    intersection_ids = sumo_util.get_intersections_with_traffic_light(net_xml)
     junction_to_network_incoming_edges_mapping, _ = sumo_util.get_network_border_edges(net_xml)
 
     sorted_edges_id = []
@@ -211,7 +211,7 @@ def create_experiment_generator(_type='regular', algorithm=None):
         net_file = scenario_folder + '/' + scenario + '__' + _type + '.net.xml'
         net_xml = xml_util.get_xml(net_file)
 
-        intersection_ids = sumo_util.get_intersection_ids(net_xml)
+        intersection_ids = sumo_util.get_intersections_with_traffic_light(net_xml)
         junction_to_network_incoming_edges_mapping, _ = sumo_util.get_network_border_edges(net_xml)
 
         sorted_edges_id = []
@@ -247,17 +247,18 @@ def run_experiment(arguments):
         output_folder = arguments
 
     route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
-    #route_file = scenario_folder + '/' + 'temp' + '/' + 'routes' + '/' + scenario + '_' + '_'.join(traffic_level_configuration) + '.rou.xml'
+
+    route_files = [route_file]
+    additional_files = []
+
     output_file = output_folder + experiment_name + '.out.txt'
 
     if not os.path.isdir(output_folder):
         os.makedirs(output_folder)
 
-    Experiment.run(net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
+    Experiment.run(net_file, route_files, sumocfg_file, output_file, traffic_level_configuration, additional_files)
 
     sys.stdout.flush()
-
-    #os.remove(route_file)
 
 
 def continue_experiment(arguments):
@@ -266,7 +267,6 @@ def continue_experiment(arguments):
         output_folder, experiment = arguments
 
     route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
-    #route_file = scenario_folder + '/' + 'temp' + '/' + 'routes' + '/' + scenario + '_' + '_'.join(traffic_level_configuration) + '.rou.xml'
     output_file = output_folder + experiment_name + '.out.txt'
 
     if not os.path.isdir(output_folder):
@@ -280,8 +280,6 @@ def continue_experiment(arguments):
 
     sys.stdout.flush()
 
-    os.remove(route_file)
-
 
 def re_run(arguments):
 
@@ -289,7 +287,6 @@ def re_run(arguments):
         output_folder, experiment = arguments
 
     route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
-    #route_file = scenario_folder + '/' + 'temp' + '/' + 'routes' + '/' + scenario + '_' + '_'.join(traffic_level_configuration) + '.rou.xml'
     output_file = output_folder + experiment_name + '.out.txt'
 
     if not os.path.isdir(output_folder):
@@ -308,8 +305,6 @@ def re_run(arguments):
         raise ValueError('please specify algorithm that can be retrained')
 
     sys.stdout.flush()
-
-    os.remove(route_file)
 
 
 def _run(_type='regular', algorithm=None, experiment=None):
