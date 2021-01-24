@@ -62,6 +62,11 @@ class SumoEnv:
         tc.VAR_ROUTE_INDEX
     ]
 
+    SIMULATION_VARIABLES_TO_SUBSCRIBE = [
+        tc.VAR_LOADED_VEHICLES_NUMBER,
+        tc.VAR_DEPARTED_VEHICLES_NUMBER
+    ]
+
     def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf, dic_path,
                  external_configurations=None, mode='train', write_mode=True, sumo_output_enabled=True):
 
@@ -157,6 +162,10 @@ class SumoEnv:
         self.current_step_vehicles = []
         self.previous_step_vehicles = []
 
+        self.total_loaded_vehicles = 0
+        self.total_departed_vehicles = 0
+        self.total_running_vehicles = 0
+
         self.vehicle_arrive_leave_time_dict = {}  # cumulative
 
         if self.sumo_output_enabled:
@@ -223,6 +232,8 @@ class SumoEnv:
         for lane in self.lanes_list:
             traci_connection.lane.subscribe(lane, [var for var in self.LANE_VARIABLES_TO_SUBSCRIBE])
 
+        traci_connection.simulation.subscribe([var for var in self.SIMULATION_VARIABLES_TO_SUBSCRIBE])
+
         # get new measurements
         self.update_current_measurements()
         for intersection in self.intersections:
@@ -245,6 +256,8 @@ class SumoEnv:
         self.previous_step_lane_vehicle_subscription = self.current_step_lane_vehicle_subscription
         self.previous_step_vehicles = self.current_step_vehicles
 
+        self.previous_simulation_subscription = self.current_simulation_subscription
+
     def update_current_measurements(self):
 
         traci_connection = traci.getConnection(self.execution_name)
@@ -253,6 +266,12 @@ class SumoEnv:
 
         self.current_step_lane_subscription = {lane_id: traci_connection.lane.getSubscriptionResults(lane_id)
                                                for lane_id in self.lanes_list}
+
+        self.current_simulation_subscription = traci_connection.simulation.getSubscriptionResults()
+
+        self.total_loaded_vehicles += self.current_simulation_subscription[tc.VAR_LOADED_VEHICLES_NUMBER]
+        self.total_departed_vehicles += self.current_simulation_subscription[tc.VAR_DEPARTED_VEHICLES_NUMBER]
+        self.total_running_vehicles = traci.getConnection(self.execution_name).vehicle.getIDCount()
 
         # ====== vehicle level observations =======
 
@@ -356,12 +375,14 @@ class SumoEnv:
                 self.current_step_lane_subscription)
             absolute_number_of_cars_by_lane = sumo_traci_util.get_lane_absolute_number_of_cars(
                 self.current_step_lane_subscription)
-
             extra = {
-                "time_loss": time_loss,
+                "time_loss": time_loss + (self.total_loaded_vehicles - self.total_departed_vehicles) * 1,
+                "total_loaded_vehicles": self.total_loaded_vehicles,
+                "total_departed_vehicles": self.total_departed_vehicles,
+                "total_running_vehicles": self.total_running_vehicles,
                 "relative_occupancy": relative_occupancy_by_lane,
                 "relative_mean_speed": relative_mean_speed_by_lane,
-                "absolute_number_of_cars": absolute_number_of_cars_by_lane
+                "absolute_number_of_cars_by_lane": absolute_number_of_cars_by_lane
             }
 
             self.network_logs.append({
@@ -396,7 +417,7 @@ class SumoEnv:
                     "time_loss": time_loss,
                     "relative_occupancy": intersection_relative_occupancy_by_lane,
                     "relative_mean_speed": intersection_relative_mean_speed_by_lane,
-                    "absolute_number_of_cars": intersection_absolute_number_of_cars_by_lane
+                    "absolute_number_of_cars_by_lane": intersection_absolute_number_of_cars_by_lane
                 }
 
             else:

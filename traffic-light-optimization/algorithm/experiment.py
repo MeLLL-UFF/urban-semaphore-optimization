@@ -30,17 +30,17 @@ class Experiment:
         return experiment_name
 
     @staticmethod
-    def continue_(experiment, net_file, route_file, sumocfg_file, output_file, traffic_level_configuration):
+    def continue_(experiment, net_file, route_files, sumocfg_file, output_file, traffic_level_configuration):
 
         external_configurations = Experiment._create_external_configurations_dict(
-            net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
+            net_file, route_files, sumocfg_file, output_file, traffic_level_configuration)
 
         experiment_name = run_batch.continue_(experiment, external_configurations)
 
         return experiment_name
 
     @staticmethod
-    def visualize_policy_behavior(scenario, _type, traffic_level_configuration, experiment='last',
+    def visualize_policy_behavior(scenario, _type, traffic_level_configuration, memo, experiment='last',
                                   _round='best_time_loss'):
         # experiment: 'last' or actual name
         # _round: 'last', 'best_time_loss', 'best_average_trip_duration', 'best_reward' or number
@@ -52,11 +52,11 @@ class Experiment:
             experiment = sorted(os.listdir(output_folder_base))[-1]
 
         output_folder = os.path.join(output_folder_base, experiment)
-        frap_records_folder = os.path.join(FRAP_ROOT_DIR, 'records', 'Frap', experiment)
-        frap_summary_folder = os.path.join(FRAP_ROOT_DIR, 'summary', 'Frap', experiment)
+        records_folder = os.path.join(FRAP_ROOT_DIR, 'records', memo, experiment)
+        summary_folder = os.path.join(FRAP_ROOT_DIR, 'summary', memo, experiment)
 
         if _round == 'best_time_loss':
-            result_df = pd.read_csv(os.path.join(frap_summary_folder, experiment + '-test-time_loss.csv'))
+            result_df = pd.read_csv(os.path.join(summary_folder, experiment + '-test-time_loss.csv'))
             result_df.set_index(result_df.columns[0], inplace=True)
 
             column_label = 'time_loss'
@@ -64,7 +64,7 @@ class Experiment:
             _round = result_df[column_label].idxmin()
         
         elif _round == 'worst_time_loss':
-            result_df = pd.read_csv(os.path.join(frap_summary_folder, experiment + '-test-time_loss.csv'))
+            result_df = pd.read_csv(os.path.join(summary_folder, experiment + '-test-time_loss.csv'))
             result_df.set_index(result_df.columns[0], inplace=True)
 
             column_label = 'time_loss'
@@ -80,7 +80,7 @@ class Experiment:
             _round = result_df[column_label].idxmin()
         
         elif _round == 'best_reward':
-            result_df = pd.read_csv(os.path.join(frap_summary_folder, experiment + '-test-reward.csv'))
+            result_df = pd.read_csv(os.path.join(summary_folder, experiment + '-test-reward.csv'))
             result_df.set_index(result_df.columns[0], inplace=True)
 
             column_label = 'reward'
@@ -88,39 +88,41 @@ class Experiment:
             _round = result_df[column_label].idxmax()
 
         elif _round == 'last':
-            round_folders = next(os.walk(os.path.join(frap_records_folder, 'test_round')))[1]
+            round_folders = next(os.walk(os.path.join(records_folder, 'test_round')))[1]
             round_folders.sort(key=lambda x: int(x.split('_')[1]))
             last_round = round_folders[-1]
             _round = int(last_round.split('_')[1])
 
         execution_name = 'replay' + '_' + 'test_round' + '_' + 'round' + '_' + str(_round)
 
-        net_file = os.path.join(frap_records_folder, scenario + '__' + _type + '.net.xml')
-        route_file = os.path.join(frap_records_folder, scenario + '_' + traffic_level_configuration + '.rou.xml')
-        sumocfg_file = os.path.join(frap_records_folder, scenario + '__' + _type + '.sumocfg')
+        net_file = os.path.join(records_folder, scenario + '__' + _type + '.net.xml')
+        route_file = os.path.join(records_folder, scenario + '_' + traffic_level_configuration + '.rou.xml')
+        sumocfg_file = os.path.join(records_folder, scenario + '__' + _type + '.sumocfg')
         output_file = os.path.join(output_folder, '')
 
         if not os.path.isfile(route_file):
             raise ValueError("Route file does not exist")
 
+        route_files = [route_file]
+
         external_configurations = Experiment._create_external_configurations_dict(
-            net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
+            net_file, route_files, sumocfg_file, output_file, traffic_level_configuration)
 
         replay.run(
-            os.path.join('Frap', experiment),
+            os.path.join(memo, experiment),
             round_number=_round, 
             run_cnt=3600,
             execution_name=execution_name,
-            if_gui=True,
-            rewrite_mode=False,
+            if_gui=False,
+            rewrite_mode=True,
             external_configurations=external_configurations)
 
 
     @staticmethod
-    def retrain(experiment, _round, net_file, route_file, sumocfg_file, output_file, traffic_level_configuration):
+    def retrain(experiment, _round, net_file, route_files, sumocfg_file, output_file, traffic_level_configuration):
 
         external_configurations = Experiment._create_external_configurations_dict(
-            net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
+            net_file, route_files, sumocfg_file, output_file, traffic_level_configuration)
 
         experiment_name = run_batch.re_run(experiment, _round, external_configurations)
 
