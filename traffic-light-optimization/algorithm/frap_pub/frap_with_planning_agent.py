@@ -25,10 +25,15 @@ class FrapWithPlanningAgent(FrapAgent, PlanningOnlyAgent):
             }
         )
 
-        action = PlanningOnlyAgent.choose_action(self, step, state, *args, **kwargs)
+        if self.mode == 'train':
+            action = PlanningOnlyAgent.choose_action(self, step, state, *args, **kwargs)
 
-        if self.planning_sample_only:
+            if self.planning_sample_only:
+                action = FrapAgent.choose_action(self, step, state)
+        elif self.mode == 'test':
             action = FrapAgent.choose_action(self, step, state)
+        else:
+            raise ValueError("Action not available for mode " + str(self.mode))
 
         return action
 
