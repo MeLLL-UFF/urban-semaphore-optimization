@@ -113,8 +113,8 @@ class Experiment:
             round_number=_round, 
             run_cnt=3600,
             execution_name=execution_name,
-            if_gui=False,
-            rewrite_mode=True,
+            if_gui=True,
+            rewrite_mode=False,
             external_configurations=external_configurations)
 
 
