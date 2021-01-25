@@ -1,5 +1,6 @@
 import os
 import copy
+import pickle
 from functools import partial
 import statistics
 from concurrent.futures import ThreadPoolExecutor
@@ -39,25 +40,52 @@ class PlanningOnlyAgent(Agent):
         self.env = env
 
     def choose_action(self, step, state, *args, **kwargs):
-        
-        rng = np.random.Generator(np.random.MT19937(23423))
-        
+
         intersection_index = kwargs.get('intersection_index', None)
 
         if intersection_index is None:
             raise ValueError('intersection_index must be declared')
 
-        previous_planning_actions = []
-        if self.previous_actions[intersection_index] is not None:
-            previous_planning_actions.append(self.previous_actions[intersection_index])
+        if self.mode == 'replay':
+            action = self.replay_action(step, intersection_index)
+        else:
 
-        action, _ = self._choose_action(step, state, step, intersection_index, rng,
-                                        self.planning_iterations, previous_planning_actions)
+            rng = np.random.Generator(np.random.MT19937(23423))
 
-        self.previous_actions[intersection_index] = action
+            previous_planning_actions = []
+            if self.previous_actions[intersection_index] is not None:
+                previous_planning_actions.append(self.previous_actions[intersection_index])
+
+            action, _ = self._choose_action(step, state, step, intersection_index, rng,
+                                            self.planning_iterations, previous_planning_actions)
+
+            self.previous_actions[intersection_index] = action
 
         return action
-    
+
+    def replay_action(self, step, intersection_index):
+
+        intersection_id = self.dic_traffic_env_conf['INTERSECTION_ID'][intersection_index]
+
+        filename = 'inter' + '_' + intersection_id + '_' + 'actions' + '.pkl'
+
+        records_path = self.dic_path['PATH_TO_WORK_DIRECTORY']
+        file = os.path.join(ROOT_DIR, records_path, 'test_round', 'round_0', filename)
+
+        with open(file, 'rb') as handle:
+            data = pickle.load(handle)
+
+        step_data = data[step]
+
+        assert step_data['time'] == step
+
+        action = step_data['action']
+
+        return action
+
+    def load_network(self, *args, **kwargs):
+        pass
+
     def _choose_action(self, initial_step, one_state, original_step, intersection_index, rng, planning_iterations,
                        previous_planning_actions, possible_actions=None, env=None, *args, **kwargs):
 

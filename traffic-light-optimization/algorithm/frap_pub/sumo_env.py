@@ -95,6 +95,7 @@ class SumoEnv:
 
         self.intersections = None
         self.intersection_logs = None
+        self.action_logs = None
         self.network_logs = None
         self.lanes_list = None
         self.edges_list = None
@@ -142,6 +143,7 @@ class SumoEnv:
                                                    external_configurations=self.external_configurations))
 
         self.intersection_logs = [[] for _ in range(len(self.intersections))]
+        self.action_logs = [[] for _ in range(len(self.intersections))]
         self.network_logs = []
 
         self.edges_list = []
@@ -362,7 +364,7 @@ class SumoEnv:
         relative_mean_speed_by_lane = {}
         absolute_number_of_cars_by_lane = {}
 
-        if self.mode == 'test':
+        if self.mode == 'test' or self.mode == 'replay':
 
             time_loss = sumo_traci_util.get_time_loss(
                 self.current_step_vehicle_subscription,
@@ -430,11 +432,18 @@ class SumoEnv:
                 "reward": reward[intersection_index],
                 "extra": extra})
 
+            if self.mode == 'test':
+
+                self.action_logs[intersection_index].append({
+                    "time": current_time,
+                    "action": action[intersection_index],
+                })
+
     def save_log(self):
 
         if self.write_mode:
 
-            if self.mode == 'test':
+            if self.mode == 'test' or self.mode == 'replay':
                 path_to_detailed_log_file = os.path.join(self.path_to_log, "network_detailed.pkl")
                 f = open(ROOT_DIR + '/' + path_to_detailed_log_file, "wb+")
                 pickle.dump(self.network_logs, f)
@@ -454,7 +463,15 @@ class SumoEnv:
                     pickle.dump(self.intersection_logs[intersection_index], f)
                     f.close()
 
+                if self.mode == 'test':
+                    path_to_actions_log_file = os.path.join(
+                        self.path_to_log, "inter_{0}_actions.pkl".format(intersection.id))
+                    f = open(ROOT_DIR + '/' + path_to_actions_log_file, "wb+")
+                    pickle.dump(self.action_logs[intersection_index], f)
+                    f.close()
+
             self.intersection_logs = [[] for _ in range(len(self.intersections))]
+            self.action_logs = [[] for _ in range(len(self.intersections))]
             self.network_logs = []
 
     def save_state(self, name=None):
