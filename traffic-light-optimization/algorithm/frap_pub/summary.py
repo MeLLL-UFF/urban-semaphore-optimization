@@ -936,7 +936,7 @@ def single_experiment_network_summary(memo, records_dir, plots='all', single_rou
             algorithm_label,
             baseline_comparison=baseline_comparison,
             baseline_experiments=baseline_experiments,
-            mean=True)
+            is_summary=True)
 
         consolidated_time_loss_per_driver_each_round_df.to_csv(
             save_path + "/" + name_base + "-" + 'consolidated_time_loss_per_driver' + ".csv")
@@ -948,7 +948,7 @@ def single_experiment_network_summary(memo, records_dir, plots='all', single_rou
             algorithm_label,
             baseline_comparison=baseline_comparison, 
             baseline_experiments=baseline_experiments,
-            mean=True)
+            is_summary=True)
 
         summary_util.consolidate_reward(average_reward_each_round, save_path, name_base)
 
