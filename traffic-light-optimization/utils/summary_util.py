@@ -47,23 +47,20 @@ def consolidate_reward(reward_each_step, save_path, name_base):
 
 
 def consolidate_instant_time_loss_per_driver_average(time_loss_each_step, total_running_vehicles_each_step,
-                                                     total_loaded_vehicles_each_step, total_departed_vehicles_each_step,
-                                                     save_path, name_base):
+                                                     total_pending_vehicles_each_step, save_path, name_base):
 
     instant_time_loss_per_driver_average_df = pd.DataFrame(
         {'time_loss': time_loss_each_step,
          'total_running_vehicles': total_running_vehicles_each_step,
-         'total_loaded_vehicles': total_loaded_vehicles_each_step,
-         'total_departed_vehicles': total_departed_vehicles_each_step})
+         'total_pending_vehicles': total_pending_vehicles_each_step})
 
-    instant_time_loss_per_driver_average_df['running_and_waiting_to_depart'] = \
+    instant_time_loss_per_driver_average_df['total_running_and_pending_vehicles'] = \
         instant_time_loss_per_driver_average_df['total_running_vehicles'] + \
-        (instant_time_loss_per_driver_average_df['total_loaded_vehicles'] -
-         instant_time_loss_per_driver_average_df['total_departed_vehicles'])
+        instant_time_loss_per_driver_average_df['total_pending_vehicles']
 
     instant_time_loss_per_driver_average_df['instant_time_loss_per_driver'] = \
         instant_time_loss_per_driver_average_df['time_loss'] / \
-        instant_time_loss_per_driver_average_df['running_and_waiting_to_depart']
+        instant_time_loss_per_driver_average_df['total_running_and_pending_vehicles']
 
     instant_time_loss_per_driver_average_df = \
         pd.DataFrame(instant_time_loss_per_driver_average_df['instant_time_loss_per_driver'])
@@ -74,16 +71,21 @@ def consolidate_instant_time_loss_per_driver_average(time_loss_each_step, total_
     return instant_time_loss_per_driver_average_df
 
 
-def consolidate_consolidated_time_loss_per_driver(time_loss_each_step, total_loaded_vehicles_each_step,
-                                                  save_path, name_base):
+def consolidate_consolidated_time_loss_per_driver(time_loss_each_step, total_departed_vehicles_each_step,
+                                                  total_pending_vehicles_each_step, save_path, name_base):
 
     consolidated_time_loss_per_driver_df = pd.DataFrame(
         {'time_loss': time_loss_each_step,
-         'total_loaded_vehicles': total_loaded_vehicles_each_step})
+         'total_departed_vehicles': total_departed_vehicles_each_step,
+         'total_pending_vehicles': total_pending_vehicles_each_step})
+
+    consolidated_time_loss_per_driver_df['total_departed_and_pending_vehicles'] = \
+        consolidated_time_loss_per_driver_df['total_departed_vehicles'] + \
+        consolidated_time_loss_per_driver_df['total_pending_vehicles']
 
     consolidated_time_loss_per_driver_df['consolidated_time_loss_per_driver'] = \
         consolidated_time_loss_per_driver_df['time_loss'].cumsum() / \
-        consolidated_time_loss_per_driver_df['total_loaded_vehicles']
+        consolidated_time_loss_per_driver_df['total_departed_and_pending_vehicles']
 
     consolidated_time_loss_per_driver_df = \
         pd.DataFrame(consolidated_time_loss_per_driver_df['consolidated_time_loss_per_driver'])

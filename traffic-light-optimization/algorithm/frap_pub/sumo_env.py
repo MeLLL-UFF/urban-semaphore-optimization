@@ -63,8 +63,8 @@ class SumoEnv:
     ]
 
     SIMULATION_VARIABLES_TO_SUBSCRIBE = [
-        tc.VAR_LOADED_VEHICLES_NUMBER,
-        tc.VAR_DEPARTED_VEHICLES_NUMBER
+        tc.VAR_DEPARTED_VEHICLES_NUMBER,
+        tc.VAR_PENDING_VEHICLES,
     ]
 
     def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf, dic_path,
@@ -164,8 +164,8 @@ class SumoEnv:
         self.current_step_vehicles = []
         self.previous_step_vehicles = []
 
-        self.total_loaded_vehicles = 0
         self.total_departed_vehicles = 0
+        self.total_pending_vehicles = 0
         self.total_running_vehicles = 0
 
         self.vehicle_arrive_leave_time_dict = {}  # cumulative
@@ -271,8 +271,8 @@ class SumoEnv:
 
         self.current_simulation_subscription = traci_connection.simulation.getSubscriptionResults()
 
-        self.total_loaded_vehicles += self.current_simulation_subscription[tc.VAR_LOADED_VEHICLES_NUMBER]
         self.total_departed_vehicles += self.current_simulation_subscription[tc.VAR_DEPARTED_VEHICLES_NUMBER]
+        self.total_pending_vehicles = len(self.current_simulation_subscription[tc.VAR_PENDING_VEHICLES])
         self.total_running_vehicles = traci.getConnection(self.execution_name).vehicle.getIDCount()
 
         # ====== vehicle level observations =======
@@ -378,9 +378,9 @@ class SumoEnv:
             absolute_number_of_cars_by_lane = sumo_traci_util.get_lane_absolute_number_of_cars(
                 self.current_step_lane_subscription)
             extra = {
-                "time_loss": time_loss + (self.total_loaded_vehicles - self.total_departed_vehicles) * 1,
-                "total_loaded_vehicles": self.total_loaded_vehicles,
+                "time_loss": time_loss + self.total_pending_vehicles*1,
                 "total_departed_vehicles": self.total_departed_vehicles,
+                "total_pending_vehicles": self.total_pending_vehicles,
                 "total_running_vehicles": self.total_running_vehicles,
                 "relative_occupancy": relative_occupancy_by_lane,
                 "relative_mean_speed": relative_mean_speed_by_lane,
@@ -492,6 +492,9 @@ class SumoEnv:
     def check_for_active_action_time_actions(self, action):
         
         for intersection_index, intersection in enumerate(self.intersections):
+
+            if action[intersection_index] == 'no_op':
+                continue
             
             action_time_action = intersection.select_active_action_time_action()
             
@@ -503,6 +506,9 @@ class SumoEnv:
     def check_for_time_restricted_actions(self, action, waiting_time_restriction=120):
 
         for intersection_index, intersection in enumerate(self.intersections):
+
+            if action[intersection_index] == 'no_op':
+                continue
 
             time_restricted_action = intersection.select_action_based_on_time_restriction(waiting_time_restriction)
             

@@ -841,8 +841,8 @@ def single_experiment_network_summary(memo, records_dir, plots='all', single_rou
         round_dir = os.path.join(test_round_dir, round_)
 
         time_loss_each_step = []
-        total_loaded_vehicles_each_step = []
         total_departed_vehicles_each_step = []
+        total_pending_vehicles_each_step = []
         total_running_vehicles_each_step = []
 
         relative_occupancy_each_step = []
@@ -855,8 +855,8 @@ def single_experiment_network_summary(memo, records_dir, plots='all', single_rou
         f.close()
         for sample in samples:
             time_loss_each_step.append(sample['extra']['time_loss'])
-            total_loaded_vehicles_each_step.append(sample['extra']['total_loaded_vehicles'])
             total_departed_vehicles_each_step.append(sample['extra']['total_departed_vehicles'])
+            total_pending_vehicles_each_step.append(sample['extra']['total_pending_vehicles'])
             total_running_vehicles_each_step.append(sample['extra']['total_running_vehicles'])
             if plots is not None:
                 relative_occupancy_each_step.append(sample['extra']['relative_occupancy'])
@@ -868,15 +868,15 @@ def single_experiment_network_summary(memo, records_dir, plots='all', single_rou
         instant_time_loss_per_driver_average_df = summary_util.consolidate_instant_time_loss_per_driver_average(
             time_loss_each_step,
             total_running_vehicles_each_step,
-            total_loaded_vehicles_each_step,
-            total_departed_vehicles_each_step,
+            total_pending_vehicles_each_step,
             save_path,
             name_base
         )
 
         consolidated_time_loss_per_driver_df = summary_util.consolidate_consolidated_time_loss_per_driver(
             time_loss_each_step,
-            total_loaded_vehicles_each_step,
+            total_departed_vehicles_each_step,
+            total_pending_vehicles_each_step,
             save_path,
             name_base
         )

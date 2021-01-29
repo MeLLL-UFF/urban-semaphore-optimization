@@ -259,7 +259,7 @@ def continue_(existing_experiment, round_='FROM_THE_LAST', args=None, memo=None,
 
     multi_process = True
 
-    dir_ = os.path.join('Frap', existing_experiment)
+    dir_ = os.path.join(memo, existing_experiment)
 
     model_dir = "model/" + dir_
     records_dir = "records/" + dir_
