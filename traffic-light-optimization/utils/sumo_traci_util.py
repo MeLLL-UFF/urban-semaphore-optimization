@@ -3,6 +3,7 @@ import math
 
 import traci
 import traci.constants as tc
+import numpy as np
 from shapely.geometry import Polygon, CAP_STYLE
 
 from utils import sumo_util, math_util
@@ -28,13 +29,26 @@ def set_traffic_light_state(intersection, state, traci_label=None):
     traci_connection.trafficlight.setRedYellowGreenState(intersection, state)
 
 
-def get_lane_first_stopped_car_waiting_times(lanes, lane_vehicle_subscription_data):
+def get_movements_first_stopped_car_greatest_waiting_time(movement_to_entering_lane, lane_vehicle_subscription_data):
 
-    result = {lane: 0 for lane in lanes}
+    result = {movement: 0 for movement in movement_to_entering_lane.keys()}
 
-    for lane_id, subscription_data in lane_vehicle_subscription_data.items():
-        vehicle_id, vehicle = next(iter(subscription_data.items()))
-        result[lane_id] = vehicle[tc.VAR_WAITING_TIME]
+    for movement, entering_lanes in movement_to_entering_lane.items():
+        entering_lanes = np.unique(entering_lanes).tolist()
+
+        greatest_waiting_time = 0
+        for lane_id in entering_lanes:
+
+            if lane_id in lane_vehicle_subscription_data:
+                subscription_data = lane_vehicle_subscription_data[lane_id]
+                _, vehicle = next(iter(subscription_data.items()))
+                vehicle_waiting_time = vehicle[tc.VAR_WAITING_TIME]
+            else:
+                vehicle_waiting_time = 0
+
+            greatest_waiting_time = max(greatest_waiting_time, vehicle_waiting_time)
+
+        result[movement] = greatest_waiting_time
 
     return result
 
@@ -90,18 +104,18 @@ def get_time_loss_by_lane(lane_vehicle_subscription_data, lanes, traci_label=Non
     return time_loss_by_lane
 
 
-def get_lane_relative_occupancy(lane_subscription_data, lane_vehicle_subscription_data, traci_label=None):
-
+def get_movement_relative_occupancy(lane_subscription_data, lane_vehicle_subscription_data, traci_label=None):
     if traci_label is None:
         traci_connection = traci
     else:
         traci_connection = traci.getConnection(traci_label)
 
-    result = {}
-
     all_vehicles = {vehicle_id: vehicle
                     for lane_id in lane_subscription_data.keys()
                     for vehicle_id, vehicle in lane_vehicle_subscription_data.get(lane_id, {}).items()}
+
+    total_occupied_length_list = []
+    lane_length_list = []
 
     for lane_id, lane in lane_subscription_data.items():
 
@@ -145,15 +159,15 @@ def get_lane_relative_occupancy(lane_subscription_data, lane_vehicle_subscriptio
                 secure_gap = vehicle[tc.VAR_TAU] * vehicle[tc.VAR_SPEED] + min_gap
 
             occupied_length = vehicle[tc.VAR_LENGTH] + min(secure_gap, actual_distance)
-            
+
             total_occupied_length += occupied_length
 
-        lane_relative_occupancy = total_occupied_length / lane_length
+        total_occupied_length_list.append(total_occupied_length)
+        lane_length_list.append(lane_length)
 
-        result[lane_id] = lane_relative_occupancy
+    movement_relative_occupancy = sum(total_occupied_length_list) / sum(lane_length_list)
 
-    return result
-
+    return movement_relative_occupancy
 
 def get_lane_relative_mean_speed(lane_subscription_data):
 
@@ -260,13 +274,13 @@ def detect_deadlock(intersection_id, net_xml, vehicle_subscription_data,
     else:
         traci_connection = traci.getConnection(traci_label)
 
-    internal_lane = sumo_util.get_internal_lanes(net_xml, intersection_id)
-    lane_path_dict = sumo_util.get_internal_lane_paths(net_xml, intersection_id, internal_lane)
+    internal_lanes = sumo_util.get_internal_lanes(net_xml, intersection_id)
+    lane_path_dict = sumo_util.get_internal_lane_paths(net_xml, intersection_id, internal_lanes)
 
     vehicle_lane_dict = {}
     vehicle_waiting_times = {}
 
-    for lane in internal_lane:
+    for lane in internal_lanes:
 
         lane_id = lane.get('id')
         vehicles = traci_connection.lane.getLastStepVehicleIDs(lane_id)

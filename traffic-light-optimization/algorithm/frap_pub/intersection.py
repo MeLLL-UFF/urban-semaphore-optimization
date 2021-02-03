@@ -29,8 +29,10 @@ class Intersection:
 
         self.movements = dic_traffic_env_conf['MOVEMENT'][intersection_index]
         self.phases = dic_traffic_env_conf['PHASE'][intersection_index]
-        self.conflicts = dic_traffic_env_conf['CONFLICTS'][intersection_index]
+        self.link_states = dic_traffic_env_conf['LINK_STATES'][intersection_index]
         self.movement_to_connection = dic_traffic_env_conf['movement_to_connection'][intersection_index]
+
+        self.is_right_on_red = dic_traffic_env_conf['IS_RIGHT_ON_RED']
 
         self.min_action_time = dic_traffic_env_conf['MIN_ACTION_TIME']
         self.has_per_second_decision = dic_traffic_env_conf.get('PER_SECOND_DECISION', False)
@@ -48,17 +50,43 @@ class Intersection:
         self.controlled_exiting_lanes = []
         self.entering_lanes = []
         self.exiting_lanes = []
-        for movement, connection in self.movement_to_connection.items():
 
-            from_lane = connection.get('from') + '_' + connection.get('fromLane')
-            to_lane = connection.get('to') + '_' + connection.get('toLane')
+        self.movement_to_entering_lane = {}
+        self.movement_to_exiting_lane = {}
 
-            self.entering_lanes.append(from_lane)
-            self.exiting_lanes.append(to_lane)
+        self.uncontrolled_movements = []
+
+        self.entering_lanes = set(self.entering_lanes)
+        self.exiting_lanes = set(self.exiting_lanes)
+        self.controlled_entering_lanes = set(self.controlled_entering_lanes)
+        self.controlled_exiting_lanes = set(self.controlled_exiting_lanes)
+        for movement, connections in self.movement_to_connection.items():
 
             if movement in self.movements:
-                self.controlled_entering_lanes.append(from_lane)
-                self.controlled_exiting_lanes.append(to_lane)
+                self.movement_to_entering_lane[movement] = []
+                self.movement_to_exiting_lane[movement] = []
+            else:
+                self.uncontrolled_movements.append(movement)
+
+            for connection in connections:
+
+                from_lane = connection.get('from') + '_' + connection.get('fromLane')
+                to_lane = connection.get('to') + '_' + connection.get('toLane')
+
+                self.entering_lanes.add(from_lane)
+                self.exiting_lanes.add(to_lane)
+
+                if movement in self.movements:
+                    self.controlled_entering_lanes.add(from_lane)
+                    self.controlled_exiting_lanes.add(to_lane)
+
+                    self.movement_to_entering_lane[movement].append(from_lane)
+                    self.movement_to_exiting_lane[movement].append(to_lane)
+
+        self.entering_lanes = list(self.entering_lanes)
+        self.exiting_lanes = list(self.exiting_lanes)
+        self.controlled_entering_lanes = list(self.controlled_entering_lanes)
+        self.controlled_exiting_lanes = list(self.controlled_exiting_lanes)
 
         self.lanes = self.entering_lanes + self.exiting_lanes
         self.internal_lanes = [lane.get('id') for lane in sumo_util.get_internal_lanes(self.net_file_xml, self.id)]
@@ -66,30 +94,11 @@ class Intersection:
 
         self.controlled_lanes = self.controlled_entering_lanes + self.controlled_exiting_lanes
 
-        self.lane_to_traffic_light_index_mapping = sumo_util.get_lane_traffic_light_controller(
-            self.net_file_xml,
-            self.controlled_entering_lanes)
+        self.movement_to_traffic_light_index = sumo_util.get_movement_traffic_light_controller(
+            self.movement_to_connection)
+        self.phase_traffic_lights = self.get_phase_traffic_lights()
 
-        self.dic_phase_strings = {}
-        for phase in self.phases:
-            default_signal_phase_str = ["r"]*len(self.movements)
-
-            phase_movements = phase.split('_')
-            for index, movement in enumerate(phase_movements):
-
-                movement_conflicts = self.conflicts[movement]
-
-                if len(set(phase_movements[0:index]).intersection(set(movement_conflicts))) > 0:
-                    default_signal_phase_str[self.movements.index(movement)] = 'g'
-                else:
-                    default_signal_phase_str[self.movements.index(movement)] = 'G'
-
-            self.dic_phase_strings[phase] = "".join(default_signal_phase_str)
-
-        self.all_yellow_phase_string = "y" * len(self.movements)
-        self.all_red_phase_string = "r" * len(self.movements)
-
-        self.all_yellow_phase_index = -1
+        self.yellow_phase_index = -1
         self.all_red_phase_index = -2
 
         # grid settings
@@ -107,7 +116,7 @@ class Intersection:
         self.current_phase_duration = -1
         self.current_min_action_duration = -1
         self.all_red_flag = False
-        self.all_yellow_flag = False
+        self.yellow_flag = False
         self.flicker = 0
 
         self.current_step_lane_subscription = None
@@ -132,50 +141,51 @@ class Intersection:
             'vehicle_speed_img': lambda: self._get_lane_vehicle_speed(self.controlled_entering_lanes),
             'vehicle_acceleration_img': lambda: None,
             'vehicle_waiting_time_img': lambda:
-                self._get_lane_vehicle_accumulated_waiting_time(self.controlled_entering_lanes),
-            'lane_num_vehicle': lambda: self._get_lane_num_vehicle(self.controlled_entering_lanes),
-            'lane_num_vehicle_been_stopped_threshold_01': lambda:
-                self._get_lane_num_vehicle_been_stopped(0.1, self.controlled_entering_lanes),
-            'lane_num_vehicle_been_stopped_threshold_1': lambda:
-                self._get_lane_num_vehicle_been_stopped(1, self.controlled_entering_lanes),
-            'lane_queue_length': lambda: self._get_lane_queue_length(self.controlled_entering_lanes),
-            'lane_num_vehicle_left': lambda: None,
-            'lane_sum_duration_vehicle_left': lambda: None,
-            'lane_sum_waiting_time': lambda: self._get_lane_sum_waiting_time(self.controlled_entering_lanes),
+                self._get_lane_vehicle_accumulated_waiting_time(self.movement_to_entering_lane),
+            'movement_number_of_vehicles': lambda:
+                self._get_movements_number_of_vehicles(self.movement_to_entering_lane),
+            'movement_number_of_vehicles_been_stopped_threshold_01': lambda:
+                self._get_movements_number_of_vehicles_been_stopped(self.movement_to_entering_lane, 0.1),
+            'movement_number_of_vehicles_been_stopped_threshold_1': lambda:
+                self._get_movements_number_of_vehicles_been_stopped(self.movement_to_entering_lane, 1),
+            'movement_queue_length': lambda: self._get_movements_queue_length(self.movement_to_entering_lane),
+            'movement_number_of_vehicles_left': lambda: None,
+            'movement_sum_duration_vehicles_left': lambda: None,
+            'movement_sum_waiting_time': lambda: self._get_movements_sum_waiting_time(self.movement_to_entering_lane),
             'terminal': lambda: None,
-            'lane_pressure_presslight': lambda:
-                np.array(self._get_lane_density(self.controlled_entering_lanes)) -
-                np.array(self._get_lane_density(self.controlled_exiting_lanes)),
-            'lane_pressure_mplight': lambda:
-                np.array(self._get_lane_num_vehicle(self.controlled_entering_lanes)) -
-                np.array(self._get_lane_num_vehicle(self.controlled_exiting_lanes)),
-            'lane_pressure_time_loss': lambda:
-                np.array(self._get_lane_time_loss(self.controlled_entering_lanes)) -
-                np.array(self._get_lane_time_loss(self.controlled_exiting_lanes)),
-            'lane_sum_time_loss': lambda: self._get_lane_time_loss(self.controlled_entering_lanes)
+            'movement_pressure_presslight': lambda:
+                np.array(self._get_movements_density(self.movement_to_entering_lane)) -
+                np.array(self._get_movements_density(self.movement_to_exiting_lane)),
+            'movement_pressure_mplight': lambda:
+                np.array(self._get_movements_number_of_vehicles(self.movement_to_entering_lane)) -
+                np.array(self._get_movements_number_of_vehicles(self.movement_to_exiting_lane)),
+            'movement_pressure_time_loss': lambda:
+                np.array(self._get_movements_time_loss(self.movement_to_entering_lane)) -
+                np.array(self._get_movements_time_loss(self.movement_to_exiting_lane)),
+            'movement_sum_time_loss': lambda: self._get_movements_time_loss(self.movement_to_entering_lane)
         }
 
         self.reward_dict_function = {
             'flickering': lambda: None,
-            'sum_lane_queue_length': lambda: -np.sum(self.get_feature('lane_queue_length')),
-            'avg_lane_queue_length': lambda: -np.average(self.get_feature('lane_queue_length')),
-            'sum_lane_wait_time': lambda: -np.sum(self.get_feature('lane_sum_waiting_time')),
-            'sum_lane_num_vehicle_left': lambda: None,
-            'sum_duration_vehicle_left': lambda: None,
-            'sum_num_vehicle_been_stopped_threshold_01':
-                lambda: -np.sum(self.get_feature('lane_num_vehicle_been_stopped_threshold_01')),
-            'sum_num_vehicle_been_stopped_threshold_1':
-                lambda: -np.sum(self.get_feature('lane_num_vehicle_been_stopped_threshold_1')),
+            'sum_movement_queue_length': lambda: -np.sum(self.get_feature('movement_queue_length')),
+            'avg_movement_queue_length': lambda: -np.average(self.get_feature('movement_queue_length')),
+            'sum_movement_wait_time': lambda: -np.sum(self.get_feature('movement_sum_waiting_time')),
+            'sum_movement_num_vehicle_left': lambda: None,
+            'sum_duration_vehicles_left': lambda: None,
+            'sum_number_of_vehicles_been_stopped_threshold_01':
+                lambda: -np.sum(self.get_feature('movement_number_of_vehicles_been_stopped_threshold_01')),
+            'sum_number_of_vehicles_been_stopped_threshold_1':
+                lambda: -np.sum(self.get_feature('movement_number_of_vehicles_been_stopped_threshold_1')),
             'pressure_presslight': lambda:
-                -np.abs(np.sum(self.get_feature('lane_pressure_presslight'))),
+                -np.abs(np.sum(self.get_feature('movement_pressure_presslight'))),
             'pressure_mplight': lambda:
-                -(np.sum(self._get_lane_queue_length(self.controlled_entering_lanes)) -
-                np.sum(self._get_lane_queue_length(self.controlled_exiting_lanes))),
+                -(np.sum(self._get_movements_queue_length(self.movement_to_entering_lane)) -
+                np.sum(self._get_movements_queue_length(self.movement_to_exiting_lane))),
             'pressure_time_loss': lambda:
-                -(np.sum(self._get_lane_time_loss(self.controlled_entering_lanes)) -
-                np.sum(self._get_lane_time_loss(self.controlled_exiting_lanes))),
+                -(np.sum(self._get_movements_time_loss(self.movement_to_entering_lane)) -
+                np.sum(self._get_movements_time_loss(self.movement_to_exiting_lane))),
             'time_loss': lambda:
-                -np.sum(self.get_feature('lane_sum_time_loss'))
+                -np.sum(self.get_feature('movement_sum_time_loss'))
         }
 
     def update_previous_measurements(self):
@@ -237,26 +247,17 @@ class Intersection:
 
     def set_signal(self, action, action_pattern, yellow_time, all_red_time):
 
-        if self.all_yellow_flag:
+        if self.yellow_flag:
             # in yellow phase
             self.flicker = 0
             if self.current_phase_duration >= yellow_time:  # yellow time reached
 
-                current_traffic_light = sumo_traci_util.get_traffic_light_state(self.id, self.execution_name)
-
                 self.current_phase_index = self.next_phase_to_set_index
                 phase = self.phases[self.current_phase_index]
-
-                for lane_index, lane_id in enumerate(self.controlled_entering_lanes):
-                    traffic_light_index = int(self.lane_to_traffic_light_index_mapping[lane_id])
-                    new_lane_traffic_light = self.dic_phase_strings[phase][lane_index]
-                    current_traffic_light = \
-                        current_traffic_light[:traffic_light_index] + \
-                        new_lane_traffic_light + \
-                        current_traffic_light[traffic_light_index + 1:]
+                current_traffic_light = self.phase_traffic_lights[phase]
 
                 sumo_traci_util.set_traffic_light_state(self.id, current_traffic_light, self.execution_name)
-                self.all_yellow_flag = False
+                self.yellow_flag = False
             else:
                 pass
         else:
@@ -287,23 +288,21 @@ class Intersection:
                     current_traffic_light = sumo_traci_util.get_traffic_light_state(self.id, self.execution_name)
 
                     phase = self.phases[self.next_phase_to_set_index]
+                    next_traffic_light = self.phase_traffic_lights[phase]
 
-                    for lane_index, lane_id in enumerate(self.controlled_entering_lanes):
-                        traffic_light_index = int(self.lane_to_traffic_light_index_mapping[lane_id])
-                        current_lane_traffic_light = current_traffic_light[traffic_light_index]
-                        next_lane_traffic_light = self.dic_phase_strings[phase][lane_index]
+                    for index in range(0, len(current_traffic_light)):
 
-                        if (current_lane_traffic_light == 'g' or current_lane_traffic_light == 'G') and \
-                                (next_lane_traffic_light != 'g' and next_lane_traffic_light != 'G'):
-                            new_lane_traffic_light = self.all_yellow_phase_string[lane_index]
+                        if (current_traffic_light[index] == 'g' or current_traffic_light[index] == 'G') and \
+                                (next_traffic_light[index] != 'g' and next_traffic_light[index] != 'G'):
+
                             current_traffic_light = \
-                                current_traffic_light[:traffic_light_index] + \
-                                new_lane_traffic_light + \
-                                current_traffic_light[traffic_light_index + 1:]
+                                current_traffic_light[:index] + \
+                                'y' + \
+                                current_traffic_light[index + 1:]
 
                     sumo_traci_util.set_traffic_light_state(self.id, current_traffic_light, self.execution_name)
-                    self.current_phase_index = self.all_yellow_phase_index
-                    self.all_yellow_flag = True
+                    self.current_phase_index = self.yellow_phase_index
+                    self.yellow_flag = True
                     self.flicker = 1
 
                     self.current_min_action_duration = 0
@@ -348,47 +347,87 @@ class Intersection:
 
     # ================= calculate features from current observations ======================
 
-    def _get_lane_density(self, lanes_list):
+    def _get_movements_density(self, movement_to_lane):
 
-        lane_subscription_data = {lane_id: self.current_step_lane_subscription[lane_id]
-                                  for lane_id in lanes_list}
+        movements_density = []
+        for movement, lanes in movement_to_lane.items():
+            lanes = np.unique(lanes).tolist()
 
-        lane_vehicle_subscription_data = {lane_id: self.current_step_lane_vehicle_subscription.get(lane_id, {})
-                                          for lane_id in lanes_list}
+            lane_subscription_data = {lane_id: self.current_step_lane_subscription[lane_id]
+                                      for lane_id in lanes}
 
-        lane_density = sumo_traci_util.get_lane_relative_occupancy(
-            lane_subscription_data,
-            lane_vehicle_subscription_data
-        )
+            lane_vehicle_subscription_data = {lane_id: self.current_step_lane_vehicle_subscription.get(lane_id, {})
+                                              for lane_id in lanes}
 
-        return list(lane_density.values())
+            movement_density = sumo_traci_util.get_movement_relative_occupancy(
+                lane_subscription_data,
+                lane_vehicle_subscription_data
+            )
 
-    def _get_lane_time_loss(self, lanes_list):
+            movements_density.append(movement_density)
 
-        lane_time_loss = sumo_traci_util.get_time_loss_by_lane(
-            self.current_step_lane_vehicle_subscription, lanes_list,
-            self.execution_name)
+        return movements_density
 
-        return lane_time_loss
+    def _get_movements_time_loss(self, movement_to_lane):
 
-    def _get_lane_queue_length(self, lanes_list):
-        return [self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_HALTING_NUMBER]
-                for lane_id in lanes_list]
+        movements_time_loss = []
+        for movement, lanes in movement_to_lane.items():
+            lanes = np.unique(lanes).tolist()
 
-    def _get_lane_num_vehicle(self, lanes_list):
-        return [self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_NUMBER]
-                for lane_id in lanes_list]
+            movement_time_loss = sum(sumo_traci_util.get_time_loss_by_lane(
+                self.current_step_lane_vehicle_subscription, lanes,
+                self.execution_name))
 
-    def _get_lane_sum_waiting_time(self, lanes_list):
-        return [self.current_step_lane_subscription[lane_id][tc.VAR_WAITING_TIME]
-                for lane_id in lanes_list]
+            movements_time_loss.append(movement_time_loss)
 
-    def _get_lane_list_vehicle_left(self, lanes_list):
+        return movements_time_loss
+
+    def _get_movements_queue_length(self, movement_to_lane):
+
+        movements_queue_length = []
+        for movement, lanes in movement_to_lane.items():
+            lanes = np.unique(lanes).tolist()
+
+            movement_queue_length = sum(
+                [self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_HALTING_NUMBER]
+                 for lane_id in lanes])
+
+            movements_queue_length.append(movement_queue_length)
+
+        return movements_queue_length
+
+    def _get_movements_number_of_vehicles(self, movement_to_lane):
+
+        movements_number_of_vehicles = []
+        for movement, lanes in movement_to_lane.items():
+            lanes = np.unique(lanes).tolist()
+
+            number_of_vehicles = sum([self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_NUMBER]
+                                      for lane_id in lanes])
+
+            movements_number_of_vehicles.append(number_of_vehicles)
+
+        return movements_number_of_vehicles
+
+    def _get_movements_sum_waiting_time(self, movement_to_lane):
+
+        movements_sum_waiting_time = []
+        for movement, lanes in movement_to_lane.items():
+            lanes = np.unique(lanes).tolist()
+
+            waiting_time = sum([self.current_step_lane_subscription[lane_id][tc.VAR_WAITING_TIME]
+                                for lane_id in lanes])
+
+            movements_sum_waiting_time.append(waiting_time)
+
+        return movements_sum_waiting_time
+
+    def _get_movements_list_vehicle_left(self, movement_to_entering_lane):
 
         return None
 
     def _get_lane_num_vehicle_left(self, lanes_list):
-        list_lane_vehicle_left = self._get_lane_list_vehicle_left(lanes_list)
+        list_lane_vehicle_left = self._get_movements_list_vehicle_left(lanes_list)
         list_lane_num_vehicle_left = [len(lane_vehicle_left) for lane_vehicle_left in list_lane_vehicle_left]
         return list_lane_num_vehicle_left
 
@@ -397,18 +436,22 @@ class Intersection:
         # not implemented error
         raise NotImplementedError
 
-    def _get_lane_num_vehicle_been_stopped(self, threshold, lanes_list):
+    def _get_movements_number_of_vehicles_been_stopped(self, movement_to_lane, threshold):
 
-        num_of_vehicle_ever_stopped = []
-        for lane_id in lanes_list:
+        movement_number_of_vehicles_ever_stopped = []
+        for movement, lanes in movement_to_lane.items():
+            lanes = np.unique(lanes).tolist()
+
             vehicle_count = 0
-            vehicle_ids = self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_ID_LIST]
-            for vehicle_id in vehicle_ids:
-                if self.vehicle_min_speed_dict[vehicle_id] < threshold:
-                    vehicle_count += 1
-            num_of_vehicle_ever_stopped.append(vehicle_count)
+            for lane_id in lanes:
+                vehicle_ids = self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_ID_LIST]
+                for vehicle_id in vehicle_ids:
+                    if self.vehicle_min_speed_dict[vehicle_id] < threshold:
+                        vehicle_count += 1
 
-        return num_of_vehicle_ever_stopped
+            movement_number_of_vehicles_ever_stopped.append(vehicle_count)
+
+        return movement_number_of_vehicles_ever_stopped
 
     def _get_position_grid_along_lane(self, vehicle):
         position = int(self.current_step_vehicle_subscription[vehicle][tc.VAR_LANEPOSITION])
@@ -450,6 +493,61 @@ class Intersection:
                     vehicle_id][tc.VAR_ACCUMULATED_WAITING_TIME]
             lane_vector_list.append(lane_vector)
         return np.array(lane_vector_list)
+
+    def get_phase_traffic_lights(self):
+        phase_traffic_lights = {}
+
+        movement_indices = np.unique(
+            [movement_index
+             for movement in self.movements
+             for movement_index in self.movement_to_traffic_light_index[movement]]) \
+            .tolist()
+        uncontrolled_movement_indices = np.unique(
+            [movement_index
+             for movement in self.uncontrolled_movements
+             for movement_index in self.movement_to_traffic_light_index[movement]]) \
+            .tolist()
+
+        for phase in self.phases:
+
+            phase_signal_string = ['r'] * (len(movement_indices) + len(uncontrolled_movement_indices))
+
+            phase_movements = phase.split('_')
+
+            for uncontrolled_movement in self.uncontrolled_movements:
+                uncontrolled_movement_traffic_light_indices = \
+                    self.movement_to_traffic_light_index[uncontrolled_movement]
+
+                for uncontrolled_movement_traffic_light_index in uncontrolled_movement_traffic_light_indices:
+                    if self.is_right_on_red and 'R' in uncontrolled_movement:
+
+                        movement_link_state_list = []
+                        for phase_movement in phase_movements:
+                            if phase_movement[0] == uncontrolled_movement[0]:
+                                movement_link_state = self.link_states[phase_movement]
+                                movement_link_state_list.append(movement_link_state)
+
+                        if 'M' in movement_link_state_list:
+                            phase_signal_string[uncontrolled_movement_traffic_light_index] = 'G'
+                        elif 'm' in movement_link_state_list:
+                            phase_signal_string[uncontrolled_movement_traffic_light_index] = 'g'
+                        else:
+                            phase_signal_string[uncontrolled_movement_traffic_light_index] = 's'
+
+            for phase_movement_index, movement in enumerate(phase_movements):
+
+                traffic_light_indices = self.movement_to_traffic_light_index[movement]
+
+                for traffic_light_index in traffic_light_indices:
+                    movement_link_state = self.link_states[movement]
+                    if movement_link_state == 'm':
+                        phase_signal_string[traffic_light_index] = 'g'
+                    else:
+                        phase_signal_string[traffic_light_index] = 'G'
+
+            phase_traffic_lights[phase] = "".join(phase_signal_string)
+
+        return phase_traffic_lights
 
     # ================= get functions from outside ======================
 
@@ -521,22 +619,13 @@ class Intersection:
         if threshold == -1:
             return -1
 
-        lane_waiting_time_dict = sumo_traci_util.get_lane_first_stopped_car_waiting_times(
-            self.controlled_entering_lanes, self.current_step_lane_vehicle_subscription)
+        movement_waiting_time_dict = sumo_traci_util.get_movements_first_stopped_car_greatest_waiting_time(
+            self.movement_to_entering_lane, self.current_step_lane_vehicle_subscription)
 
-        movements_waiting_time_dict = {}
-        for movement in self.movements:
+        movement_waiting_time_dict = {k: v for k, v in sorted(
+            movement_waiting_time_dict.items(), key=lambda x: x[1], reverse=True)}
 
-            connection = self.movement_to_connection[movement]
-            lane = connection['from'] + '_' + connection['fromLane']
-            waiting_time = lane_waiting_time_dict[lane]
-
-            movements_waiting_time_dict[movement] = waiting_time
-
-        movements_waiting_time_dict = {k: v for k, v in sorted(
-            movements_waiting_time_dict.items(), key=lambda x: x[1], reverse=True)}
-
-        ordered_movements = list(movements_waiting_time_dict.keys())
+        ordered_movements = list(movement_waiting_time_dict.keys())
 
         selected_phases = sumo_util.match_ordered_movements_to_phases(ordered_movements, self.phases)
 
@@ -548,7 +637,7 @@ class Intersection:
             for movement in movements:
 
                 if movement in ordered_movements:
-                    waiting_times.append(movements_waiting_time_dict[movement])
+                    waiting_times.append(movement_waiting_time_dict[movement])
                     ordered_movements.remove(movement)
 
             if max(waiting_times) + (index + 1) * self.min_action_time >= threshold:

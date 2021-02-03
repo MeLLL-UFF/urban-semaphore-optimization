@@ -113,7 +113,7 @@ class FrapAgent(NetworkAgent):
         unique_phases = self.dic_traffic_env_conf["UNIQUE_PHASE"]
         max_number_of_movements_per_phase = max(map(lambda x: len(x.split('_')), unique_phases))
         number_of_phases = len(unique_phases)
-        unique_movements = self.dic_traffic_env_conf['UNIQUE_MOVEMENT']
+        unique_movements = self.dic_traffic_env_conf["UNIQUE_MOVEMENT"]
         number_of_movements = len(unique_movements)
 
         dic_input_node = {}

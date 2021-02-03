@@ -166,7 +166,6 @@ class Experiment:
 
         external_configurations['TRAFFIC_LEVEL_CONFIGURATION'] = traffic_level_configuration
 
-        external_configurations['USE_SUMO_DIRECTIONS_IN_MOVEMENT_DETECTION'] = False
         external_configurations['UNIQUE_ID'] = str(uuid.uuid4())
 
         external_configurations['SUMOCFG_PARAMETERS'] = {

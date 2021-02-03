@@ -695,12 +695,7 @@ def single_experiment_intersection_summary(memo, records_dir, intersection_id, p
     intersection_index = dic_traffic_env_conf['INTERSECTION_ID'].index(intersection_id)
     movements = dic_traffic_env_conf['MOVEMENT'][intersection_index]
     movement_to_connection = dic_traffic_env_conf['movement_to_connection'][intersection_index]
-
-    net_file = ROOT_DIR + '/' + records_dir + '/' + dic_traffic_env_conf['NET_FILE']
-    net_file_xml = xml_util.get_xml(net_file)
-    connections = sumo_util.get_connections(net_file_xml)
-    entering_lanes = [connection.get('from') + '_' + connection.get('fromLane') for connection in connections]
-    lane_to_traffic_light_index_mapping = sumo_util.get_lane_traffic_light_controller(net_file_xml, entering_lanes)
+    movement_to_traffic_light_index_mapping = sumo_util.get_movement_traffic_light_controller(movement_to_connection)
 
     algorithm_label = memo
 
@@ -754,7 +749,7 @@ def single_experiment_intersection_summary(memo, records_dir, intersection_id, p
                 traffic_light_each_step,
                 movements,
                 movement_to_connection,
-                lane_to_traffic_light_index_mapping,
+                movement_to_traffic_light_index_mapping,
                 save_path,
                 name_base)
 

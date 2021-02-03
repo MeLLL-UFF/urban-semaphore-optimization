@@ -69,8 +69,7 @@ def main(args=None, memo=None, external_configurations=None):
     traffic_file_list = external_configurations['TRAFFIC_FILE_LIST']
     net_file = external_configurations['NET_FILE']
     traffic_level_configuration = external_configurations['TRAFFIC_LEVEL_CONFIGURATION']
-    use_sumo_directions_in_movement_detection = external_configurations.get('USE_SUMO_DIRECTIONS_IN_MOVEMENT_DETECTION',
-                                                                          False)
+
     unique_id = external_configurations['UNIQUE_ID']
 
     process_list = []
@@ -143,29 +142,29 @@ def main(args=None, memo=None, external_configurations=None):
             # "vehicle_speed_img",
             # "vehicle_acceleration_img",
             # "vehicle_waiting_time_img",
-            "lane_num_vehicle",
-            # "lane_num_vehicle_been_stopped_threshold_01",
-            # "lane_num_vehicle_been_stopped_threshold_1",
-            # "lane_queue_length",
-            # "lane_num_vehicle_left",
-            # "lane_sum_duration_vehicle_left",
-            # "lane_sum_waiting_time",
+            "movement_number_of_vehicles",
+            # "movement_number_of_vehicles_been_stopped_threshold_01",
+            # "movement_number_of_vehicles_been_stopped_threshold_1",
+            # "movement_queue_length",
+            # "movement_number_of_vehicles_left",
+            # "movement_sum_duration_vehicles_left",
+            # "movement_sum_waiting_time",
             # "terminal"
-            # "lane_pressure_presslight",
-            # "lane_pressure_mplight",
-            # "lane_pressure_time_loss",
-            # "lane_sum_time_loss"
+            # "movement_pressure_presslight",
+            # "movement_pressure_mplight",
+            # "movement_pressure_time_loss",
+            # "movement_sum_time_loss"
         ],
 
         "REWARD_INFO_DICT": {
             "flickering": 0,
-            "sum_lane_queue_length": 0,
-            "avg_lane_queue_length": 0,
-            "sum_lane_wait_time": 0,
-            "sum_lane_num_vehicle_left": 0,
-            "sum_duration_vehicle_left": 0,
-            "sum_num_vehicle_been_stopped_threshold_01": 0,
-            "sum_num_vehicle_been_stopped_threshold_1": 1,
+            "sum_movement_queue_length": 0,
+            "avg_movement_queue_length": 0,
+            "sum_movement_wait_time": 0,
+            "sum_movement_number_of_vehicles_left": 0,
+            "sum_duration_vehicles_left": 0,
+            "sum_number_of_vehicles_been_stopped_threshold_01": 0,
+            "sum_number_of_vehicles_been_stopped_threshold_1": 1,
             "pressure_presslight": 0,
             "pressure_mplight": 0,
             "pressure_time_loss": 0,
@@ -179,27 +178,70 @@ def main(args=None, memo=None, external_configurations=None):
     intersection_ids = sumo_util.get_intersections_with_traffic_light(net_xml)
     dic_traffic_env_conf_extra['INTERSECTION_ID'] = intersection_ids
 
-    unique_movements, movement_list, movement_to_connection_list = \
-        sumo_util.detect_movements(net_xml, intersection_ids, use_sumo_directions_in_movement_detection)
+    is_right_on_red = config.DIC_TRAFFIC_ENV_CONF["IS_RIGHT_ON_RED"]
+    major_conflicts_only = config.DIC_TRAFFIC_ENV_CONF["MAJOR_CONFLICTS_ONLY"]
+    dedicated_minor_links_phases = config.DIC_TRAFFIC_ENV_CONF["DEDICATED_MINOR_LINKS_PHASES"]
+    detect_existing_phases = config.DIC_TRAFFIC_ENV_CONF["DETECT_EXISTING_PHASES"]
+    simplify_phase_representation = config.DIC_TRAFFIC_ENV_CONF["SIMPLIFY_PHASE_REPRESENTATION"]
+
+    unique_movements, movement_list, connection_to_movement_list = sumo_util.detect_movements(
+        net_xml, intersection_ids, is_right_on_red=is_right_on_red)
+
+    same_lane_origin_movements_list = sumo_util.detect_same_lane_origin_movements(
+        net_xml, intersection_ids, connection_to_movement_list)
+
+    link_states_list = sumo_util.detect_movements_major_and_minor_links(
+        net_xml, intersection_ids, connection_to_movement_list)
+
+    movement_to_give_preference_to_list = sumo_util.detect_movements_preferences(
+        net_xml, intersection_ids, connection_to_movement_list)
+
+    conflicts_list = sumo_util.detect_movement_conflicts(
+        net_xml, intersection_ids, connection_to_movement_list, same_lane_origin_movements_list)
+
+    minor_conflicts_list = sumo_util.detect_minor_conflicts(
+        net_xml, intersection_ids, conflicts_list, link_states_list, movement_to_give_preference_to_list)
+
+    if detect_existing_phases:
+        sumo_util.detect_existing_phases()
+    else:
+        unique_phases, phases_list = sumo_util.detect_phases(
+            movement_list, conflicts_list, link_states_list, minor_conflicts_list,
+            major_conflicts_only=major_conflicts_only,
+            dedicated_minor_links_phases=dedicated_minor_links_phases)
+
+    if detect_existing_phases and simplify_phase_representation:
+        unique_simplified_phases, simplified_phases_list = \
+            sumo_util.simplify_existing_phases(net_xml, intersection_ids, phases_list)
+    else:
+        unique_simplified_phases = unique_phases
+        simplified_phases_list = phases_list
+
+    phase_expansion = sumo_util.build_phase_expansions(unique_movements, unique_phases)
+
     dic_traffic_env_conf_extra['UNIQUE_MOVEMENT'] = unique_movements
     dic_traffic_env_conf_extra['MOVEMENT'] = movement_list
 
-    serializable_movement_to_connection_list = [dict(copy.deepcopy(d)) for d in movement_to_connection_list]
-    for serializable_movement_to_connection in serializable_movement_to_connection_list:
-        for movement in serializable_movement_to_connection.keys():
-            serializable_movement_to_connection[movement] = \
-                dict(serializable_movement_to_connection[movement].attrib)
+    serializable_movement_to_connection_list = []
+    for connection_to_movement in connection_to_movement_list:
+        serializable_movement_to_connection = {}
+        for movement, connections in connection_to_movement.inverse.items():
+            serializable_connections = [dict(connection.attrib) for connection in connections]
+            serializable_movement_to_connection[movement] = serializable_connections
+        serializable_movement_to_connection_list.append(serializable_movement_to_connection)
     dic_traffic_env_conf_extra['movement_to_connection'] = serializable_movement_to_connection_list
 
-    conflicts_list = sumo_util.detect_movement_conflicts(net_xml, intersection_ids, movement_to_connection_list)
     dic_traffic_env_conf_extra['CONFLICTS'] = conflicts_list
+    dic_traffic_env_conf_extra['LINK_STATES'] = link_states_list
 
-    unique_phases, phases_list = sumo_util.detect_phases(movement_list, conflicts_list)
     dic_traffic_env_conf_extra['UNIQUE_PHASE'] = unique_phases
     dic_traffic_env_conf_extra['PHASE'] = phases_list
 
-    phase_expansion = sumo_util.build_phase_expansions(unique_movements, unique_phases)
+    dic_traffic_env_conf_extra['UNIQUE_SIMPLIFIED_PHASE'] = unique_simplified_phases
+    dic_traffic_env_conf_extra['SIMPLIFIED_PHASE'] = simplified_phases_list
+
     dic_traffic_env_conf_extra["phase_expansion"] = phase_expansion
+
 
     deploy_dic_exp_conf = merge(config.DIC_EXP_CONF, dic_exp_conf_extra)
     deploy_dic_agent_conf = merge(getattr(config, "DIC_{0}_AGENT_CONF".format(model_name.upper())),

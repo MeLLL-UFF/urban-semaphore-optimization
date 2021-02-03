@@ -375,21 +375,19 @@ def get_intersection_edge_ids(net_xml, intersection_ids='ALL', _sorted=True):
         return entering_edges, exiting_edges
 
 
-def get_lane_traffic_light_controller(net_xml, lanes_ids):
+def get_movement_traffic_light_controller(movement_to_connection):
 
-    connections = get_connections(net_xml)
+    movement_to_traffic_light_index_mapping = {}
+    for movement, connections in movement_to_connection.items():
 
-    lane_to_traffic_light_index_mapping = {}
-    for connection in connections:
-        from_edge = connection.get('from')
-        from_lane = connection.get('fromLane')
-
-        lane_id = from_edge + '_' + from_lane
-        if lane_id in lanes_ids:
+        traffic_light_indices = set([])
+        for connection in connections:
             traffic_light_index = connection.get('linkIndex')
-            lane_to_traffic_light_index_mapping[lane_id] = traffic_light_index
+            traffic_light_indices.add(int(traffic_light_index))
 
-    return lane_to_traffic_light_index_mapping
+        movement_to_traffic_light_index_mapping[movement] = list(traffic_light_indices)
+
+    return movement_to_traffic_light_index_mapping
 
 
 def adjusts_intersection_position(junctions, edges, x_spacing=0, y_spacing=0):
@@ -463,9 +461,16 @@ def movement_comparator(m1, m2):
     m2_len = len(m2)
 
     if m1_len < m2_len:
-        return 1
+        if m1_1 == "R":
+            return 1
+        else:
+            return -1
+
     if m1_len > m2_len:
-        return -1
+        if m1_1 == "R":
+            return -1
+        else:
+            return 1
 
     if m1_len > 2:
 
@@ -505,13 +510,13 @@ def phase_comparator(p1, p2):
     return 0
 
 
-def detect_movements(net_xml, intersection_ids, use_sumo_directions=False, is_right_on_red=True):
+def detect_movements(net_xml, intersection_ids, is_right_on_red=True):
 
     intersections_incoming_edges = get_intersections_incoming_edges(net_xml, intersection_ids)
 
     movement_set = set()
     movements_list = [[] for _ in range(len(intersections_incoming_edges))]
-    movement_to_connection = [bidict() for _ in range(len(intersections_incoming_edges))]
+    connection_to_movement = [bidict() for _ in range(len(intersections_incoming_edges))]
 
     for intersection_index, incoming_edges in enumerate(intersections_incoming_edges):
 
@@ -521,67 +526,161 @@ def detect_movements(net_xml, intersection_ids, use_sumo_directions=False, is_ri
 
             connections = get_connections(net_xml, from_edge=edge_id)
 
+            # new sort order: from left to right
             sorted_connections = list(reversed(connections))
 
-            if use_sumo_directions:
-                direction_to_from_lane = {}
-                for connection in sorted_connections:
+            to_edge_to_direction = bidict()
+            for connection in sorted_connections:
 
-                    from_lane = connection.get('fromLane')
-                    direction = connection.get('dir').lower()
-                    if direction in direction_to_from_lane:
-                        direction_to_from_lane[direction].append(from_lane)
-                    else:
-                        direction_to_from_lane[direction] = [from_lane]
+                to_edge = connection.get('to')
+                direction = connection.get('dir').lower()
 
-                for connection in sorted_connections:
+                if to_edge in to_edge_to_direction:
+                    assert direction == to_edge_to_direction[to_edge]
+                else:
+                    to_edge_to_direction[to_edge] = direction
 
-                    direction = connection.get('dir').lower()
-                    from_lane = connection.get('fromLane')
+            to_edge_to_direction_label = bidict()
+            for direction, to_edges in to_edge_to_direction.inverse.items():
 
-                    direction_from_lane = direction_to_from_lane[direction]
-                    if len(direction_from_lane) == 1:
+                if direction == 'r':
+                    to_edges = list(reversed(to_edges))
+
+                for to_edge in to_edges:
+
+                    if len(to_edges) == 1 or to_edges.index(to_edge) == 0:
                         direction_label = direction.upper()
                     else:
-                        direction_label = direction.upper() + str(direction_to_from_lane[dir].index(from_lane) + 1)
+                        direction_label = direction.upper() + str(to_edges.index(to_edge))
 
-                    movement = str(edge_index) + direction_label
+                    to_edge_to_direction_label[to_edge] = direction_label
 
-                    movements_list[intersection_index].append(movement)
+            for connection in sorted_connections:
 
-                    movement_to_connection[intersection_index][movement] = connection
+                to_edge = connection.get('to')
 
-            else:
-                direction_labels = [None]*len(sorted_connections)
-                if sorted_connections[0].get('dir').lower() == 'l':
-                    direction_labels[0] = 'L'
-                if sorted_connections[len(sorted_connections) - 1].get('dir').lower() == 'r':
-                    direction_labels[len(sorted_connections) - 1] = 'R'
-                count = 0
-                for index, direction_label in enumerate(direction_labels):
-                    if direction_label is None:
-                        if count == 0:
-                            direction_labels[index] = 'S'
-                        else:
-                            direction_labels[index] = 'S' + str(count)
-                        count += 1
+                direction_label = to_edge_to_direction_label[to_edge]
 
-                for index, connection in enumerate(sorted_connections):
+                movement = str(edge_index) + direction_label
 
-                    movement = str(edge_index) + direction_labels[index]
-
-                    if is_right_on_red and direction_labels[index] != 'R':
+                if movement not in movements_list[intersection_index]:
+                    if not (is_right_on_red and direction_label[0] == 'R'):
                         movements_list[intersection_index].append(movement)
                         movement_set.add(movement)
 
-                    movement_to_connection[intersection_index][movement] = connection
+                connection_to_movement[intersection_index][connection] = movement
 
     unique_movements = sorted(movement_set, key=cmp_to_key(movement_comparator))
 
-    return unique_movements, movements_list, movement_to_connection
+    return unique_movements, movements_list, connection_to_movement
 
 
-def detect_movement_conflicts(net_xml, intersection_ids, movement_to_connection_list):
+def get_connection_requests(net_xml, intersection_id):
+
+    requests = net_xml.findall('.//junction[@id="' + intersection_id + '"]/request')
+
+    connection_requests = {}
+    for request in requests:
+        request_index = request.get('index')
+        connection_requests[request_index] = request
+
+    return connection_requests
+
+
+def detect_same_lane_origin_movements(net_xml, intersection_ids, connection_to_movement_list):
+
+    intersections_incoming_edges_list = get_intersections_incoming_edges(net_xml, intersection_ids)
+
+    same_lane_origin_movements_list = [{} for _ in range(len(intersections_incoming_edges_list))]
+
+    for intersection_index, intersection_incoming_edges in enumerate(intersections_incoming_edges_list):
+
+        connection_to_movement = connection_to_movement_list[intersection_index]
+
+        connections = [connection
+                       for edge in intersection_incoming_edges
+                       for connection in get_connections(net_xml, from_edge=edge.get('id'))]
+
+        same_lane_origin_movements = same_lane_origin_movements_list[intersection_index]
+
+        for index_1, connection_1 in enumerate(connections):
+            for index_2, connection_2 in enumerate(connections[index_1 + 1:]):
+
+                movement_1 = connection_to_movement[connection_1]
+                movement_2 = connection_to_movement[connection_2]
+
+                if movement_1 == movement_2:
+                    continue
+
+                connection_1_from_lane = connection_1.get('from') + '_' + connection_1.get('fromLane')
+                connection_2_from_lane = connection_2.get('from') + '_' + connection_2.get('fromLane')
+
+                movements = [movement_1, movement_2]
+                for movement in movements:
+                    if movement not in same_lane_origin_movements:
+                        same_lane_origin_movements[movement] = []
+
+                if connection_1_from_lane == connection_2_from_lane:
+                    if movement_2 not in same_lane_origin_movements[movement_1]:
+                        same_lane_origin_movements[movement_1].append(movement_2)
+                    if movement_1 not in same_lane_origin_movements[movement_2]:
+                        same_lane_origin_movements[movement_2].append(movement_1)
+
+        original_same_lane_origin_movements = copy.deepcopy(same_lane_origin_movements)
+        for key, values in original_same_lane_origin_movements.items():
+            movement_same_lane_origin_movements = set(values)
+
+            unchecked_same_origin_movements = copy.deepcopy(values)
+            while unchecked_same_origin_movements:
+                movement = unchecked_same_origin_movements.pop(0)
+                inherited_same_lane_origin_movements = set(original_same_lane_origin_movements[movement])
+
+                difference = inherited_same_lane_origin_movements.difference(movement_same_lane_origin_movements)
+                difference.discard(key)
+
+                movement_same_lane_origin_movements.update(difference)
+                unchecked_same_origin_movements.extend(difference)
+
+            same_lane_origin_movements[key] = list(movement_same_lane_origin_movements)
+
+    return same_lane_origin_movements_list
+
+
+def detect_movements_major_and_minor_links(net_xml, intersection_ids, connection_to_movement_list):
+
+    intersections_incoming_edges_list = get_intersections_incoming_edges(net_xml, intersection_ids)
+
+    link_states_list = [{} for _ in range(len(intersections_incoming_edges_list))]
+
+    for intersection_index, intersection_incoming_edges in enumerate(intersections_incoming_edges_list):
+
+        connection_to_movement = connection_to_movement_list[intersection_index]
+
+        link_states = link_states_list[intersection_index]
+
+        connections = [connection
+                       for edge in intersection_incoming_edges
+                       for connection in get_connections(net_xml, from_edge=edge.get('id'))]
+
+        intersection_id = intersection_ids[intersection_index]
+        internal_lane_connections = get_internal_lane_connections(net_xml, intersection_id)
+
+        for connection in connections:
+            movement = connection_to_movement[connection]
+
+            connection_internal_lane = connection.get('via')
+            connection_link_state = internal_lane_connections[connection_internal_lane].get('state')
+
+            if movement in link_states:
+                assert connection_link_state == link_states[movement]
+            else:
+                assert connection_link_state == 'M' or connection_link_state == 'm'
+                link_states[movement] = connection_link_state
+
+    return link_states_list
+
+
+def detect_movement_conflicts(net_xml, intersection_ids, connection_to_movement_list, same_lane_origin_movements_list):
 
     intersections_incoming_edges_list = get_intersections_incoming_edges(net_xml, intersection_ids)
 
@@ -589,7 +688,9 @@ def detect_movement_conflicts(net_xml, intersection_ids, movement_to_connection_
 
     for intersection_index, intersection_incoming_edges in enumerate(intersections_incoming_edges_list):
 
-        movement_to_connection = movement_to_connection_list[intersection_index]
+        connection_to_movement = connection_to_movement_list[intersection_index]
+        same_lane_origin_movements = same_lane_origin_movements_list[intersection_index]
+
         conflicts = conflicts_list[intersection_index]
 
         connections = [connection
@@ -597,118 +698,161 @@ def detect_movement_conflicts(net_xml, intersection_ids, movement_to_connection_
                        for connection in get_connections(net_xml, from_edge=edge.get('id'))]
 
         intersection_id = intersection_ids[intersection_index]
-        intersection = net_xml.find(".//junction[@id='" + intersection_id + "']")
-        intersection_point = Point([float(intersection.get('x')), float(intersection.get('y'))])
 
-        all_edges = set([edge
-                         for connection in connections
-                         for edge in [connection.get('from'), connection.get('to')]])
+        connection_requests = get_connection_requests(net_xml, intersection_id)
 
-        lane_to_movement_start_point = {}
-        for edge in all_edges:
+        link_index_to_movement = {}
+        for connection in connections:
+            link_index = connection.get('linkIndex')
+            movement = connection_to_movement[connection]
+            link_index_to_movement[int(link_index)] = movement
 
-            lanes = net_xml.findall(".//edge[@id='" + edge + "']/lane")
+        for connection in connections:
 
-            for lane in lanes:
+            movement = connection_to_movement[connection]
 
-                lane_id = lane.get('id')
+            movement_link_index = connection.get('linkIndex')
+            connection_request = connection_requests[movement_link_index]
+            conflict_indicators = connection_request.get('foes')[::-1]
 
-                lane_points = lane.get('shape').split()
-                lane_start_point = Point(map(float, lane_points[0].split(',')))
-                lane_finish_point = Point(map(float, lane_points[-1].split(',')))
+            conflicts[movement] = []
+            for link_index, conflict_indicator in enumerate(conflict_indicators):
 
-                if intersection_point.distance(lane_start_point) < intersection_point.distance(lane_finish_point):
-                    movement_start_point = lane_start_point
-                else:
-                    movement_start_point = lane_finish_point
+                if conflict_indicator == '1':
+                    other_movement = link_index_to_movement[link_index]
 
-                lane_to_movement_start_point[lane_id] = movement_start_point
+                    if other_movement not in conflicts[movement]:
+                        conflicts[movement].append(other_movement)
 
-        same_lane_origin_movements = {}
-        for index_1 in range(0, len(connections)):
-            for index_2 in range(index_1 + 1, len(connections)):
-
-                connection_1 = connections[index_1]
-                connection_2 = connections[index_2]
-
-                connection_1_from_lane = connection_1.get('from') + '_' + connection_1.get('fromLane')
-                connection_1_to_lane = connection_1.get('to') + '_' + connection_1.get('toLane')
-
-                connection_2_from_lane = connection_2.get('from') + '_' + connection_2.get('fromLane')
-                connection_2_to_lane = connection_2.get('to') + '_' + connection_2.get('toLane')
-
-                connection_1_line = \
-                    LineString([
-                        lane_to_movement_start_point[connection_1_from_lane],
-                        lane_to_movement_start_point[connection_1_to_lane]
-                    ])
-
-                connection_2_line = \
-                    LineString([
-                        lane_to_movement_start_point[connection_2_from_lane],
-                        lane_to_movement_start_point[connection_2_to_lane]
-                    ])
-
-                line_intersections = connection_1_line.intersection(connection_2_line)
-
-                movement_1 = movement_to_connection.inverse[connection_1][0]
-                movement_2 = movement_to_connection.inverse[connection_2][0]
-                if connection_1_line.coords[0] == connection_2_line.coords[0]:
-                    if movement_1 in same_lane_origin_movements:
-                        same_lane_origin_movements[movement_1].append(movement_2)
-                    else:
-                        same_lane_origin_movements[movement_1] = [movement_2]
-
-                    if movement_2 in same_lane_origin_movements:
-                        same_lane_origin_movements[movement_2].append(movement_1)
-                    else:
-                        same_lane_origin_movements[movement_2] = [movement_1]
-
-                elif line_intersections:
-                    if movement_1 in conflicts:
-                        conflicts[movement_1].append(movement_2)
-                    else:
-                        conflicts[movement_1] = [movement_2]
-
-                    if movement_2 in conflicts:
-                        conflicts[movement_2].append(movement_1)
-                    else:
-                        conflicts[movement_2] = [movement_1]
-                else:
-                    if movement_1 not in conflicts:
-                        conflicts[movement_1] = []
-
-                    if movement_2 not in conflicts:
-                        conflicts[movement_2] = []
-
+        original_conflicts = copy.deepcopy(conflicts)
         for key, values in same_lane_origin_movements.items():
-            original_conflicts = set(conflicts[key])
 
+            new_conflicts = set([])
             for value in values:
 
-                inherited_conflicts = conflicts[value]
-
-                original_conflicts.update(set(inherited_conflicts))
+                inherited_conflicts = set(original_conflicts[value])
+                new_conflicts.update(inherited_conflicts)
 
                 for inherited_conflict in inherited_conflicts:
-                    original_conflicts.update(set(same_lane_origin_movements[inherited_conflict]))
+                    new_conflicts.update(set(same_lane_origin_movements[inherited_conflict]))
 
-            conflicts[key] = list(original_conflicts)
+            for new_conflict in new_conflicts:
+                new_conflict_set = set(conflicts[new_conflict])
+                new_conflict_set.add(key)
+                conflicts[new_conflict] = list(new_conflict_set)
+
+            movement_conflicts = set(conflicts[key])
+            movement_conflicts.update(new_conflicts)
+            conflicts[key] = list(movement_conflicts)
 
     return conflicts_list
 
 
-def detect_phases(movements_list, conflicts_list, is_right_on_red=True):
+def detect_movements_preferences(net_xml, intersection_ids, connection_to_movement_list):
+
+    intersections_incoming_edges_list = get_intersections_incoming_edges(net_xml, intersection_ids)
+
+    movement_to_give_preference_to_list = [{} for _ in range(len(intersections_incoming_edges_list))]
+
+    for intersection_index, intersection_incoming_edges in enumerate(intersections_incoming_edges_list):
+
+        connection_to_movement = connection_to_movement_list[intersection_index]
+
+        movement_to_give_preference_to = movement_to_give_preference_to_list[intersection_index]
+
+        connections = [connection
+                       for edge in intersection_incoming_edges
+                       for connection in get_connections(net_xml, from_edge=edge.get('id'))]
+
+        intersection_id = intersection_ids[intersection_index]
+
+        connection_requests = get_connection_requests(net_xml, intersection_id)
+
+        link_index_to_movement = {}
+        for connection in connections:
+            link_index = connection.get('linkIndex')
+            movement = connection_to_movement[connection]
+            link_index_to_movement[int(link_index)] = movement
+
+        for connection in connections:
+
+            movement = connection_to_movement[connection]
+
+            movement_link_index = connection.get('linkIndex')
+            connection_request = connection_requests[movement_link_index]
+            give_preference_to_indicators = connection_request.get('response')[::-1]
+
+            movement_to_give_preference_to[movement] = []
+            for link_index, give_preference_to_indicator in enumerate(give_preference_to_indicators):
+
+                if give_preference_to_indicator == '1':
+                    other_movement = link_index_to_movement[link_index]
+
+                    if other_movement not in movement_to_give_preference_to[movement]:
+                        movement_to_give_preference_to[movement].append(other_movement)
+
+    return movement_to_give_preference_to_list
+
+
+def detect_minor_conflicts(net_xml, intersection_ids, conflicts_list, link_states_list,
+                           movement_to_give_preference_to_list):
+
+    intersections_incoming_edges_list = get_intersections_incoming_edges(net_xml, intersection_ids)
+
+    minor_conflicts_list = [{} for _ in range(len(intersections_incoming_edges_list))]
+
+    for intersection_index, intersection_incoming_edges in enumerate(intersections_incoming_edges_list):
+        conflicts = conflicts_list[intersection_index]
+        link_states = link_states_list[intersection_index]
+        movement_to_give_preference_to = movement_to_give_preference_to_list[intersection_index]
+
+        minor_conflicts = minor_conflicts_list[intersection_index]
+
+        for movement, conflicting_movements in conflicts.items():
+
+            minor_conflicts[movement] = []
+
+            movement_link_state = link_states[movement]
+
+            for conflicting_movement in conflicting_movements:
+
+                conflicting_movement_link_state = link_states[conflicting_movement]
+
+                if movement_link_state != conflicting_movement_link_state:
+
+                    if conflicting_movement in movement_to_give_preference_to[movement] and \
+                            movement in movement_to_give_preference_to[conflicting_movement]:
+                        pass
+                    elif movement_link_state == 'm' and \
+                            conflicting_movement in movement_to_give_preference_to[movement]:
+                        # minor conflict
+                        minor_conflicts[movement].append(conflicting_movement)
+                    elif movement_link_state == 'M' and \
+                            movement in movement_to_give_preference_to[conflicting_movement]:
+                        # minor conflict
+                        minor_conflicts[movement].append(conflicting_movement)
+
+    return minor_conflicts_list
+
+
+def detect_phases(movements_list, conflicts_list, link_states_list, minor_conflicts_list,
+                  major_conflicts_only=False, dedicated_minor_links_phases=True):
 
     phases_final_set = set()
     phases_list = [[] for _ in range(len(movements_list))]
 
     for intersection_index, movements in enumerate(movements_list):
 
-        conflicts = conflicts_list[intersection_index]
+        original_conflicts = conflicts_list[intersection_index]
+        minor_conflicts = minor_conflicts_list[intersection_index]
 
-        if is_right_on_red:
-            movements = [movement for movement in movements if 'R' not in movement]
+        if major_conflicts_only:
+            conflicts = {}
+            for movement, conflicting_movements in original_conflicts.items():
+                minor_conflicting_movements = minor_conflicts[movement]
+                conflicts[movement] = list(set(conflicting_movements).difference(minor_conflicting_movements))
+        else:
+            conflicts = original_conflicts
 
         phases = []
 
@@ -726,7 +870,8 @@ def detect_phases(movements_list, conflicts_list, is_right_on_red=True):
                 elements_tracking.append(element)
 
                 movements_left = [movement for movement in movements[i[0]+1:]
-                                  if movement not in conflicts[element] + [element] and
+                                  if movement not in conflicts[element] and
+                                  movement != element and
                                   movement in movements_left_list[-1]]
 
                 movements_left_list.append(movements_left)
@@ -764,6 +909,33 @@ def detect_phases(movements_list, conflicts_list, is_right_on_red=True):
             phases.pop(index_to_remove)
             phase_sets.pop(index_to_remove)
 
+        if major_conflicts_only and dedicated_minor_links_phases:
+            link_states = link_states_list[intersection_index]
+            minor_link_phases = []
+            for phase in phases:
+                phase_movements = phase.split('_')
+
+                minor_phase_movements = []
+                for movement_1 in phase_movements:
+
+                    movement_1_link = link_states[movement_1]
+
+                    if movement_1_link == 'M':
+                        continue
+
+                    movement_1_conflicts = original_conflicts[movement_1]
+
+                    for movement_2 in phase_movements:
+                        if movement_2 in movement_1_conflicts:
+                            minor_phase_movements.append(movement_1)
+                            break
+
+                minor_link_phase = '_'.join(minor_phase_movements)
+                if minor_link_phase:
+                    minor_link_phases.append(minor_link_phase)
+
+            phases.extend(minor_link_phases)
+
         phases_list[intersection_index] = phases
 
         for phase in phases:
@@ -772,6 +944,15 @@ def detect_phases(movements_list, conflicts_list, is_right_on_red=True):
     unique_phases = sorted(phases_final_set, key=cmp_to_key(phase_comparator))
 
     return unique_phases, phases_list
+
+
+def detect_existing_phases():
+
+    return None, None
+
+
+def simplify_existing_phases(net_xml, intersection_ids, phases_list):
+    return None, None
 
 
 def build_phase_expansions(unique_movements, unique_phases):
@@ -883,6 +1064,26 @@ def get_internal_lanes(net_xml, intersection_id):
             via_lane = all_connections_from_lane[via_lane].get('via')
 
     return internal_lanes
+
+
+def get_internal_lane_connections(net_xml, intersection_id):
+
+    all_connections_from_lane = {connection.get('from') + '_' + connection.get('fromLane'): connection
+                                 for connection in net_xml.findall(".//connection")}
+
+    connections = get_intersection_connections(net_xml, intersection_id)
+    internal_lanes_connections = {}
+    for connection in connections:
+        via_lane = connection.get('via')
+
+        while via_lane is not None:
+            via_edge = via_lane.rsplit('_', 1)[0]
+            connection = net_xml.find('.//connection[@from="' + via_edge + '"]')
+            internal_lanes_connections[via_lane] = connection
+
+            via_lane = all_connections_from_lane[via_lane].get('via')
+
+    return internal_lanes_connections
 
 
 def get_internal_lane_paths(net_xml, intersection_id, internal_lanes):
