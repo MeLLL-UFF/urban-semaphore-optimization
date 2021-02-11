@@ -13,7 +13,7 @@ class ConstructSample:
         self.path_to_samples = path_to_samples + "/round_" + str(cnt_round)
         self.cnt_round = cnt_round
         self.dic_traffic_env_conf = dic_traffic_env_conf
-        self.dic_phase_expansion = self.dic_traffic_env_conf["phase_expansion"]
+        self.dic_phase_expansion = self.dic_traffic_env_conf["PHASE_EXPANSION"]
 
         self.measure_time = None
         self.min_action_time = None

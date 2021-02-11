@@ -16,24 +16,28 @@ from definitions import ROOT_DIR
 class Experiment:
 
     @staticmethod
-    def run(net_file, route_files, sumocfg_file, output_file, traffic_level_configuration, additional_files=None):
+    def run(scenario, net_file, route_files, sumocfg_file, output_file, traffic_level_configuration,
+            additional_files=None, traffic_light_file=None):
 
         if additional_files is None:
             additional_files = []
 
+        if traffic_light_file is None:
+            traffic_light_file = net_file
+
         external_configurations = Experiment._create_external_configurations_dict(
-            net_file, route_files, sumocfg_file, output_file, traffic_level_configuration,
-            additional_files)
+            scenario, net_file, route_files, sumocfg_file, output_file, traffic_level_configuration,
+            additional_files, traffic_light_file)
 
         experiment_name = run_batch.run(external_configurations)
 
         return experiment_name
 
     @staticmethod
-    def continue_(experiment, net_file, route_files, sumocfg_file, output_file, traffic_level_configuration):
+    def continue_(scenario, experiment, net_file, route_files, sumocfg_file, output_file, traffic_level_configuration):
 
         external_configurations = Experiment._create_external_configurations_dict(
-            net_file, route_files, sumocfg_file, output_file, traffic_level_configuration)
+            scenario, net_file, route_files, sumocfg_file, output_file, traffic_level_configuration)
 
         experiment_name = run_batch.continue_(experiment, external_configurations)
 
@@ -106,7 +110,7 @@ class Experiment:
         route_files = [route_file]
 
         external_configurations = Experiment._create_external_configurations_dict(
-            net_file, route_files, sumocfg_file, output_file, traffic_level_configuration)
+            scenario, net_file, route_files, sumocfg_file, output_file, traffic_level_configuration)
 
         replay.run(
             os.path.join(memo, experiment),
@@ -119,10 +123,11 @@ class Experiment:
 
 
     @staticmethod
-    def retrain(experiment, _round, net_file, route_files, sumocfg_file, output_file, traffic_level_configuration):
+    def retrain(scenario, experiment, _round, net_file, route_files, sumocfg_file, output_file,
+                traffic_level_configuration):
 
         external_configurations = Experiment._create_external_configurations_dict(
-            net_file, route_files, sumocfg_file, output_file, traffic_level_configuration)
+            scenario, net_file, route_files, sumocfg_file, output_file, traffic_level_configuration)
 
         experiment_name = run_batch.re_run(experiment, _round, external_configurations)
 
@@ -135,11 +140,15 @@ class Experiment:
                                           plots, _round, baseline_comparison, baseline_experiments)
 
     @staticmethod
-    def _create_external_configurations_dict(net_file, route_files, sumocfg_file, output_file,
-                                             traffic_level_configuration, additional_files=None):
+    def _create_external_configurations_dict(scenario, net_file, route_files, sumocfg_file, output_file,
+                                             traffic_level_configuration, additional_files=None,
+                                             traffic_light_file=None):
 
         if additional_files is None:
             additional_files = []
+
+        if traffic_light_file is None:
+            traffic_light_file = net_file
 
         input_data_path = os.path.join(FRAP_ROOT_DIR, 'data', 'template_ls')
 
@@ -156,9 +165,11 @@ class Experiment:
         route_file_names = [route_file.rsplit('/', 1)[1] for route_file in route_files]
 
         external_configurations = {}
+        external_configurations['SCENARIO'] = scenario
         external_configurations['TRAFFIC_FILE_LIST'] = route_file_names
         external_configurations['SUMOCFG_FILE'] = sumocfg_file_name
         external_configurations['NET_FILE'] = net_file_name
+        external_configurations['TRAFFIC_LIGHT_FILE'] = traffic_light_file
         external_configurations['_LIST_SUMO_FILES'] = [
             external_configurations['SUMOCFG_FILE'],
             external_configurations['NET_FILE']

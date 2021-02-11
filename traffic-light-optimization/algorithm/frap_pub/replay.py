@@ -58,7 +58,8 @@ def run(dir, round_number, run_cnt, execution_name, if_gui, rewrite_mode=False, 
     with open(os.path.join(ROOT_DIR, records_dir, "traffic_env.conf"), "r") as f:
         dic_traffic_env_conf = json.load(f)
 
-    dic_traffic_env_conf['phase_expansion'] = {int(key): value for key, value in dic_traffic_env_conf['phase_expansion'].items()}
+    dic_traffic_env_conf['PHASE_EXPANSION'] = \
+        {int(key): value for key, value in dic_traffic_env_conf['PHASE_EXPANSION'].items()}
 
     dic_exp_conf["RUN_COUNTS"] = run_cnt
     dic_traffic_env_conf["IF_GUI"] = if_gui

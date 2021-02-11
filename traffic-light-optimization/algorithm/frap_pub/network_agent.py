@@ -366,7 +366,7 @@ class NetworkAgent(Agent):
         
         if self.dic_traffic_env_conf["BINARY_PHASE_EXPANSION"]:
             inputs = []
-            dic_phase_expansion = self.dic_traffic_env_conf["phase_expansion"]
+            dic_phase_expansion = self.dic_traffic_env_conf["PHASE_EXPANSION"]
             for feature in self.dic_traffic_env_conf["STATE_FEATURE_LIST"]:
                 if feature == "current_phase":
                     inputs.append(np.array([dic_phase_expansion[s[feature][0]]]))

@@ -30,7 +30,9 @@ class Intersection:
         self.movements = dic_traffic_env_conf['MOVEMENT'][intersection_index]
         self.phases = dic_traffic_env_conf['PHASE'][intersection_index]
         self.link_states = dic_traffic_env_conf['LINK_STATES'][intersection_index]
-        self.movement_to_connection = dic_traffic_env_conf['movement_to_connection'][intersection_index]
+        self.movement_to_connection = dic_traffic_env_conf['MOVEMENT_TO_CONNECTION'][intersection_index]
+        self.traffic_light_link_index_to_movement = \
+            dic_traffic_env_conf['TRAFFIC_LIGHT_LINK_INDEX_TO_MOVEMENT'][intersection_index]
 
         self.is_right_on_red = dic_traffic_env_conf['IS_RIGHT_ON_RED']
 
@@ -98,6 +100,9 @@ class Intersection:
             self.movement_to_connection)
         self.phase_traffic_lights = self.get_phase_traffic_lights()
 
+        self.movement_to_yellow_time = dic_traffic_env_conf['MOVEMENT_TO_YELLOW_TIME'][intersection_index]
+
+        self.current_yellow_signal_movements = []
         self.yellow_phase_index = -1
         self.all_red_phase_index = -2
 
@@ -245,12 +250,19 @@ class Intersection:
         # update feature
         self._update_feature()
 
-    def set_signal(self, action, action_pattern, yellow_time, all_red_time):
+    def set_signal(self, action, action_pattern):
 
         if self.yellow_flag:
             # in yellow phase
             self.flicker = 0
-            if self.current_phase_duration >= yellow_time:  # yellow time reached
+
+            yellow_signal_movements = self.current_yellow_signal_movements
+            max_yellow_time = 0
+            for movement in yellow_signal_movements:
+                yellow_time = self.movement_to_yellow_time[movement]
+                max_yellow_time = max(max_yellow_time, yellow_time)
+
+            if self.current_phase_duration >= max_yellow_time:  # yellow time reached
 
                 self.current_phase_index = self.next_phase_to_set_index
                 phase = self.phases[self.current_phase_index]
@@ -290,10 +302,14 @@ class Intersection:
                     phase = self.phases[self.next_phase_to_set_index]
                     next_traffic_light = self.phase_traffic_lights[phase]
 
+                    self.current_yellow_signal_movements = []
                     for index in range(0, len(current_traffic_light)):
 
                         if (current_traffic_light[index] == 'g' or current_traffic_light[index] == 'G') and \
                                 (next_traffic_light[index] != 'g' and next_traffic_light[index] != 'G'):
+
+                            movement = self.traffic_light_link_index_to_movement[index]
+                            self.current_yellow_signal_movements.append(movement)
 
                             current_traffic_light = \
                                 current_traffic_light[:index] + \
@@ -497,20 +513,9 @@ class Intersection:
     def get_phase_traffic_lights(self):
         phase_traffic_lights = {}
 
-        movement_indices = np.unique(
-            [movement_index
-             for movement in self.movements
-             for movement_index in self.movement_to_traffic_light_index[movement]]) \
-            .tolist()
-        uncontrolled_movement_indices = np.unique(
-            [movement_index
-             for movement in self.uncontrolled_movements
-             for movement_index in self.movement_to_traffic_light_index[movement]]) \
-            .tolist()
-
         for phase in self.phases:
 
-            phase_signal_string = ['r'] * (len(movement_indices) + len(uncontrolled_movement_indices))
+            phase_signal_string = ['r'] * len(self.traffic_light_link_index_to_movement.keys())
 
             phase_movements = phase.split('_')
 
@@ -529,8 +534,6 @@ class Intersection:
 
                         if 'M' in movement_link_state_list:
                             phase_signal_string[uncontrolled_movement_traffic_light_index] = 'G'
-                        elif 'm' in movement_link_state_list:
-                            phase_signal_string[uncontrolled_movement_traffic_light_index] = 'g'
                         else:
                             phase_signal_string[uncontrolled_movement_traffic_light_index] = 's'
 

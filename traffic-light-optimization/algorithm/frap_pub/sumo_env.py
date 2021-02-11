@@ -101,10 +101,10 @@ class SumoEnv:
         self.edges_list = None
 
         # check min action time
-        if self.dic_traffic_env_conf["MIN_ACTION_TIME"] <= self.dic_traffic_env_conf["YELLOW_TIME"]:
-            print("MIN_ACTION_TIME should include YELLOW_TIME")
-            pass
-            # raise ValueError
+        movement_to_yellow_time_list = self.dic_traffic_env_conf["MOVEMENT_TO_YELLOW_TIME"]
+        for movement_to_yellow_time in movement_to_yellow_time_list:
+            for _, yellow_time in movement_to_yellow_time.items():
+                assert yellow_time < self.dic_traffic_env_conf["MIN_ACTION_TIME"]
 
         if self.write_mode:
             # touch new inter_{}.pkl (if exists, remove)
@@ -574,9 +574,7 @@ class SumoEnv:
 
             intersection.set_signal(
                 action=action[intersection_index],
-                action_pattern=self.dic_traffic_env_conf["ACTION_PATTERN"],
-                yellow_time=self.dic_traffic_env_conf["YELLOW_TIME"],
-                all_red_time=self.dic_traffic_env_conf["ALL_RED_TIME"]
+                action_pattern=self.dic_traffic_env_conf["ACTION_PATTERN"]
             )
 
         # run one step

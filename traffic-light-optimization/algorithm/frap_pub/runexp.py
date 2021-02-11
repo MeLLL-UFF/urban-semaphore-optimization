@@ -66,8 +66,10 @@ def main(args=None, memo=None, external_configurations=None):
     if external_configurations is None:
         external_configurations = {}
 
+    scenario = external_configurations['SCENARIO']
     traffic_file_list = external_configurations['TRAFFIC_FILE_LIST']
     net_file = external_configurations['NET_FILE']
+    traffic_light_file = external_configurations['TRAFFIC_LIGHT_FILE']
     traffic_level_configuration = external_configurations['TRAFFIC_LEVEL_CONFIGURATION']
 
     unique_id = external_configurations['UNIQUE_ID']
@@ -172,41 +174,92 @@ def main(args=None, memo=None, external_configurations=None):
         },
     }
 
-    net_file = os.path.join(ROOT_DIR, dic_path_extra["PATH_TO_DATA"], net_file)
-    net_xml = xml_util.get_xml(net_file)
-
-    intersection_ids = sumo_util.get_intersections_with_traffic_light(net_xml)
-    dic_traffic_env_conf_extra['INTERSECTION_ID'] = intersection_ids
-
     is_right_on_red = config.DIC_TRAFFIC_ENV_CONF["IS_RIGHT_ON_RED"]
     major_conflicts_only = config.DIC_TRAFFIC_ENV_CONF["MAJOR_CONFLICTS_ONLY"]
     dedicated_minor_links_phases = config.DIC_TRAFFIC_ENV_CONF["DEDICATED_MINOR_LINKS_PHASES"]
     detect_existing_phases = config.DIC_TRAFFIC_ENV_CONF["DETECT_EXISTING_PHASES"]
     simplify_phase_representation = config.DIC_TRAFFIC_ENV_CONF["SIMPLIFY_PHASE_REPRESENTATION"]
 
+
+    net_file = os.path.join(ROOT_DIR, dic_path_extra["PATH_TO_DATA"], net_file)
+    net_xml = xml_util.get_xml(net_file)
+
+    traffic_light_file = os.path.join(ROOT_DIR, dic_path_extra["PATH_TO_DATA"], traffic_light_file)
+    traffic_light_xml = xml_util.get_xml(traffic_light_file)
+
+
+    multi_intersection_traffic_light_configurations = {
+        'joined': {
+            'a78,a44,a204c': {
+                'intersections': ['a78', 'a44', 'a204c'],
+                'non_coordinated': ['a43', 'a55m'],
+                'merge_edges': []
+            },
+            'b0,bm0': {
+                'intersections': ['b0', 'bm0'],
+                'non_coordinated': ['b3'],
+                'merge_edges': [['b20+19a', 'b20+19b']]
+            },
+            'a1b,a1,a3,a1c': {
+                'intersections': ['a1b', 'a1', 'a3', 'a1c'],
+                'non_coordinated': [],
+                'merge_edges': [['a1b', 'a2']]
+            },
+            'a15,a53': {
+                'intersections': ['a15', 'a53'],
+                'non_coordinated': [],
+                'merge_edges': []
+            }
+        }
+    }
+
+    multi_intersection_traffic_light_configuration = multi_intersection_traffic_light_configurations[scenario]
+
+    intersection_ids, traffic_light_ids = sumo_util.get_traffic_lights(
+        net_xml, multi_intersection_traffic_light_configuration)
+
     unique_movements, movement_list, connection_to_movement_list = sumo_util.detect_movements(
-        net_xml, intersection_ids, is_right_on_red=is_right_on_red)
+        net_xml, intersection_ids, multi_intersection_traffic_light_configuration, is_right_on_red=is_right_on_red)
 
     same_lane_origin_movements_list = sumo_util.detect_same_lane_origin_movements(
-        net_xml, intersection_ids, connection_to_movement_list)
+        intersection_ids, connection_to_movement_list)
 
-    link_states_list = sumo_util.detect_movements_major_and_minor_links(
-        net_xml, intersection_ids, connection_to_movement_list)
+    connection_to_junction_link_index_list, junction_link_index_to_movement_list = \
+        sumo_util.detect_junction_link_index_to_movement(
+            net_xml, intersection_ids, connection_to_movement_list, multi_intersection_traffic_light_configuration)
+
+    traffic_light_link_index_to_movement_list = sumo_util.detect_traffic_light_link_index_to_movement(
+        intersection_ids, connection_to_movement_list)
+
+    link_states_list = sumo_util.detect_movements_link_states(
+        net_xml, intersection_ids, connection_to_movement_list, multi_intersection_traffic_light_configuration)
 
     movement_to_give_preference_to_list = sumo_util.detect_movements_preferences(
-        net_xml, intersection_ids, connection_to_movement_list)
+        net_xml, intersection_ids, connection_to_movement_list, connection_to_junction_link_index_list,
+        junction_link_index_to_movement_list, multi_intersection_traffic_light_configuration)
 
-    conflicts_list = sumo_util.detect_movement_conflicts(
-        net_xml, intersection_ids, connection_to_movement_list, same_lane_origin_movements_list)
-
-    minor_conflicts_list = sumo_util.detect_minor_conflicts(
-        net_xml, intersection_ids, conflicts_list, link_states_list, movement_to_give_preference_to_list)
+    conflicts_list, minor_conflicts_list = sumo_util.detect_movement_conflicts(
+        net_xml, intersection_ids, connection_to_movement_list, same_lane_origin_movements_list,
+        connection_to_junction_link_index_list, junction_link_index_to_movement_list, link_states_list,
+        movement_to_give_preference_to_list, multi_intersection_traffic_light_configuration)
 
     if detect_existing_phases:
-        sumo_util.detect_existing_phases()
+        unique_phases, phases_list, movement_to_yellow_time_list = sumo_util.detect_existing_phases(
+            traffic_light_xml, intersection_ids, traffic_light_ids, conflicts_list,
+            traffic_light_link_index_to_movement_list)
     else:
+
+        movement_to_yellow_time_list = [
+            {
+                movement: config.DIC_TRAFFIC_ENV_CONF['DEFAULT_YELLOW_TIME']
+                for movement in movement_list[intersection_index]
+            }
+            for intersection_index, _ in enumerate(intersection_ids)
+        ]
+
         unique_phases, phases_list = sumo_util.detect_phases(
-            movement_list, conflicts_list, link_states_list, minor_conflicts_list,
+            intersection_ids, movement_list, conflicts_list, link_states_list, minor_conflicts_list,
+            same_lane_origin_movements_list,
             major_conflicts_only=major_conflicts_only,
             dedicated_minor_links_phases=dedicated_minor_links_phases)
 
@@ -219,6 +272,9 @@ def main(args=None, memo=None, external_configurations=None):
 
     phase_expansion = sumo_util.build_phase_expansions(unique_movements, unique_phases)
 
+
+    dic_traffic_env_conf_extra['INTERSECTION_ID'] = intersection_ids
+
     dic_traffic_env_conf_extra['UNIQUE_MOVEMENT'] = unique_movements
     dic_traffic_env_conf_extra['MOVEMENT'] = movement_list
 
@@ -229,10 +285,13 @@ def main(args=None, memo=None, external_configurations=None):
             serializable_connections = [dict(connection.attrib) for connection in connections]
             serializable_movement_to_connection[movement] = serializable_connections
         serializable_movement_to_connection_list.append(serializable_movement_to_connection)
-    dic_traffic_env_conf_extra['movement_to_connection'] = serializable_movement_to_connection_list
+    dic_traffic_env_conf_extra['MOVEMENT_TO_CONNECTION'] = serializable_movement_to_connection_list
 
     dic_traffic_env_conf_extra['CONFLICTS'] = conflicts_list
+    dic_traffic_env_conf_extra['TRAFFIC_LIGHT_LINK_INDEX_TO_MOVEMENT'] = traffic_light_link_index_to_movement_list
     dic_traffic_env_conf_extra['LINK_STATES'] = link_states_list
+
+    dic_traffic_env_conf_extra['MOVEMENT_TO_YELLOW_TIME'] = movement_to_yellow_time_list
 
     dic_traffic_env_conf_extra['UNIQUE_PHASE'] = unique_phases
     dic_traffic_env_conf_extra['PHASE'] = phases_list
@@ -240,7 +299,7 @@ def main(args=None, memo=None, external_configurations=None):
     dic_traffic_env_conf_extra['UNIQUE_SIMPLIFIED_PHASE'] = unique_simplified_phases
     dic_traffic_env_conf_extra['SIMPLIFIED_PHASE'] = simplified_phases_list
 
-    dic_traffic_env_conf_extra["phase_expansion"] = phase_expansion
+    dic_traffic_env_conf_extra["PHASE_EXPANSION"] = phase_expansion
 
 
     deploy_dic_exp_conf = merge(config.DIC_EXP_CONF, dic_exp_conf_extra)
@@ -316,7 +375,8 @@ def continue_(existing_experiment, round_='FROM_THE_LAST', args=None, memo=None,
     with open(os.path.join(ROOT_DIR, records_dir, "traffic_env.conf"), "r") as f:
         dic_traffic_env_conf = json.load(f)
 
-    dic_traffic_env_conf['phase_expansion'] = {int(key): value for key, value in dic_traffic_env_conf['phase_expansion'].items()}
+    dic_traffic_env_conf['PHASE_EXPANSION'] = \
+        {int(key): value for key, value in dic_traffic_env_conf['PHASE_EXPANSION'].items()}
 
     if multi_process:
         ppl = Process(target=pipeline_wrapper,
