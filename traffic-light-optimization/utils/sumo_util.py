@@ -1167,47 +1167,6 @@ def detect_movement_conflicts(net_xml, intersection_ids, connection_to_movement_
     return conflicts_list, minor_conflicts_list
 
 
-def detect_minor_conflicts(intersection_ids, same_lane_origin_movements_list, conflicts_list, link_states_list,
-                           movement_to_give_preference_to_list):
-
-    minor_conflicts_list = [{} for _ in range(len(intersection_ids))]
-
-    for intersection_index, _ in enumerate(intersection_ids):
-
-        same_lane_origin_movements = same_lane_origin_movements_list[intersection_index]
-        conflicts = conflicts_list[intersection_index]
-        link_states = link_states_list[intersection_index]
-        movement_to_give_preference_to = movement_to_give_preference_to_list[intersection_index]
-
-        minor_conflicts = minor_conflicts_list[intersection_index]
-
-        for movement, conflicting_movements in conflicts.items():
-
-            minor_conflicts[movement] = []
-
-            movement_link_state = link_states[movement]
-
-            for conflicting_movement in conflicting_movements:
-
-                conflicting_movement_link_state = link_states[conflicting_movement]
-
-                if movement_link_state != conflicting_movement_link_state:
-
-                    if conflicting_movement in movement_to_give_preference_to[movement] and \
-                            movement in movement_to_give_preference_to[conflicting_movement]:
-                        pass
-                    elif movement_link_state == 'm' and \
-                            conflicting_movement in movement_to_give_preference_to[movement]:
-                        # minor conflict
-                        minor_conflicts[movement].append(conflicting_movement)
-                    elif movement_link_state == 'M' and \
-                            movement in movement_to_give_preference_to[conflicting_movement]:
-                        # minor conflict
-                        minor_conflicts[movement].append(conflicting_movement)
-
-    return minor_conflicts_list
-
-
 def detect_phases(intersection_ids, movements_list, conflicts_list, link_states_list, minor_conflicts_list,
                   same_lane_origin_movements_list, major_conflicts_only=False, dedicated_minor_links_phases=True):
 

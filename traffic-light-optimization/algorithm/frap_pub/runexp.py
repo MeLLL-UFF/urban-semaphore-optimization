@@ -213,7 +213,7 @@ def main(args=None, memo=None, external_configurations=None):
         }
     }
 
-    multi_intersection_traffic_light_configuration = multi_intersection_traffic_light_configurations[scenario]
+    multi_intersection_traffic_light_configuration = multi_intersection_traffic_light_configurations.get(scenario, {})
 
     intersection_ids, traffic_light_ids = sumo_util.get_traffic_lights(
         net_xml, multi_intersection_traffic_light_configuration)

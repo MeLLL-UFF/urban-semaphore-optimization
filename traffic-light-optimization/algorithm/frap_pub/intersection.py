@@ -85,8 +85,9 @@ class Intersection:
                     self.movement_to_entering_lane[movement].add(from_lane)
                     self.movement_to_exiting_lane[movement].add(to_lane)
 
-            self.movement_to_entering_lane[movement] = list(self.movement_to_entering_lane[movement])
-            self.movement_to_exiting_lane[movement] = list(self.movement_to_exiting_lane[movement])
+            if movement in self.movements:
+                self.movement_to_entering_lane[movement] = list(self.movement_to_entering_lane[movement])
+                self.movement_to_exiting_lane[movement] = list(self.movement_to_exiting_lane[movement])
 
         self.entering_lanes = list(self.entering_lanes)
         self.exiting_lanes = list(self.exiting_lanes)
@@ -103,6 +104,7 @@ class Intersection:
             self.movement_to_connection)
         self.phase_traffic_lights = self.get_phase_traffic_lights()
 
+        self.default_yellow_time = dic_traffic_env_conf['DEFAULT_YELLOW_TIME']
         self.movement_to_yellow_time = dic_traffic_env_conf['MOVEMENT_TO_YELLOW_TIME'][intersection_index]
 
         self.current_yellow_signal_movements = []
@@ -145,8 +147,10 @@ class Intersection:
         self.feature_dict_function = {
             'current_phase': lambda: [self.current_phase_index],
             'time_this_phase': lambda: [self.current_phase_duration],
-            'vehicle_position_img': lambda: self._get_lane_vehicle_position(self.controlled_entering_lanes),
-            'vehicle_speed_img': lambda: self._get_lane_vehicle_speed(self.controlled_entering_lanes),
+            'vehicle_position_img': lambda: self._get_lane_vehicle_position(
+                [[lane] for lane in self.controlled_entering_lanes]),
+            'vehicle_speed_img': lambda: self._get_lane_vehicle_speed(
+                [[lane] for lane in self.controlled_entering_lanes]),
             'vehicle_acceleration_img': lambda: None,
             'vehicle_waiting_time_img': lambda:
                 self._get_lane_vehicle_accumulated_waiting_time(self.movement_to_entering_lane.values()),
@@ -175,25 +179,29 @@ class Intersection:
 
         self.reward_dict_function = {
             'flickering': lambda: None,
-            'sum_queue_length': lambda: -np.sum(self._get_queue_length(self.controlled_entering_lanes)),
+            'sum_queue_length': lambda: -np.sum(self._get_queue_length(
+                [[lane] for lane in self.controlled_entering_lanes])),
             'avg_movement_queue_length': lambda: -np.average(self.get_feature('movement_queue_length')),
-            'sum_waiting_time': lambda: -np.sum(self._get_waiting_time(self.controlled_entering_lanes)),
+            'sum_waiting_time': lambda: -np.sum(self._get_waiting_time(
+                [[lane] for lane in self.controlled_entering_lanes])),
             'sum_num_vehicle_left': lambda: None,
             'sum_duration_vehicles_left': lambda: None,
             'sum_number_of_vehicles_been_stopped_threshold_01':
-                lambda: -np.sum(self._get_number_of_vehicles_been_stopped(self.controlled_entering_lanes, 0.1)),
+                lambda: -np.sum(self._get_number_of_vehicles_been_stopped(
+                    [[lane] for lane in self.controlled_entering_lanes], 0.1)),
             'sum_number_of_vehicles_been_stopped_threshold_1':
-                lambda: -np.sum(self._get_number_of_vehicles_been_stopped(self.controlled_entering_lanes, 1)),
+                lambda: -np.sum(self._get_number_of_vehicles_been_stopped(
+                    [[lane] for lane in self.controlled_entering_lanes], 1)),
             'pressure_presslight': lambda:
                 -np.abs(np.sum(self.get_feature('movement_pressure_presslight'))),
             'pressure_mplight': lambda:
-                -(np.sum(self._get_queue_length(self.controlled_entering_lanes)) -
-                  np.sum(self._get_queue_length(self.controlled_exiting_lanes))),
+                -(np.sum(self._get_queue_length([[lane] for lane in self.controlled_entering_lanes])) -
+                  np.sum(self._get_queue_length([[lane] for lane in self.controlled_exiting_lanes]))),
             'pressure_time_loss': lambda:
-                -(np.sum(self._get_time_loss(self.controlled_entering_lanes)) -
-                  np.sum(self._get_time_loss(self.controlled_exiting_lanes))),
+                -(np.sum(self._get_time_loss([[lane] for lane in self.controlled_entering_lanes])) -
+                  np.sum(self._get_time_loss([[lane] for lane in self.controlled_exiting_lanes]))),
             'time_loss': lambda:
-                -np.sum(self._get_time_loss(self.controlled_entering_lanes))
+                -np.sum(self._get_time_loss([[lane] for lane in self.controlled_entering_lanes]))
         }
 
     def update_previous_measurements(self):
@@ -262,7 +270,7 @@ class Intersection:
             yellow_signal_movements = self.current_yellow_signal_movements
             max_yellow_time = 0
             for movement in yellow_signal_movements:
-                yellow_time = self.movement_to_yellow_time[movement]
+                yellow_time = self.movement_to_yellow_time.get(movement, self.default_yellow_time)
                 max_yellow_time = max(max_yellow_time, yellow_time)
 
             if self.current_phase_duration >= max_yellow_time:  # yellow time reached
