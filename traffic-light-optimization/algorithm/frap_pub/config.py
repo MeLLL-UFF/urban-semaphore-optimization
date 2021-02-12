@@ -99,10 +99,10 @@ DIC_TRAFFIC_ENV_CONF = {
 
     "REWARD_INFO_DICT": {
         "flickering": 0,
-        "sum_movement_queue_length": 0,
+        "sum_queue_length": 0,
         "avg_movement_queue_length": 0,
-        "sum_movement_wait_time": 0,
-        "sum_movement_number_of_vehicles_left": 0,
+        "sum_waiting_time": 0,
+        "sum_number_of_vehicles_left": 0,
         "sum_duration_vehicles_left": 0,
         "sum_number_of_vehicles_been_stopped_threshold_01": 0,
         "sum_number_of_vehicles_been_stopped_threshold_1": 1,
