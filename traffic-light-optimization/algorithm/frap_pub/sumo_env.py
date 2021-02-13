@@ -360,31 +360,16 @@ class SumoEnv:
 
     def log(self, current_time, state_feature, action, reward):
 
-        relative_occupancy_by_lane = {}
-        relative_mean_speed_by_lane = {}
-        absolute_number_of_cars_by_lane = {}
-
         if self.mode == 'test' or self.mode == 'replay':
 
             time_loss = sumo_traci_util.get_time_loss(
                 self.current_step_vehicle_subscription,
                 self.execution_name)
-            relative_occupancy_by_lane = sumo_traci_util.get_lane_relative_occupancy(
-                self.current_step_lane_subscription,
-                self.current_step_lane_vehicle_subscription,
-                self.execution_name)
-            relative_mean_speed_by_lane = sumo_traci_util.get_lane_relative_mean_speed(
-                self.current_step_lane_subscription)
-            absolute_number_of_cars_by_lane = sumo_traci_util.get_lane_absolute_number_of_cars(
-                self.current_step_lane_subscription)
             extra = {
-                "time_loss": time_loss + self.total_pending_vehicles*1,
+                "time_loss": time_loss + self.total_pending_vehicles * 1,
                 "total_departed_vehicles": self.total_departed_vehicles,
                 "total_pending_vehicles": self.total_pending_vehicles,
-                "total_running_vehicles": self.total_running_vehicles,
-                "relative_occupancy": relative_occupancy_by_lane,
-                "relative_mean_speed": relative_mean_speed_by_lane,
-                "absolute_number_of_cars_by_lane": absolute_number_of_cars_by_lane
+                "total_running_vehicles": self.total_running_vehicles
             }
 
             self.network_logs.append({
@@ -398,28 +383,32 @@ class SumoEnv:
                 traffic_light = sumo_traci_util.get_traffic_light_state(
                     intersection.id,
                     self.execution_name)
+
                 time_loss = sumo_traci_util.get_time_loss(
                     intersection.current_step_vehicle_subscription,
                     self.execution_name)
 
-                lanes = intersection.all_lanes
+                relative_occupancy_by_movement = {
+                    movement: intersection.get_density(lanes)
+                    for movement, lanes in intersection.movement_to_entering_lane.items()
+                }
 
-                intersection_relative_occupancy_by_lane = {
-                    lane: relative_occupancy_by_lane[lane] for lane in lanes
+                relative_mean_speed_by_movement = {
+                    movement: intersection.get_relative_mean_speed(lanes)
+                    for movement, lanes in intersection.movement_to_entering_lane.items()
                 }
-                intersection_relative_mean_speed_by_lane = {
-                    lane: relative_mean_speed_by_lane[lane] for lane in lanes
-                }
-                intersection_absolute_number_of_cars_by_lane = {
-                    lane: absolute_number_of_cars_by_lane[lane] for lane in lanes
+
+                absolute_number_of_vehicles_by_movement = {
+                    movement: intersection.get_number_of_vehicles(lanes)
+                    for movement, lanes in intersection.movement_to_entering_lane.items()
                 }
 
                 extra = {
                     "traffic_light": traffic_light,
                     "time_loss": time_loss,
-                    "relative_occupancy": intersection_relative_occupancy_by_lane,
-                    "relative_mean_speed": intersection_relative_mean_speed_by_lane,
-                    "absolute_number_of_cars_by_lane": intersection_absolute_number_of_cars_by_lane
+                    "relative_occupancy": relative_occupancy_by_movement,
+                    "relative_mean_speed": relative_mean_speed_by_movement,
+                    "absolute_number_of_vehicles": absolute_number_of_vehicles_by_movement
                 }
 
             else:

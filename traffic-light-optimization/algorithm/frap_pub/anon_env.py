@@ -611,7 +611,7 @@ class AnonEnv:
         }
         for inter in self.list_intersection:
             for lane in inter.controlled_entering_lanes:
-                print(str(self.get_current_time()) + ", " + lane + ", " + list_to_str(inter._get_lane_vehicle_position([lane])[0]),
+                print(str(self.get_current_time()) + ", " + lane + ", " + list_to_str(inter.get_lane_vehicle_position([lane])[0]),
                       file=open(os.path.join(ROOT_DIR, self.path_to_log,
                                              "lane_vehicle_position_%s.txt"%dic_lane_map[lane]), "a"))
 

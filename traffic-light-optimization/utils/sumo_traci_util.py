@@ -29,7 +29,8 @@ def set_traffic_light_state(intersection, state, traci_label=None):
     traci_connection.trafficlight.setRedYellowGreenState(intersection, state)
 
 
-def get_movements_first_stopped_car_greatest_waiting_time(movement_to_entering_lane, lane_vehicle_subscription_data):
+def get_movements_first_stopped_vehicle_greatest_waiting_time(
+        movement_to_entering_lane, lane_vehicle_subscription_data):
 
     result = {movement: 0 for movement in movement_to_entering_lane.keys()}
 
@@ -104,7 +105,7 @@ def get_time_loss_by_lane(lane_vehicle_subscription_data, lanes, traci_label=Non
     return time_loss_by_lane
 
 
-def get_movement_relative_occupancy(lane_subscription_data, lane_vehicle_subscription_data, traci_label=None):
+def get_relative_occupancy(lane_subscription_data, lane_vehicle_subscription_data, traci_label=None):
     if traci_label is None:
         traci_connection = traci
     else:
@@ -124,7 +125,7 @@ def get_movement_relative_occupancy(lane_subscription_data, lane_vehicle_subscri
 
         total_occupied_length = 0
 
-        # Accounts for lane next entering car secure gap spacing
+        # Accounts for lane next entering vehicle secure gap spacing
         if vehicles:
             vehicle_id, vehicle = next(iter(vehicles.items()))
             min_gap = vehicle[tc.VAR_MINGAP]
@@ -165,11 +166,12 @@ def get_movement_relative_occupancy(lane_subscription_data, lane_vehicle_subscri
         total_occupied_length_list.append(total_occupied_length)
         lane_length_list.append(lane_length)
 
-    movement_relative_occupancy = sum(total_occupied_length_list) / sum(lane_length_list)
+    relative_occupancy = sum(total_occupied_length_list) / sum(lane_length_list)
 
-    return movement_relative_occupancy
+    return relative_occupancy
 
-def get_lane_relative_mean_speed(lane_subscription_data):
+
+def get_relative_mean_speed(lane_subscription_data):
 
     result = {}
 
@@ -183,19 +185,6 @@ def get_lane_relative_mean_speed(lane_subscription_data):
             mean_speed = 0
         
         result[lane_id] = mean_speed / lane[tc.VAR_MAXSPEED]
-
-    return result
-
-
-def get_lane_absolute_number_of_cars(lane_subscription_data):
-
-    result = {}
-
-    for lane_id, lane in lane_subscription_data.items():
-
-        vehicles = lane[tc.LAST_STEP_VEHICLE_ID_LIST]
-
-        result[lane_id] = len(vehicles)
 
     return result
 

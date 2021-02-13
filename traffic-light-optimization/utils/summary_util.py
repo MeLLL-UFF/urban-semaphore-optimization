@@ -224,6 +224,69 @@ def plot_consolidated_time_loss_per_driver(consolidated_time_loss_per_driver_df,
     plt.close()
 
 
+def consolidate_time_loss(time_loss_each_step, save_path, name_base, algorithm_label,
+                          baseline_comparison=False, baseline_experiments=None,
+                          mean=False):
+
+    time_loss_df = pd.DataFrame({'time_loss': time_loss_each_step})
+    time_loss_df.to_csv(save_path + "/" + name_base + "-" + 'time_loss' + ".csv")
+
+
+    f, ax = plt.subplots(1, 1, figsize=(20, 9), dpi=100)
+
+    ax.margins(0.05)
+
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
+    ax.yaxis.set_minor_locator(MultipleLocator(10))
+
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=12))
+    ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
+    ax.xaxis.set_minor_locator(MultipleLocator(10))
+
+    ax.set_axisbelow(True)
+    ax.grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
+
+    tail_length = 10
+    time_loss_tail = time_loss_df.iloc[-tail_length:]
+    final_time_loss = np.round(np.mean(time_loss_tail[time_loss_tail > 0]), decimals=2)[0]
+
+    if mean:
+        plot_label = algorithm_label + ' ' + '(' + str(final_time_loss) + ')'
+    else:
+        plot_label = algorithm_label
+
+    ax.plot(time_loss_df, linewidth=2, color='k', label=plot_label)
+
+    if baseline_comparison:
+
+        for baseline_experiment in baseline_experiments:
+
+            memo, experiment, round_, color, label = baseline_experiment
+
+            records_folder = os.path.join(
+                FRAP_ROOT_DIR, 'records', memo, experiment, 'test_round', 'round' + '_' + str(round_))
+
+            result_file = records_folder + '/' + experiment + '-test-time_loss.csv'
+
+            if os.path.isfile(result_file):
+                result_df = pd.read_csv(result_file)
+
+                if mean:
+                    data = result_df['time_loss'].mean()
+                    ax.plot([0, time_loss_df.shape[0]], [data, data], linewidth=2, linestyle=':', color=color,
+                            label=label + ' ' + '(' + str(np.round(data, decimals=2)) + ')')
+                else:
+                    data = result_df['time_loss']
+                    ax.plot(data, linewidth=2, linestyle=':', color=color, label=label)
+
+        ax.legend()
+
+    ax.set_title('time loss' + ' - ' + str(np.round(time_loss_df.mean()[0], decimals=2)))
+    plt.savefig(save_path + "/" + name_base + "-" + 'time_loss' + ".png")
+    plt.close()
+
+
 def consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step, relative_mean_speed_each_step,
                                                    movements, movement_to_connection, save_path, name_base):
 

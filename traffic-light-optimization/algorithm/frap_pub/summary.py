@@ -656,16 +656,9 @@ def summary_detail_baseline(memo):
     total_result.to_csv(os.path.join(ROOT_DIR, "summary", memo, "total_baseline_test_results.csv"))
 
 
-def single_experiment_intersection_summary(memo, records_dir, intersection_id, plots='all', single_round=None,
+def single_experiment_intersection_summary(memo, records_dir, intersection_id, single_round=0, plots='all',
                                            baseline_comparison=False, baseline_experiments=None):
-    # plots: None, 'records_only 'summary_only', 'all'
-
-    if single_round is not None:
-        if plots == 'all':
-            print('Changing plots to "records only"')
-            plots = 'records_only'
-        elif plots == 'summary_only':
-            raise ValueError('It is not possible to specify a round and choose summary_only at the same time')
+    # plots: None, 'records_only'
 
     traffic_env_conf = open(os.path.join(ROOT_DIR, records_dir, "traffic_env.conf"), 'r')
     dic_traffic_env_conf = json.load(traffic_env_conf)
@@ -679,13 +672,7 @@ def single_experiment_intersection_summary(memo, records_dir, intersection_id, p
     round_files = [f for f in round_files if "round" in f]
     round_files.sort(key=lambda x: int(x[6:]))
 
-    if single_round is not None:
-        round_files = [round_files[single_round]]
-
-    average_reward_each_round = []
-    average_time_loss_each_round = []
-    average_relative_occupancy_each_round = []
-    average_relative_mean_speed_each_round = []
+    round_ = round_files[single_round]
 
     traffic_folder = records_dir.rsplit('/', 1)[1]
     traffic_name = traffic_folder
@@ -699,105 +686,62 @@ def single_experiment_intersection_summary(memo, records_dir, intersection_id, p
 
     algorithm_label = memo
 
-    for round_ in round_files:
+    round_dir = os.path.join(test_round_dir, round_)
 
-        round_dir = os.path.join(test_round_dir, round_)
+    reward_each_step = []
+    time_loss_each_step = []
+    traffic_light_each_step = []
+    relative_occupancy_each_step = []
+    relative_mean_speed_each_step = []
+    absolute_number_of_vehicles_each_step = []
 
-        reward_each_step = []
-        time_loss_each_step = []
-        traffic_light_each_step = []
-        relative_occupancy_each_step = []
-        relative_mean_speed_each_step = []
-        absolute_number_of_cars_each_step = []
+    # summary items (queue_length) from pickle
+    f = open(os.path.join(ROOT_DIR, round_dir, "inter_{0}_detailed.pkl".format(intersection_id)), "rb")
+    samples = pkl.load(f)
+    f.close()
+    for sample in samples:
+        reward_each_step.append(sample['reward'])
+        time_loss_each_step.append(sample['extra']['time_loss'])
+        if plots is not None:
+            traffic_light_each_step.append(sample['extra']['traffic_light'])
+            relative_occupancy_each_step.append(sample['extra']['relative_occupancy'])
+            relative_mean_speed_each_step.append(sample['extra']['relative_mean_speed'])
+            absolute_number_of_vehicles_each_step.append(sample['extra']['absolute_number_of_vehicles'])
 
-        # summary items (queue_length) from pickle
-        f = open(os.path.join(ROOT_DIR, round_dir, "inter_{0}_detailed.pkl".format(intersection_id)), "rb")
-        samples = pkl.load(f)
-        f.close()
-        for sample in samples:
-            reward_each_step.append(sample['reward'])
-            time_loss_each_step.append(sample['extra']['time_loss'])
-            if plots is not None:
-                traffic_light_each_step.append(sample['extra']['traffic_light'])
-                relative_occupancy_each_step.append(sample['extra']['relative_occupancy'])
-                relative_mean_speed_each_step.append(sample['extra']['relative_mean_speed'])
-                absolute_number_of_cars_each_step.append(sample['extra']['absolute_number_of_cars'])
+    save_path = ROOT_DIR + '/' + round_dir
 
-        save_path = ROOT_DIR + '/' + round_dir
-
-        if plots is not None and plots != 'summary_only':
-
-            summary_util.consolidate_time_loss(
-                time_loss_each_step,
-                save_path,
-                name_base,
-                algorithm_label,
-                baseline_comparison=baseline_comparison,
-                baseline_experiments=baseline_experiments)
-            summary_util.consolidate_reward(reward_each_step, save_path, name_base)
-
-            summary_util.consolidate_occupancy_and_speed_inflow_outflow(
-                relative_occupancy_each_step,
-                relative_mean_speed_each_step,
-                movements,
-                movement_to_connection,
-                save_path,
-                name_base)
-
-            summary_util.consolidate_phase_and_demand(
-                absolute_number_of_cars_each_step,
-                traffic_light_each_step,
-                movements,
-                movement_to_connection,
-                movement_to_traffic_light_index_mapping,
-                save_path,
-                name_base)
-
-        if plots is not None and plots != 'records_only':
-
-            relative_occupancy_df = pd.DataFrame(relative_occupancy_each_step)
-            relative_mean_speed_df = pd.DataFrame(relative_mean_speed_each_step)
-
-            average_reward_each_round.append(np.mean(reward_each_step))
-            average_time_loss_each_round.append(np.mean(time_loss_each_step))
-
-            average_relative_occupancy_each_round.append(relative_occupancy_df.mean().to_dict())
-            average_relative_mean_speed_each_round.append(relative_mean_speed_df.mean().to_dict())
-
-    if single_round is not None:
-        return
-
-    traffic_folder = records_dir.rsplit('/', 1)[1]
-    result_dir = os.path.join("summary", memo, traffic_folder)
-    if not os.path.exists(ROOT_DIR + '/' + result_dir):
-        os.makedirs(ROOT_DIR + '/' + result_dir)
-
-    save_path = ROOT_DIR + '/' + result_dir
-
-    if plots is not None and plots != 'records_only':
+    if plots is not None:
 
         summary_util.consolidate_time_loss(
-            average_time_loss_each_round,
+            time_loss_each_step,
             save_path,
             name_base,
             algorithm_label,
             baseline_comparison=baseline_comparison,
-            baseline_experiments=baseline_experiments,
-            mean=True)
-        summary_util.consolidate_reward(average_reward_each_round, save_path, name_base)
+            baseline_experiments=baseline_experiments)
+        summary_util.consolidate_reward(reward_each_step, save_path, name_base)
 
         summary_util.consolidate_occupancy_and_speed_inflow_outflow(
-            average_relative_occupancy_each_round,
-            average_relative_mean_speed_each_round,
+            relative_occupancy_each_step,
+            relative_mean_speed_each_step,
             movements,
             movement_to_connection,
             save_path,
             name_base)
 
+        summary_util.consolidate_phase_and_demand(
+            absolute_number_of_vehicles_each_step,
+            traffic_light_each_step,
+            movements,
+            movement_to_connection,
+            movement_to_traffic_light_index_mapping,
+            save_path,
+            name_base)
 
-def single_experiment_network_summary(memo, records_dir, plots='all', single_round=None,
+
+def single_experiment_network_summary(memo, records_dir, single_round=None, plots='all',
                                       baseline_comparison=False, baseline_experiments=None):
-    # plots: None, 'records_only 'summary_only', 'all'
+    # plots: None, 'records_only' 'summary_only', 'all'
 
     if single_round is not None:
         if plots == 'all':
@@ -821,8 +765,6 @@ def single_experiment_network_summary(memo, records_dir, plots='all', single_rou
     average_reward_each_round = []
     instant_time_loss_per_driver_average_each_round_df = pd.DataFrame()
     consolidated_time_loss_per_driver_each_round_df = pd.DataFrame()
-    average_relative_occupancy_each_round = []
-    average_relative_mean_speed_each_round = []
 
     traffic_folder = records_dir.rsplit('/', 1)[1]
     traffic_name = traffic_folder
@@ -840,10 +782,6 @@ def single_experiment_network_summary(memo, records_dir, plots='all', single_rou
         total_pending_vehicles_each_step = []
         total_running_vehicles_each_step = []
 
-        relative_occupancy_each_step = []
-        relative_mean_speed_each_step = []
-        absolute_number_of_cars_by_lane_each_step = []
-
         # summary items (queue_length) from pickle
         f = open(os.path.join(ROOT_DIR, round_dir, "network_detailed.pkl"), "rb")
         samples = pkl.load(f)
@@ -853,10 +791,6 @@ def single_experiment_network_summary(memo, records_dir, plots='all', single_rou
             total_departed_vehicles_each_step.append(sample['extra']['total_departed_vehicles'])
             total_pending_vehicles_each_step.append(sample['extra']['total_pending_vehicles'])
             total_running_vehicles_each_step.append(sample['extra']['total_running_vehicles'])
-            if plots is not None:
-                relative_occupancy_each_step.append(sample['extra']['relative_occupancy'])
-                relative_mean_speed_each_step.append(sample['extra']['relative_mean_speed'])
-                absolute_number_of_cars_by_lane_each_step.append(sample['extra']['absolute_number_of_cars_by_lane'])
 
         save_path = ROOT_DIR + '/' + round_dir
 
@@ -896,18 +830,12 @@ def single_experiment_network_summary(memo, records_dir, plots='all', single_rou
 
         if plots is not None and plots != 'records_only':
 
-            relative_occupancy_df = pd.DataFrame(relative_occupancy_each_step)
-            relative_mean_speed_df = pd.DataFrame(relative_mean_speed_each_step)
-
             instant_time_loss_per_driver_average_each_round_df = \
                 instant_time_loss_per_driver_average_each_round_df.append(
                     instant_time_loss_per_driver_average_df.mean(), ignore_index=True)
             consolidated_time_loss_per_driver_each_round_df = \
                 consolidated_time_loss_per_driver_each_round_df.append(
                     consolidated_time_loss_per_driver_df.iloc[-1], ignore_index=True)
-
-            average_relative_occupancy_each_round.append(relative_occupancy_df.mean().to_dict())
-            average_relative_mean_speed_each_round.append(relative_mean_speed_df.mean().to_dict())
 
     if single_round is not None:
         return

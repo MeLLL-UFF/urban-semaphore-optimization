@@ -147,61 +147,61 @@ class Intersection:
         self.feature_dict_function = {
             'current_phase': lambda: [self.current_phase_index],
             'time_this_phase': lambda: [self.current_phase_duration],
-            'vehicle_position_img': lambda: self._get_lane_vehicle_position(
-                [[lane] for lane in self.controlled_entering_lanes]),
-            'vehicle_speed_img': lambda: self._get_lane_vehicle_speed(
-                [[lane] for lane in self.controlled_entering_lanes]),
+            'vehicle_position_img': lambda: self.get_lane_vehicle_position(self.controlled_entering_lanes),
+            'vehicle_speed_img': lambda: self.get_lane_vehicle_speed(self.controlled_entering_lanes),
             'vehicle_acceleration_img': lambda: None,
             'vehicle_waiting_time_img': lambda:
-                self._get_lane_vehicle_accumulated_waiting_time(self.movement_to_entering_lane.values()),
+                [self.get_lane_vehicle_accumulated_waiting_time(lanes)
+                 for lanes in self.movement_to_entering_lane.values()],
             'movement_number_of_vehicles': lambda:
-                self._get_number_of_vehicles(self.movement_to_entering_lane.values()),
+                [self.get_number_of_vehicles(lanes) for lanes in self.movement_to_entering_lane.values()],
             'movement_number_of_vehicles_been_stopped_threshold_01': lambda:
-                self._get_number_of_vehicles_been_stopped(self.movement_to_entering_lane.values(), 0.1),
+                [self.get_number_of_vehicles_been_stopped(lanes, 0.1)
+                 for lanes in self.movement_to_entering_lane.values()],
             'movement_number_of_vehicles_been_stopped_threshold_1': lambda:
-                self._get_number_of_vehicles_been_stopped(self.movement_to_entering_lane.values(), 1),
-            'movement_queue_length': lambda: self._get_queue_length(self.movement_to_entering_lane.values()),
+                [self.get_number_of_vehicles_been_stopped(lanes, 1)
+                 for lanes in self.movement_to_entering_lane.values()],
+            'movement_queue_length': lambda:
+                [self.get_queue_length(lanes) for lanes in self.movement_to_entering_lane.values()],
             'movement_number_of_vehicles_left': lambda: None,
             'movement_sum_duration_vehicles_left': lambda: None,
-            'movement_sum_waiting_time': lambda: self._get_waiting_time(self.movement_to_entering_lane.values()),
+            'movement_sum_waiting_time': lambda:
+                [self.get_waiting_time(lanes) for lanes in self.movement_to_entering_lane.values()],
             'terminal': lambda: None,
             'movement_pressure_presslight': lambda:
-                np.array(self._get_density(self.movement_to_entering_lane.values())) -
-                np.array(self._get_density(self.movement_to_exiting_lane.values())),
+                np.array([self.get_density(lanes) for lanes in self.movement_to_entering_lane.values()]) -
+                np.array([self.get_density(lanes) for lanes in self.movement_to_exiting_lane.values()]),
             'movement_pressure_mplight': lambda:
-                np.array(self._get_number_of_vehicles(self.movement_to_entering_lane.values())) -
-                np.array(self._get_number_of_vehicles(self.movement_to_exiting_lane.values())),
+                np.array([self.get_number_of_vehicles(lanes) for lanes in self.movement_to_entering_lane.values()]) -
+                np.array([self.get_number_of_vehicles(lanes) for lanes in self.movement_to_exiting_lane.values()]),
             'movement_pressure_time_loss': lambda:
-                np.array(self._get_time_loss(self.movement_to_entering_lane.values())) -
-                np.array(self._get_time_loss(self.movement_to_exiting_lane.values())),
-            'movement_sum_time_loss': lambda: self._get_time_loss(self.movement_to_entering_lane.values())
+                np.array([self.get_time_loss(lanes) for lanes in self.movement_to_entering_lane.values()]) -
+                np.array([self.get_time_loss(lanes) for lanes in self.movement_to_exiting_lane.values()]),
+            'movement_sum_time_loss': lambda:
+                [self.get_time_loss(lanes) for lanes in self.movement_to_entering_lane.values()]
         }
 
         self.reward_dict_function = {
             'flickering': lambda: None,
-            'sum_queue_length': lambda: -np.sum(self._get_queue_length(
-                [[lane] for lane in self.controlled_entering_lanes])),
+            'sum_queue_length': lambda: -np.sum(self.get_queue_length(self.controlled_entering_lanes)),
             'avg_movement_queue_length': lambda: -np.average(self.get_feature('movement_queue_length')),
-            'sum_waiting_time': lambda: -np.sum(self._get_waiting_time(
-                [[lane] for lane in self.controlled_entering_lanes])),
+            'sum_waiting_time': lambda: -np.sum(self.get_waiting_time(self.controlled_entering_lanes)),
             'sum_num_vehicle_left': lambda: None,
             'sum_duration_vehicles_left': lambda: None,
             'sum_number_of_vehicles_been_stopped_threshold_01':
-                lambda: -np.sum(self._get_number_of_vehicles_been_stopped(
-                    [[lane] for lane in self.controlled_entering_lanes], 0.1)),
+                lambda: -np.sum(self.get_number_of_vehicles_been_stopped(self.controlled_entering_lanes, 0.1)),
             'sum_number_of_vehicles_been_stopped_threshold_1':
-                lambda: -np.sum(self._get_number_of_vehicles_been_stopped(
-                    [[lane] for lane in self.controlled_entering_lanes], 1)),
+                lambda: -np.sum(self.get_number_of_vehicles_been_stopped(self.controlled_entering_lanes, 1)),
             'pressure_presslight': lambda:
                 -np.abs(np.sum(self.get_feature('movement_pressure_presslight'))),
             'pressure_mplight': lambda:
-                -(np.sum(self._get_queue_length([[lane] for lane in self.controlled_entering_lanes])) -
-                  np.sum(self._get_queue_length([[lane] for lane in self.controlled_exiting_lanes]))),
+                -(np.sum(self.get_queue_length(self.controlled_entering_lanes)) -
+                  np.sum(self.get_queue_length(self.controlled_exiting_lanes))),
             'pressure_time_loss': lambda:
-                -(np.sum(self._get_time_loss([[lane] for lane in self.controlled_entering_lanes])) -
-                  np.sum(self._get_time_loss([[lane] for lane in self.controlled_exiting_lanes]))),
+                -(np.sum(self.get_time_loss(self.controlled_entering_lanes)) -
+                  np.sum(self.get_time_loss(self.controlled_exiting_lanes))),
             'time_loss': lambda:
-                -np.sum(self._get_time_loss([[lane] for lane in self.controlled_entering_lanes]))
+                -np.sum(self.get_time_loss(self.controlled_entering_lanes))
         }
 
     def update_previous_measurements(self):
@@ -374,141 +374,120 @@ class Intersection:
 
     # ================= calculate features from current observations ======================
 
-    def _get_density(self, lanes_list):
+    def get_density(self, lanes):
 
-        density_list = []
-        for lanes in lanes_list:
+        lane_subscription_data = {lane_id: self.current_step_lane_subscription[lane_id]
+                                  for lane_id in lanes}
 
-            lane_subscription_data = {lane_id: self.current_step_lane_subscription[lane_id]
-                                      for lane_id in lanes}
+        lane_vehicle_subscription_data = {lane_id: self.current_step_lane_vehicle_subscription.get(lane_id, {})
+                                          for lane_id in lanes}
 
-            lane_vehicle_subscription_data = {lane_id: self.current_step_lane_vehicle_subscription.get(lane_id, {})
-                                              for lane_id in lanes}
+        density = sumo_traci_util.get_relative_occupancy(
+            lane_subscription_data,
+            lane_vehicle_subscription_data
+        )
 
-            density = sumo_traci_util.get_movement_relative_occupancy(
-                lane_subscription_data,
-                lane_vehicle_subscription_data
-            )
+        return density
 
-            density_list.append(density)
+    def get_relative_mean_speed(self, lanes):
 
-        return density_list
+        lane_subscription_data = {lane_id: self.current_step_lane_subscription[lane_id]
+                                  for lane_id in lanes}
 
-    def _get_time_loss(self, lanes_list):
+        relative_mean_speed = sumo_traci_util.get_relative_mean_speed(lane_subscription_data)
 
-        time_loss_list = []
-        for lanes in lanes_list:
+        return relative_mean_speed
 
-            time_loss = sum(sumo_traci_util.get_time_loss_by_lane(self.current_step_lane_vehicle_subscription, lanes,
-                                                                  self.execution_name))
+    def get_time_loss(self, lanes):
 
-            time_loss_list.append(time_loss)
+        time_loss = sum(sumo_traci_util.get_time_loss_by_lane(self.current_step_lane_vehicle_subscription, lanes,
+                                                              self.execution_name))
 
-        return time_loss_list
+        return time_loss
 
-    def _get_queue_length(self, lanes_list):
+    def get_queue_length(self, lanes):
 
-        queue_length_list = []
-        for lanes in lanes_list:
+        queue_length = sum(
+            [self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_HALTING_NUMBER]
+             for lane_id in lanes])
 
-            queue_length = sum(
-                [self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_HALTING_NUMBER]
-                 for lane_id in lanes])
+        return queue_length
 
-            queue_length_list.append(queue_length)
+    def get_number_of_vehicles(self, lanes):
 
-        return queue_length_list
+        number_of_vehicles = sum([self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_NUMBER]
+                                  for lane_id in lanes])
 
-    def _get_number_of_vehicles(self, lanes_list):
+        return number_of_vehicles
 
-        number_of_vehicles_list = []
-        for lanes in lanes_list:
+    def get_waiting_time(self, lanes):
 
-            number_of_vehicles = sum([self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_NUMBER]
-                                      for lane_id in lanes])
+        waiting_time = sum([self.current_step_lane_subscription[lane_id][tc.VAR_WAITING_TIME]
+                            for lane_id in lanes])
 
-            number_of_vehicles_list.append(number_of_vehicles)
+        return waiting_time
 
-        return number_of_vehicles_list
-
-    def _get_waiting_time(self, lanes_list):
-
-        waiting_time_list = []
-        for lanes in lanes_list:
-
-            waiting_time = sum([self.current_step_lane_subscription[lane_id][tc.VAR_WAITING_TIME]
-                                for lane_id in lanes])
-
-            waiting_time_list.append(waiting_time)
-
-        return waiting_time_list
-
-    def _get_movements_list_vehicle_left(self, movement_to_entering_lane):
+    def get_list_vehicle_left(self, lanes):
 
         return None
 
-    def _get_lane_num_vehicle_left(self, lanes_list):
-        list_lane_vehicle_left = self._get_movements_list_vehicle_left(lanes_list)
+    def get_num_vehicle_left(self, lanes):
+        list_lane_vehicle_left = self.get_list_vehicle_left(lanes)
         list_lane_num_vehicle_left = [len(lane_vehicle_left) for lane_vehicle_left in list_lane_vehicle_left]
         return list_lane_num_vehicle_left
 
-    def _get_lane_sum_duration_vehicle_left(self, lanes_list):
+    def get_sum_duration_vehicle_left(self, lanes):
 
         # not implemented error
         raise NotImplementedError
 
-    def _get_number_of_vehicles_been_stopped(self, lanes_list, threshold):
+    def get_number_of_vehicles_been_stopped(self, lanes, threshold):
 
-        number_of_vehicles_ever_stopped_list = []
-        for lanes in lanes_list:
+        number_of_vehicles_ever_stopped = 0
+        for lane_id in lanes:
+            vehicle_ids = self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_ID_LIST]
+            for vehicle_id in vehicle_ids:
+                if self.vehicle_min_speed_dict[vehicle_id] < threshold:
+                    number_of_vehicles_ever_stopped += 1
 
-            vehicle_count = 0
-            for lane_id in lanes:
-                vehicle_ids = self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_ID_LIST]
-                for vehicle_id in vehicle_ids:
-                    if self.vehicle_min_speed_dict[vehicle_id] < threshold:
-                        vehicle_count += 1
+        return number_of_vehicles_ever_stopped
 
-            number_of_vehicles_ever_stopped_list.append(vehicle_count)
-
-        return number_of_vehicles_ever_stopped_list
-
-    def _get_position_grid_along_lane(self, vehicle):
+    def get_position_grid_along_lane(self, vehicle):
         position = int(self.current_step_vehicle_subscription[vehicle][tc.VAR_LANEPOSITION])
         return min(position//self.length_grid, self.num_grid)
 
-    def _get_lane_vehicle_position(self, lanes_list):
+    def get_lane_vehicle_position(self, lanes):
 
         lane_vector_list = []
-        for lane in lanes_list:
+        for lane in lanes:
             lane_vector = np.zeros(self.num_grid)
             vehicle_ids = self.current_step_lane_subscription[lane][tc.LAST_STEP_VEHICLE_ID_LIST]
             for vehicle_id in vehicle_ids:
-                pos_grid = self._get_position_grid_along_lane(vehicle_id)
+                pos_grid = self.get_position_grid_along_lane(vehicle_id)
                 lane_vector[pos_grid] = 1
             lane_vector_list.append(lane_vector)
         return np.array(lane_vector_list)
 
-    def _get_lane_vehicle_speed(self, lanes_list):
+    def get_lane_vehicle_speed(self, lanes):
 
         lane_vector_list = []
-        for lane in lanes_list:
+        for lane in lanes:
             lane_vector = np.full(self.num_grid, fill_value=np.nan)
             vehicle_ids = self.current_step_lane_subscription[lane][tc.LAST_STEP_VEHICLE_ID_LIST]
             for vehicle_id in vehicle_ids:
-                pos_grid = self._get_position_grid_along_lane(vehicle_id)
+                pos_grid = self.get_position_grid_along_lane(vehicle_id)
                 lane_vector[pos_grid] = self.current_step_vehicle_subscription[vehicle_id][tc.VAR_SPEED]
             lane_vector_list.append(lane_vector)
         return np.array(lane_vector_list)
 
-    def _get_lane_vehicle_accumulated_waiting_time(self, lanes_list):
+    def get_lane_vehicle_accumulated_waiting_time(self, lanes):
 
         lane_vector_list = []
-        for lane in lanes_list:
+        for lane in lanes:
             lane_vector = np.full(self.num_grid, fill_value=np.nan)
             vehicle_ids = self.current_step_lane_subscription[lane][tc.LAST_STEP_VEHICLE_ID_LIST]
             for vehicle_id in vehicle_ids:
-                pos_grid = self._get_position_grid_along_lane(vehicle_id)
+                pos_grid = self.get_position_grid_along_lane(vehicle_id)
                 lane_vector[pos_grid] = self.current_step_vehicle_subscription[
                     vehicle_id][tc.VAR_ACCUMULATED_WAITING_TIME]
             lane_vector_list.append(lane_vector)
@@ -619,14 +598,14 @@ class Intersection:
             return None, None
 
     def select_action_based_on_time_restriction(self, threshold=120):
-        # order movements by the waiting time of the first car
+        # order movements by the waiting time of the first vehicle
         # select all phases, covering all movements in order
         # check time necessary to avoid transgressing waiting time threshold
 
         if threshold == -1:
             return -1
 
-        movement_waiting_time_dict = sumo_traci_util.get_movements_first_stopped_car_greatest_waiting_time(
+        movement_waiting_time_dict = sumo_traci_util.get_movements_first_stopped_vehicle_greatest_waiting_time(
             self.movement_to_entering_lane, self.current_step_lane_vehicle_subscription)
 
         movement_waiting_time_dict = {k: v for k, v in sorted(
