@@ -215,7 +215,7 @@ def main(args=None, memo=None, external_configurations=None):
 
     multi_intersection_traffic_light_configuration = multi_intersection_traffic_light_configurations.get(scenario, {})
 
-    intersection_ids, traffic_light_ids = sumo_util.get_traffic_lights(
+    intersection_ids, traffic_light_ids, unregulated_intersection_ids = sumo_util.get_traffic_lights(
         net_xml, multi_intersection_traffic_light_configuration)
 
     unique_movements, movement_list, connection_to_movement_list = sumo_util.detect_movements(
@@ -236,12 +236,14 @@ def main(args=None, memo=None, external_configurations=None):
 
     movement_to_give_preference_to_list = sumo_util.detect_movements_preferences(
         net_xml, intersection_ids, connection_to_movement_list, connection_to_junction_link_index_list,
-        junction_link_index_to_movement_list, multi_intersection_traffic_light_configuration)
+        junction_link_index_to_movement_list, unregulated_intersection_ids,
+        multi_intersection_traffic_light_configuration)
 
     conflicts_list, minor_conflicts_list = sumo_util.detect_movement_conflicts(
         net_xml, intersection_ids, connection_to_movement_list, same_lane_origin_movements_list,
         connection_to_junction_link_index_list, junction_link_index_to_movement_list, link_states_list,
-        movement_to_give_preference_to_list, multi_intersection_traffic_light_configuration)
+        movement_to_give_preference_to_list, unregulated_intersection_ids,
+        multi_intersection_traffic_light_configuration)
 
     if detect_existing_phases:
         unique_phases, phases_list, movement_to_yellow_time_list = sumo_util.detect_existing_phases(
@@ -262,6 +264,27 @@ def main(args=None, memo=None, external_configurations=None):
             same_lane_origin_movements_list,
             major_conflicts_only=major_conflicts_only,
             dedicated_minor_links_phases=dedicated_minor_links_phases)
+
+    '''
+    unique_phases = ["0S_2S_0L_2L", "1S_3S_1L_3L"]
+    phases_list = [
+        ["0S_2S_0L_2L", "1S_3S_1L_3L"]
+        #["0L_0S", "0L_2L", "0L_3S", "0S_1L", "0S_2S", "1L_1S", "1L_3L", "1S_2L", "1S_3S", "2L_2S", "2S_3L", "3L_3S",
+        #    "0S_2S_0L_2L", "1S_3S_1L_3L"]
+    ]
+    '''
+    '''
+    phases_list = [
+        ["0L_0S", "0L_2L", "0L_3S", "0S_1L", "0S_2S", "1L_1S", "1L_3L", "1S_2L", "1S_3S", "2L_2S", "2S_3L", "3L_3S",
+            "0S_2S_0L_2L", "1S_3S_1L_3L"],
+        ["0L_0S", "0L_2L", "0L_3S", "0S_1L", "0S_2S", "1L_1S", "1L_3L", "1S_2L", "1S_3S", "2L_2S", "2S_3L", "3L_3S",
+            "0S_2S_0L_2L", "1S_3S_1L_3L"],
+        ["0L_0S", "0L_2L", "0L_3S", "0S_1L", "0S_2S", "1L_1S", "1L_3L", "1S_2L", "1S_3S", "2L_2S", "2S_3L", "3L_3S",
+            "0S_2S_0L_2L", "1S_3S_1L_3L"],
+        ["0L_0S", "0L_2L", "0L_3S", "0S_1L", "0S_2S", "1L_1S", "1L_3L", "1S_2L", "1S_3S", "2L_2S", "2S_3L", "3L_3S",
+            "0S_2S_0L_2L", "1S_3S_1L_3L"]
+    ]
+    '''
 
     if detect_existing_phases and simplify_phase_representation:
         unique_simplified_phases, simplified_phases_list = \

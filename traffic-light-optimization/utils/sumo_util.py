@@ -187,6 +187,7 @@ def get_intersection_with_traffic_light(net_xml):
 
     intersection_ids = []
     intersection_points = []
+    unregulated_intersection_ids = []
 
     for intersection in intersections:
         intersection_id = intersection.get('id')
@@ -194,12 +195,15 @@ def get_intersection_with_traffic_light(net_xml):
         intersection_point = Point([float(intersection.get('x')), float(intersection.get('y'))])
         intersection_points.append(intersection_point)
 
+        if intersection.get('type') == 'traffic_light_unregulated':
+            unregulated_intersection_ids.append(intersection_id)
+
     zipped_id_and_location = zip(intersection_ids, intersection_points)
     sorted_id_and_location = sorted(zipped_id_and_location, key=lambda x: cmp_to_key(location_comparator)(x[1]))
 
     intersection_ids = list(list(zip(*sorted_id_and_location))[0])
 
-    return intersection_ids
+    return intersection_ids, unregulated_intersection_ids
 
 
 def get_traffic_light_ids(net_xml, intersection_ids):
@@ -208,7 +212,7 @@ def get_traffic_light_ids(net_xml, intersection_ids):
 
     traffic_light_ids = [{} for _ in range(len(intersection_ids))]
 
-    unregulated_intersection_ids = []
+    only_unregulated_connections_intersection_ids = []
     for intersection_index, intersection_incoming_edges in enumerate(intersections_incoming_edges_list):
 
         connections = [connection
@@ -224,23 +228,23 @@ def get_traffic_light_ids(net_xml, intersection_ids):
 
         if len(connection_traffic_light_ids) == 0:
             connection_traffic_light_ids.append(None)
-            unregulated_intersection_ids.append(intersection_index)
+            only_unregulated_connections_intersection_ids.append(intersection_index)
 
         assert all(connection_traffic_light_ids[0] == x for x in connection_traffic_light_ids)
 
         traffic_light_id = connection_traffic_light_ids[0]
         traffic_light_ids[intersection_index] = traffic_light_id
 
-    return traffic_light_ids, unregulated_intersection_ids
+    return traffic_light_ids, only_unregulated_connections_intersection_ids
 
 
 def get_traffic_lights(net_xml, multi_intersection_traffic_light_configuration):
 
-    intersection_ids = get_intersection_with_traffic_light(net_xml)
+    intersection_ids, unregulated_intersection_ids = get_intersection_with_traffic_light(net_xml)
 
-    traffic_light_ids, unregulated_intersection_ids = get_traffic_light_ids(net_xml, intersection_ids)
+    traffic_light_ids, only_unregulated_connections_intersection_ids = get_traffic_light_ids(net_xml, intersection_ids)
 
-    for i in reversed(unregulated_intersection_ids):
+    for i in reversed(only_unregulated_connections_intersection_ids):
         intersection_ids.pop(i)
         traffic_light_ids.pop(i)
 
@@ -256,7 +260,7 @@ def get_traffic_lights(net_xml, multi_intersection_traffic_light_configuration):
             intersection_ids.pop(index)
             traffic_light_ids.pop(index)
 
-    return intersection_ids, traffic_light_ids
+    return intersection_ids, traffic_light_ids, unregulated_intersection_ids
 
 
 def location_comparator(p1, p2):
@@ -990,7 +994,7 @@ def detect_movements_link_states(net_xml, intersection_ids, connection_to_moveme
 
 def detect_movements_preferences(net_xml, intersection_ids, connection_to_movement_list,
                                  connection_to_junction_link_index_list, junction_link_index_to_movement_list,
-                                 multi_intersection_traffic_light_configuration):
+                                 unregulated_intersection_ids, multi_intersection_traffic_light_configuration):
 
     movement_to_give_preference_to_list = [{} for _ in range(len(intersection_ids))]
 
@@ -1021,6 +1025,9 @@ def detect_movements_preferences(net_xml, intersection_ids, connection_to_moveme
             assert len(junctions_list) == 1
             intersection_id = junctions_list[0].get('id')
 
+            if intersection_id in unregulated_intersection_ids:
+                continue
+
             connection_junction_link_index = connection_to_junction_link_index[connection]
             connection_request = connection_requests[intersection_id][connection_junction_link_index]
             give_preference_to_indicators = connection_request.get('response')[::-1]
@@ -1039,7 +1046,7 @@ def detect_movements_preferences(net_xml, intersection_ids, connection_to_moveme
 
 def detect_movement_conflicts(net_xml, intersection_ids, connection_to_movement_list, same_lane_origin_movements_list,
                               connection_to_junction_link_index_list, junction_link_index_to_movement_list,
-                              link_states_list, movement_to_give_preference_to_list,
+                              link_states_list, movement_to_give_preference_to_list, unregulated_intersection_ids,
                               multi_intersection_traffic_light_configuration):
 
     conflicts_list = [{} for _ in range(len(intersection_ids))]
@@ -1079,6 +1086,9 @@ def detect_movement_conflicts(net_xml, intersection_ids, connection_to_movement_
 
             assert len(junctions_list) == 1
             intersection_id = junctions_list[0].get('id')
+
+            if intersection_id in unregulated_intersection_ids:
+                continue
 
             connection_junction_link_index = connection_to_junction_link_index[connection]
             connection_request = connection_requests[intersection_id][connection_junction_link_index]
