@@ -265,27 +265,6 @@ def main(args=None, memo=None, external_configurations=None):
             major_conflicts_only=major_conflicts_only,
             dedicated_minor_links_phases=dedicated_minor_links_phases)
 
-    '''
-    unique_phases = ["0S_2S_0L_2L", "1S_3S_1L_3L"]
-    phases_list = [
-        ["0S_2S_0L_2L", "1S_3S_1L_3L"]
-        #["0L_0S", "0L_2L", "0L_3S", "0S_1L", "0S_2S", "1L_1S", "1L_3L", "1S_2L", "1S_3S", "2L_2S", "2S_3L", "3L_3S",
-        #    "0S_2S_0L_2L", "1S_3S_1L_3L"]
-    ]
-    '''
-    '''
-    phases_list = [
-        ["0L_0S", "0L_2L", "0L_3S", "0S_1L", "0S_2S", "1L_1S", "1L_3L", "1S_2L", "1S_3S", "2L_2S", "2S_3L", "3L_3S",
-            "0S_2S_0L_2L", "1S_3S_1L_3L"],
-        ["0L_0S", "0L_2L", "0L_3S", "0S_1L", "0S_2S", "1L_1S", "1L_3L", "1S_2L", "1S_3S", "2L_2S", "2S_3L", "3L_3S",
-            "0S_2S_0L_2L", "1S_3S_1L_3L"],
-        ["0L_0S", "0L_2L", "0L_3S", "0S_1L", "0S_2S", "1L_1S", "1L_3L", "1S_2L", "1S_3S", "2L_2S", "2S_3L", "3L_3S",
-            "0S_2S_0L_2L", "1S_3S_1L_3L"],
-        ["0L_0S", "0L_2L", "0L_3S", "0S_1L", "0S_2S", "1L_1S", "1L_3L", "1S_2L", "1S_3S", "2L_2S", "2S_3L", "3L_3S",
-            "0S_2S_0L_2L", "1S_3S_1L_3L"]
-    ]
-    '''
-
     if detect_existing_phases and simplify_phase_representation:
         unique_simplified_phases, simplified_phases_list = \
             sumo_util.simplify_existing_phases(net_xml, intersection_ids, phases_list)
