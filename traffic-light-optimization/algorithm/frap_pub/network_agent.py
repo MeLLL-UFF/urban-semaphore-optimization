@@ -113,7 +113,8 @@ class NetworkAgent(Agent):
 
         # ===== check num actions == num phases ============
 
-        self.num_phases = len(self.dic_traffic_env_conf["UNIQUE_PHASE"])
+        self.unique_phases = self.dic_traffic_env_conf["UNIQUE_PHASE"]
+        self.num_phases = len(self.unique_phases)
         if self.dic_traffic_env_conf["ACTION_PATTERN"] == "switch":
             self.num_actions = 2
         else:
@@ -381,11 +382,20 @@ class NetworkAgent(Agent):
 
         ''' choose the best action for current state '''
 
+        intersection_index = kwargs.get('intersection_index', None)
+
+        if intersection_index is None:
+            raise ValueError('intersection_index must be declared')
+
+        intersection_phases = self.dic_traffic_env_conf["PHASE"][intersection_index]
+
+        phase_indices = [self.unique_phases.index(intersection_phase) for intersection_phase in intersection_phases]
+
         q_values = self.q_network.predict(self.convert_state_to_input(state))
         if random.random() <= self.dic_agent_conf["EPSILON"]:  # continue explore new Random Action
-            action = random.randrange(len(q_values[0]))
+            action = phase_indices[random.randrange(len(phase_indices))]
         else:  # exploitation
-            action = np.argmax(q_values[0])
+            action = phase_indices[np.argmax(q_values[0][phase_indices])]
 
         return action
 

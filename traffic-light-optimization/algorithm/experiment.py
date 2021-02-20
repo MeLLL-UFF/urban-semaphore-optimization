@@ -17,17 +17,20 @@ class Experiment:
 
     @staticmethod
     def run(scenario, net_file, route_files, sumocfg_file, output_file, traffic_level_configuration,
-            additional_files=None, traffic_light_file=None):
+            additional_files=None, environment_additional_files=None, traffic_light_file=None):
 
         if additional_files is None:
             additional_files = []
+
+        if environment_additional_files is None:
+            environment_additional_files = []
 
         if traffic_light_file is None:
             traffic_light_file = net_file
 
         external_configurations = Experiment._create_external_configurations_dict(
             scenario, net_file, route_files, sumocfg_file, output_file, traffic_level_configuration,
-            additional_files, traffic_light_file)
+            additional_files, environment_additional_files, traffic_light_file)
 
         experiment_name = run_batch.run(external_configurations)
 
@@ -142,10 +145,13 @@ class Experiment:
     @staticmethod
     def _create_external_configurations_dict(scenario, net_file, route_files, sumocfg_file, output_file,
                                              traffic_level_configuration, additional_files=None,
-                                             traffic_light_file=None):
+                                             environment_additional_files=None, traffic_light_file=None):
 
         if additional_files is None:
             additional_files = []
+
+        if environment_additional_files is None:
+            environment_additional_files = []
 
         if traffic_light_file is None:
             traffic_light_file = net_file
@@ -160,6 +166,8 @@ class Experiment:
             shutil.copy2(route_file, input_data_path)
         for additional_file in additional_files:
             shutil.copy2(additional_file, input_data_path)
+        for environment_additional_file in environment_additional_files:
+            shutil.copy2(environment_additional_file, input_data_path)
         shutil.copy2(sumocfg_file, input_data_path)
 
         route_file_names = [route_file.rsplit('/', 1)[1] for route_file in route_files]

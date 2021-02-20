@@ -146,14 +146,10 @@ class SumoEnv:
         self.action_logs = [[] for _ in range(len(self.intersections))]
         self.network_logs = []
 
-        self.edges_list = []
-        self.lanes_list = []
-        for intersection in self.intersections:
-            self.edges_list += intersection.all_edges
-            self.lanes_list += intersection.all_lanes
-
-        self.edges_list = np.unique(self.edges_list).tolist()
-        self.lanes_list = np.unique(self.lanes_list).tolist()
+        self.edges_list = \
+            sumo_util.get_all_edges(self.net_file_xml) + sumo_util.get_all_internal_edges(self.net_file_xml)
+        self.lanes_list = \
+            sumo_util.get_all_lanes(self.net_file_xml) + sumo_util.get_all_internal_lanes(self.net_file_xml)
 
         self.current_step_lane_subscription = None
         self.previous_step_lane_subscription = None

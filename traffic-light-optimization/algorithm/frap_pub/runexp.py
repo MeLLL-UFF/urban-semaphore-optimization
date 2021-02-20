@@ -72,6 +72,8 @@ def main(args=None, memo=None, external_configurations=None):
     traffic_light_file = external_configurations['TRAFFIC_LIGHT_FILE']
     traffic_level_configuration = external_configurations['TRAFFIC_LEVEL_CONFIGURATION']
 
+    multi_intersection_traffic_light_file = scenario + '__' + 'multi_intersection_traffic_light' + '.json'
+
     unique_id = external_configurations['UNIQUE_ID']
 
     process_list = []
@@ -112,6 +114,8 @@ def main(args=None, memo=None, external_configurations=None):
     dic_exp_conf_extra = {
         "TRAFFIC_FILE": traffic_file_list,
         "NET_FILE": net_file,
+        "TRAFFIC_LIGHT_FILE": traffic_light_file,
+        'MULTI_INTERSECTION_TRAFFIC_LIGHT_FILE': multi_intersection_traffic_light_file,
 
         "MODEL_POOL": False,
         "NUM_BEST_MODEL": 1,
@@ -136,6 +140,8 @@ def main(args=None, memo=None, external_configurations=None):
 
         "TRAFFIC_FILE": traffic_file_list,
         "NET_FILE": net_file,
+        "TRAFFIC_LIGHT_FILE": traffic_light_file,
+        'MULTI_INTERSECTION_TRAFFIC_LIGHT_FILE': multi_intersection_traffic_light_file,
 
         "STATE_FEATURE_LIST": [
             "current_phase",
@@ -181,39 +187,20 @@ def main(args=None, memo=None, external_configurations=None):
     simplify_phase_representation = config.DIC_TRAFFIC_ENV_CONF["SIMPLIFY_PHASE_REPRESENTATION"]
 
 
-    net_file = os.path.join(ROOT_DIR, dic_path_extra["PATH_TO_DATA"], net_file)
-    net_xml = xml_util.get_xml(net_file)
+    net_xml_file = os.path.join(ROOT_DIR, dic_path_extra["PATH_TO_DATA"], net_file)
+    net_xml = xml_util.get_xml(net_xml_file)
 
-    traffic_light_file = os.path.join(ROOT_DIR, dic_path_extra["PATH_TO_DATA"], traffic_light_file)
-    traffic_light_xml = xml_util.get_xml(traffic_light_file)
+    traffic_light_xml_file = os.path.join(ROOT_DIR, dic_path_extra["PATH_TO_DATA"], traffic_light_file)
+    traffic_light_xml = xml_util.get_xml(traffic_light_xml_file)
 
+    multi_intersection_traffic_light_file_configuration_file = os.path.join(
+        ROOT_DIR, dic_path_extra["PATH_TO_DATA"], multi_intersection_traffic_light_file)
 
-    multi_intersection_traffic_light_configurations = {
-        'joined': {
-            'a78,a44,a204c': {
-                'intersections': ['a78', 'a44', 'a204c'],
-                'non_coordinated': ['a43', 'a55m'],
-                'merge_edges': []
-            },
-            'b0,bm0': {
-                'intersections': ['b0', 'bm0'],
-                'non_coordinated': ['b3'],
-                'merge_edges': [['b20+19a', 'b20+19b']]
-            },
-            'a1b,a1,a3,a1c': {
-                'intersections': ['a1b', 'a1', 'a3', 'a1c'],
-                'non_coordinated': [],
-                'merge_edges': [['a1b', 'a2']]
-            },
-            'a15,a53': {
-                'intersections': ['a15', 'a53'],
-                'non_coordinated': [],
-                'merge_edges': []
-            }
-        }
-    }
-
-    multi_intersection_traffic_light_configuration = multi_intersection_traffic_light_configurations.get(scenario, {})
+    if os.path.isfile(multi_intersection_traffic_light_file_configuration_file):
+        with open(multi_intersection_traffic_light_file_configuration_file, 'r') as handle:
+            multi_intersection_traffic_light_configuration = json.load(handle)
+    else:
+        multi_intersection_traffic_light_configuration = {}
 
     intersection_ids, traffic_light_ids, unregulated_intersection_ids = sumo_util.get_traffic_lights(
         net_xml, multi_intersection_traffic_light_configuration)
@@ -276,6 +263,7 @@ def main(args=None, memo=None, external_configurations=None):
 
 
     dic_traffic_env_conf_extra['INTERSECTION_ID'] = intersection_ids
+    dic_traffic_env_conf_extra['TRAFFIC_LIGHT_ID'] = traffic_light_ids
 
     dic_traffic_env_conf_extra['UNIQUE_MOVEMENT'] = unique_movements
     dic_traffic_env_conf_extra['MOVEMENT'] = movement_list
@@ -379,6 +367,12 @@ def continue_(existing_experiment, round_='FROM_THE_LAST', args=None, memo=None,
 
     dic_traffic_env_conf['PHASE_EXPANSION'] = \
         {int(key): value for key, value in dic_traffic_env_conf['PHASE_EXPANSION'].items()}
+
+    dic_traffic_env_conf['TRAFFIC_LIGHT_LINK_INDEX_TO_MOVEMENT'] = \
+        [
+            {int(key): value for key, value in traffic_light_link_index_to_movement.items()}
+            for traffic_light_link_index_to_movement in dic_traffic_env_conf['TRAFFIC_LIGHT_LINK_INDEX_TO_MOVEMENT']
+        ]
 
     if multi_process:
         ppl = Process(target=pipeline_wrapper,

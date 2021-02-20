@@ -96,9 +96,12 @@ def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_c
 
     records_dir = model_dir.replace("model", "records")
     model_round = "round_%d"%cnt_round
+    template = "template_ls"
+    data_dir = os.path.join("data", template)
     dic_path = {}
     dic_path["PATH_TO_MODEL"] = model_dir
     dic_path["PATH_TO_WORK_DIRECTORY"] = records_dir
+    dic_path["PATH_TO_DATA"] = data_dir
 
     with open(os.path.join(ROOT_DIR, records_dir, "agent.conf"), "r") as f:
         dic_agent_conf = json.load(f)

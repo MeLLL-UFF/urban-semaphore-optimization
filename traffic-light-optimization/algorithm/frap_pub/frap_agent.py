@@ -148,7 +148,13 @@ class FrapAgent(NetworkAgent):
         lane_embedding = Dense(self.num_actions*2, activation="relu", name="lane_embedding")
         for phase in unique_phases:
             movements = phase.split("_")
-            list_phase_pressure.append(add([lane_embedding(dic_lane[m]) for m in movements], name=phase))
+
+            if len(movements) > 1:
+                phase_tensor = add([lane_embedding(dic_lane[m]) for m in movements], name=phase)
+            else:
+                phase_tensor = lane_embedding(dic_lane[movements[0]])
+
+            list_phase_pressure.append(phase_tensor)
 
         constant = Lambda(relation, arguments={"dic_traffic_env_conf": self.dic_traffic_env_conf},
                         name="constant")(vec_input_node)

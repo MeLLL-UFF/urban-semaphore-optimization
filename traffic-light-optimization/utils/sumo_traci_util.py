@@ -54,14 +54,14 @@ def get_movements_first_stopped_vehicle_greatest_waiting_time(
     return result
 
 
-def get_traffic_light_state(intersection, traci_label=None):
+def get_traffic_light_state(traffic_light_id, traci_label=None):
 
     if traci_label is None:
         traci_connection = traci
     else:
         traci_connection = traci.getConnection(traci_label)
 
-    return traci_connection.trafficlight.getRedYellowGreenState(intersection)
+    return traci_connection.trafficlight.getRedYellowGreenState(traffic_light_id)
 
 
 def get_lane_number_of_vehicles(lanes, lane_subscription_data):

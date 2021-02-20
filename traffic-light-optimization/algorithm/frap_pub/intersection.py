@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 
 import numpy as np
 import traci
@@ -20,10 +21,24 @@ class Intersection:
 
         self.intersection_index = intersection_index
         self.id = dic_traffic_env_conf['INTERSECTION_ID'][intersection_index]
+        self.traffic_light_id = dic_traffic_env_conf['TRAFFIC_LIGHT_ID'][intersection_index]
         self.execution_name = execution_name
 
         net_file = os.path.join(ROOT_DIR, dic_path["PATH_TO_WORK_DIRECTORY"], dic_traffic_env_conf['NET_FILE'])
         self.net_file_xml = xml_util.get_xml(net_file)
+        traffic_light_file = os.path.join(ROOT_DIR, dic_path["PATH_TO_WORK_DIRECTORY"],
+                                          dic_traffic_env_conf['TRAFFIC_LIGHT_FILE'])
+        self.traffic_light_file_xml = xml_util.get_xml(traffic_light_file)
+
+        multi_intersection_traffic_light_file = os.path.join(
+            ROOT_DIR, dic_path["PATH_TO_DATA"],
+            dic_traffic_env_conf['MULTI_INTERSECTION_TRAFFIC_LIGHT_FILE'])
+
+        if os.path.isfile(multi_intersection_traffic_light_file):
+            with open(multi_intersection_traffic_light_file, 'r') as handle:
+                multi_intersection_traffic_light_configuration = json.load(handle)
+        else:
+            multi_intersection_traffic_light_configuration = {}
 
         self.vehicle_subscription_variables = vehicle_subscription_variables
 
@@ -34,6 +49,9 @@ class Intersection:
         self.traffic_light_link_index_to_movement = \
             dic_traffic_env_conf['TRAFFIC_LIGHT_LINK_INDEX_TO_MOVEMENT'][intersection_index]
 
+        self.unique_movements = dic_traffic_env_conf['UNIQUE_MOVEMENT']
+        self.unique_phases = dic_traffic_env_conf['UNIQUE_PHASE']
+
         self.is_right_on_red = dic_traffic_env_conf['IS_RIGHT_ON_RED']
 
         self.min_action_time = dic_traffic_env_conf['MIN_ACTION_TIME']
@@ -42,11 +60,21 @@ class Intersection:
         self.dic_path = dic_path
         self.entering_edges, self.exiting_edges = sumo_util.get_intersection_edge_ids(
             self.net_file_xml,
-            intersection_ids=self.id
+            intersection_ids=self.id,
+            multi_intersection_traffic_light_configuration=multi_intersection_traffic_light_configuration
         )
         self.edges = [edge.get('id') for edge in self.entering_edges + self.exiting_edges]
-        self.internal_edges = [edge.get('id') for edge in sumo_util.get_internal_edges(self.net_file_xml, self.id)]
-        self.all_edges = self.edges + self.internal_edges
+        self.internal_edges = [
+            edge.get('id')
+            for edge in sumo_util.get_internal_edges(
+                self.net_file_xml, self.id, multi_intersection_traffic_light_configuration)
+        ]
+        self.intermediary_edges = [
+            edge.get('id')
+            for edge in sumo_util.get_intermediary_edges(
+                self.net_file_xml, self.id, multi_intersection_traffic_light_configuration)
+        ]
+        self.all_edges = self.edges + self.internal_edges + self.intermediary_edges
 
         self.controlled_entering_lanes = []
         self.controlled_exiting_lanes = []
@@ -95,8 +123,17 @@ class Intersection:
         self.controlled_exiting_lanes = list(self.controlled_exiting_lanes)
 
         self.lanes = self.entering_lanes + self.exiting_lanes
-        self.internal_lanes = [lane.get('id') for lane in sumo_util.get_internal_lanes(self.net_file_xml, self.id)]
-        self.all_lanes = self.lanes + self.internal_lanes
+        self.internal_lanes = [
+            lane.get('id')
+            for lane in sumo_util.get_internal_lanes(
+                self.net_file_xml, self.id, multi_intersection_traffic_light_configuration)
+        ]
+        self.intermediary_lanes = [
+            lane.get('id')
+            for lane in sumo_util.get_intermediary_lanes(
+                self.net_file_xml, self.id, multi_intersection_traffic_light_configuration)
+        ]
+        self.all_lanes = self.lanes + self.internal_lanes + self.intermediary_lanes
 
         self.controlled_lanes = self.controlled_entering_lanes + self.controlled_exiting_lanes
 
@@ -154,7 +191,10 @@ class Intersection:
                 [self.get_lane_vehicle_accumulated_waiting_time(lanes)
                  for lanes in self.movement_to_entering_lane.values()],
             'movement_number_of_vehicles': lambda:
-                [self.get_number_of_vehicles(lanes) for lanes in self.movement_to_entering_lane.values()],
+                [self.get_number_of_vehicles(lanes)
+                 if len(lanes) > 0 else 0
+                 for movement in self.unique_movements
+                 for lanes in [self.movement_to_entering_lane.get(movement, [])]],
             'movement_number_of_vehicles_been_stopped_threshold_01': lambda:
                 [self.get_number_of_vehicles_been_stopped(lanes, 0.1)
                  for lanes in self.movement_to_entering_lane.values()],
@@ -275,11 +315,25 @@ class Intersection:
 
             if self.current_phase_duration >= max_yellow_time:  # yellow time reached
 
+                current_traffic_light = sumo_traci_util.get_traffic_light_state(
+                    self.traffic_light_id, self.execution_name)
+
                 self.current_phase_index = self.next_phase_to_set_index
                 phase = self.phases[self.current_phase_index]
-                current_traffic_light = self.phase_traffic_lights[phase]
+                next_traffic_light = self.phase_traffic_lights[phase]
 
-                sumo_traci_util.set_traffic_light_state(self.id, current_traffic_light, self.execution_name)
+                for index in range(0, len(current_traffic_light)):
+
+                    if index not in self.traffic_light_link_index_to_movement:
+                        continue
+
+                    current_traffic_light = \
+                        current_traffic_light[:index] + \
+                        next_traffic_light[index] + \
+                        current_traffic_light[index + 1:]
+
+                sumo_traci_util.set_traffic_light_state(
+                    self.traffic_light_id, current_traffic_light, self.execution_name)
                 self.yellow_flag = False
             else:
                 pass
@@ -300,7 +354,9 @@ class Intersection:
                         sys.exit("action not recognized\n action must be 0 or 1")
 
                 elif action_pattern == "set":  # set to certain phase
-                    self.next_phase_to_set_index = action
+                    phase = self.unique_phases[action]
+                    phase_index = self.phases.index(phase)
+                    self.next_phase_to_set_index = phase_index
 
                 # set phase
                 if self.current_phase_index == self.next_phase_to_set_index:  # the light phase keeps unchanged
@@ -308,13 +364,17 @@ class Intersection:
                         self.current_min_action_duration = 0
                 else:  # the light phase needs to change
                     # change to yellow first, and activate the counter and flag
-                    current_traffic_light = sumo_traci_util.get_traffic_light_state(self.id, self.execution_name)
+                    current_traffic_light = sumo_traci_util.get_traffic_light_state(
+                        self.traffic_light_id, self.execution_name)
 
                     phase = self.phases[self.next_phase_to_set_index]
                     next_traffic_light = self.phase_traffic_lights[phase]
 
                     self.current_yellow_signal_movements = []
                     for index in range(0, len(current_traffic_light)):
+
+                        if index not in self.traffic_light_link_index_to_movement:
+                            continue
 
                         if (current_traffic_light[index] == 'g' or current_traffic_light[index] == 'G') and \
                                 (next_traffic_light[index] != 'g' and next_traffic_light[index] != 'G'):
@@ -327,7 +387,8 @@ class Intersection:
                                 'y' + \
                                 current_traffic_light[index + 1:]
 
-                    sumo_traci_util.set_traffic_light_state(self.id, current_traffic_light, self.execution_name)
+                    sumo_traci_util.set_traffic_light_state(
+                        self.traffic_light_id, current_traffic_light, self.execution_name)
                     self.current_phase_index = self.yellow_phase_index
                     self.yellow_flag = True
                     self.flicker = 1
@@ -498,7 +559,8 @@ class Intersection:
 
         for phase in self.phases:
 
-            phase_signal_string = ['r'] * len(self.traffic_light_link_index_to_movement.keys())
+            links_length = sumo_util.get_traffic_light_links_length(self.traffic_light_file_xml, self.traffic_light_id)
+            phase_signal_string = ['r'] * links_length
 
             phase_movements = phase.split('_')
 
@@ -611,9 +673,12 @@ class Intersection:
         movement_waiting_time_dict = {k: v for k, v in sorted(
             movement_waiting_time_dict.items(), key=lambda x: x[1], reverse=True)}
 
-        ordered_movements = list(movement_waiting_time_dict.keys())
+        phase_movements_list = [phase.split('_') for phase in self.phases]
+        waiting_time_sum_per_phase = [sum(movement_waiting_time_dict[movement] for movement in phase_movements)
+                                      for phase_movements in phase_movements_list]
 
-        selected_phases = sumo_util.match_ordered_movements_to_phases(ordered_movements, self.phases)
+        selected_phases = [self.phases[item[0]] for item in
+                           sorted(enumerate(waiting_time_sum_per_phase), key=lambda x: x[1])]
 
         for index, phase in enumerate(selected_phases):
             
@@ -621,13 +686,10 @@ class Intersection:
             
             waiting_times = []
             for movement in movements:
-
-                if movement in ordered_movements:
-                    waiting_times.append(movement_waiting_time_dict[movement])
-                    ordered_movements.remove(movement)
+                waiting_times.append(movement_waiting_time_dict[movement])
 
             if max(waiting_times) + (index + 1) * self.min_action_time >= threshold:
-                return self.phases.index(selected_phases[0])
+                return self.unique_phases.index(selected_phases[0])
 
         return -1
 
