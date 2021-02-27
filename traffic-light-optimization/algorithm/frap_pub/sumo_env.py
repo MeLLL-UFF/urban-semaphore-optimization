@@ -21,9 +21,6 @@ class SumoEnv:
         tc.LAST_STEP_VEHICLE_ID_LIST,
         tc.LAST_STEP_VEHICLE_HALTING_NUMBER,
         tc.VAR_WAITING_TIME,
-
-        tc.LANE_EDGE_ID,
-        ### tc.LAST_STEP_VEHICLE_ID_LIST,
         tc.VAR_LENGTH,
         tc.LAST_STEP_MEAN_SPEED,
         tc.VAR_MAXSPEED
@@ -32,34 +29,19 @@ class SumoEnv:
     VEHICLE_VARIABLES_TO_SUBSCRIBE = [
         tc.VAR_POSITION,
         tc.VAR_SPEED,
-        # tc.VAR_ACCELERATION,
-        # tc.POSITION_LON_LAT,
         tc.VAR_WAITING_TIME,
-        tc.VAR_ACCUMULATED_WAITING_TIME,
-        # tc."VAR_LANEPOSITION_LAT,
         tc.VAR_LANEPOSITION,
-        
-        ### tc."VAR_SPEED",
         tc.VAR_ALLOWED_SPEED,
         tc.VAR_MINGAP,
         tc.VAR_TAU,
-        ### tc.VAR_LANEPOSITION,
         # tc.VAR_LEADER,  # Problems with subscription
         # tc.VAR_SECURE_GAP,  # Problems with subscription
         tc.VAR_LENGTH,
         tc.VAR_LANE_ID,
         tc.VAR_DECEL,
-
         tc.VAR_WIDTH,
-        ### tc.VAR_LENGTH,
-        ### tc.VAR_POSITION,
         tc.VAR_ANGLE,
-        ### tc.VAR_SPEED,
         tc.VAR_STOPSTATE,
-        ### tc.VAR_LANE_ID,
-        ### tc.VAR_WAITING_TIME,
-        tc.VAR_EDGES,
-        tc.VAR_ROUTE_INDEX
     ]
 
     SIMULATION_VARIABLES_TO_SUBSCRIBE = [
@@ -136,7 +118,6 @@ class SumoEnv:
 
         for intersection_index in range(0, len(intersection_ids)):
             self.intersections.append(Intersection(intersection_index,
-                                                   self.VEHICLE_VARIABLES_TO_SUBSCRIBE,
                                                    self.dic_traffic_env_conf,
                                                    self.dic_path,
                                                    execution_name=self.execution_name,
@@ -235,6 +216,7 @@ class SumoEnv:
         # get new measurements
         self.update_current_measurements()
         for intersection in self.intersections:
+            intersection.reset()
             intersection.update_current_measurements()
 
         state, done = self.get_state()
@@ -390,7 +372,7 @@ class SumoEnv:
                 }
 
                 relative_mean_speed_by_movement = {
-                    movement: intersection.get_relative_mean_speed(lanes)
+                    movement: intersection.get_mean_relative_speed(lanes)
                     for movement, lanes in intersection.movement_to_entering_lane.items()
                 }
 

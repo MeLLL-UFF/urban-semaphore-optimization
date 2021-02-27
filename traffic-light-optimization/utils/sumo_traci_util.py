@@ -9,6 +9,12 @@ from shapely.geometry import Polygon, CAP_STYLE
 from utils import sumo_util, math_util
 
 
+VAR_CUMULATIVE_LENGTH = 'VAR_CUMULATIVE_LENGTH'
+VAR_LANE_START_POSITION = 'VAR_LANE_START_POSITION'
+VAR_LANE_END_POSITION = 'VAR_LANE_END_POSITION'
+VAR_IS_PARTIAL_DETECTOR = 'VAR_IS_PARTIAL_DETECTOR'
+
+
 def get_current_time(traci_label=None):
 
     if traci_label is None:
@@ -29,31 +35,6 @@ def set_traffic_light_state(intersection, state, traci_label=None):
     traci_connection.trafficlight.setRedYellowGreenState(intersection, state)
 
 
-def get_movements_first_stopped_vehicle_greatest_waiting_time(
-        movement_to_entering_lane, lane_vehicle_subscription_data):
-
-    result = {movement: 0 for movement in movement_to_entering_lane.keys()}
-
-    for movement, entering_lanes in movement_to_entering_lane.items():
-        entering_lanes = np.unique(entering_lanes).tolist()
-
-        greatest_waiting_time = 0
-        for lane_id in entering_lanes:
-
-            if lane_id in lane_vehicle_subscription_data:
-                subscription_data = lane_vehicle_subscription_data[lane_id]
-                _, vehicle = next(iter(subscription_data.items()))
-                vehicle_waiting_time = vehicle[tc.VAR_WAITING_TIME]
-            else:
-                vehicle_waiting_time = 0
-
-            greatest_waiting_time = max(greatest_waiting_time, vehicle_waiting_time)
-
-        result[movement] = greatest_waiting_time
-
-    return result
-
-
 def get_traffic_light_state(traffic_light_id, traci_label=None):
 
     if traci_label is None:
@@ -64,8 +45,29 @@ def get_traffic_light_state(traffic_light_id, traci_label=None):
     return traci_connection.trafficlight.getRedYellowGreenState(traffic_light_id)
 
 
-def get_lane_number_of_vehicles(lanes, lane_subscription_data):
-    return [lane_subscription_data[lane][tc.LAST_STEP_VEHICLE_NUMBER] for lane in lanes]
+def get_movements_first_stopped_vehicle_greatest_waiting_time(
+        movement_to_entering_lane, lane_area_detector_vehicle_ids, vehicle_subscription_data):
+
+    result = {movement: 0 for movement in movement_to_entering_lane.keys()}
+
+    for movement, entering_lanes in movement_to_entering_lane.items():
+
+        greatest_waiting_time = 0
+        for lane_id in entering_lanes:
+
+            vehicle_ids = lane_area_detector_vehicle_ids[lane_id]
+            if len(vehicle_ids) > 0:
+                vehicle_id = next(iter(vehicle_ids))
+                vehicle = vehicle_subscription_data[vehicle_id]
+                vehicle_waiting_time = vehicle[tc.VAR_WAITING_TIME]
+            else:
+                vehicle_waiting_time = 0
+
+            greatest_waiting_time = max(greatest_waiting_time, vehicle_waiting_time)
+
+        result[movement] = greatest_waiting_time
+
+    return result
 
 
 def get_time_loss(vehicle_subscription_data, traci_label=None):
@@ -91,102 +93,60 @@ def get_time_loss(vehicle_subscription_data, traci_label=None):
     return time_loss
 
 
-def get_time_loss_by_lane(lane_vehicle_subscription_data, lanes, traci_label=None):
+def get_relative_occupancy(vehicle_subscription_data, detector_cumulative_length, detector_additional_info,
+                           traci_label=None):
 
-    time_loss_by_lane = []
-    for lane in lanes:
-
-        if lane in lane_vehicle_subscription_data:
-            time_loss = get_time_loss(lane_vehicle_subscription_data[lane], traci_label)
-        else:
-            time_loss = 0
-        time_loss_by_lane.append(time_loss)
-
-    return time_loss_by_lane
-
-
-def get_relative_occupancy(lane_subscription_data, lane_vehicle_subscription_data, traci_label=None):
     if traci_label is None:
         traci_connection = traci
     else:
         traci_connection = traci.getConnection(traci_label)
 
-    all_vehicles = {vehicle_id: vehicle
-                    for lane_id in lane_subscription_data.keys()
-                    for vehicle_id, vehicle in lane_vehicle_subscription_data.get(lane_id, {}).items()}
+    total_occupied_length = 0
 
-    total_occupied_length_list = []
-    lane_length_list = []
+    # It accounts for lane next entering vehicle secure gap spacing
+    if vehicle_subscription_data:
+        vehicle_id, vehicle = next(iter(vehicle_subscription_data.items()))
+        min_gap = vehicle[tc.VAR_MINGAP]
+        last_vehicle_secure_gap_margin = vehicle[tc.VAR_TAU] * vehicle[tc.VAR_SPEED] + min_gap
+        vehicle_lane_id = vehicle[tc.VAR_LANE_ID]
+        lane_start_position = detector_additional_info[vehicle_lane_id][VAR_LANE_START_POSITION]
+        actual_distance = vehicle[tc.VAR_LANEPOSITION] - lane_start_position
+        total_occupied_length += min(last_vehicle_secure_gap_margin, actual_distance)
 
-    for lane_id, lane in lane_subscription_data.items():
+    for vehicle_id, vehicle in vehicle_subscription_data.items():
+        min_gap = vehicle[tc.VAR_MINGAP]
+        leader_vehicle_result = traci_connection.vehicle.getLeader(vehicle_id)
 
-        vehicles = lane_vehicle_subscription_data.get(lane_id, {})
-        lane_length = lane[tc.VAR_LENGTH]
+        if leader_vehicle_result:
+            leader_id, leader_vehicle_distance = leader_vehicle_result
+        else:
+            leader_id, leader_vehicle_distance = None, None
 
-        total_occupied_length = 0
+        if leader_id in vehicle_subscription_data:
+            leader_vehicle = vehicle_subscription_data[leader_id]
 
-        # Accounts for lane next entering vehicle secure gap spacing
-        if vehicles:
-            vehicle_id, vehicle = next(iter(vehicles.items()))
-            min_gap = vehicle[tc.VAR_MINGAP]
-            last_vehicle_secure_gap_margin = vehicle[tc.VAR_TAU] * vehicle[tc.VAR_SPEED] + min_gap
-            actual_distance = lane_length - vehicle[tc.VAR_LANEPOSITION]
-            total_occupied_length += min(last_vehicle_secure_gap_margin, actual_distance)
+            actual_distance = max(0 + min_gap, leader_vehicle_distance + min_gap)
+            secure_gap = traci_connection.vehicle.getSecureGap(
+                vehicle_id,
+                vehicle[tc.VAR_SPEED],
+                leader_vehicle[tc.VAR_SPEED],
+                leader_vehicle[tc.VAR_DECEL],
+                leader_id)
+            secure_gap += min_gap
 
-        for vehicle_id, vehicle in vehicles.items():
-            min_gap = vehicle[tc.VAR_MINGAP]
-            leader_vehicle_result = traci_connection.vehicle.getLeader(vehicle_id)
+        else:
+            vehicle_lane_id = vehicle[tc.VAR_LANE_ID]
+            lane_end_position = detector_additional_info[vehicle_lane_id][VAR_LANE_END_POSITION]
+            actual_distance = lane_end_position - vehicle[tc.VAR_LANEPOSITION]
+            secure_gap = vehicle[tc.VAR_TAU] * vehicle[tc.VAR_SPEED] + min_gap
 
-            if leader_vehicle_result:
-                leader_id, leader_vehicle_distance = leader_vehicle_result
-            else:
-                leader_id = None
-                leader_vehicle_distance = None
+        occupied_length = vehicle[tc.VAR_LENGTH] + min(secure_gap, actual_distance)
 
-            if leader_id in all_vehicles:
-                leader_vehicle = all_vehicles[leader_id]
+        total_occupied_length += occupied_length
 
-                actual_distance = max(0 + min_gap, leader_vehicle_distance + min_gap)
-                secure_gap = traci_connection.vehicle.getSecureGap(
-                    vehicle_id,
-                    vehicle[tc.VAR_SPEED],
-                    leader_vehicle[tc.VAR_SPEED],
-                    leader_vehicle[tc.VAR_DECEL],
-                    leader_id)
-                secure_gap += min_gap
-
-            else:
-                actual_distance = lane_length - vehicle[tc.VAR_LANEPOSITION]
-                secure_gap = vehicle[tc.VAR_TAU] * vehicle[tc.VAR_SPEED] + min_gap
-
-            occupied_length = vehicle[tc.VAR_LENGTH] + min(secure_gap, actual_distance)
-
-            total_occupied_length += occupied_length
-
-        total_occupied_length_list.append(total_occupied_length)
-        lane_length_list.append(lane_length)
-
-    relative_occupancy = sum(total_occupied_length_list) / sum(lane_length_list)
+    relative_occupancy = total_occupied_length / detector_cumulative_length
 
     return relative_occupancy
-
-
-def get_relative_mean_speed(lane_subscription_data):
-
-    result = {}
-
-    for lane_id, lane in lane_subscription_data.items():
-
-        vehicles = lane[tc.LAST_STEP_VEHICLE_ID_LIST]
-
-        if vehicles:
-            mean_speed = lane[tc.LAST_STEP_MEAN_SPEED]
-        else:
-            mean_speed = 0
-        
-        result[lane_id] = mean_speed / lane[tc.VAR_MAXSPEED]
-
-    return result
 
 
 def get_bounding_box(vehicle_id, vehicle_subscription_data):
@@ -230,25 +190,6 @@ def get_blocking_vehicles(vehicle_id, polyline_path, possible_blocking_vehicles,
             blocking_vehicles.append(possible_blocking_vehicle)
 
     return blocking_vehicles
-
-
-def get_next_lane(vehicle, net_xml, vehicle_subscription_data):
-
-    route = vehicle_subscription_data[vehicle][tc.VAR_EDGES]
-    route_index = vehicle_subscription_data[vehicle][tc.VAR_ROUTE_INDEX]
-    current_edge = route[route_index]
-
-    remaining_route = route[route_index + 1:]
-
-    if remaining_route:
-        next_edge = route[route_index + 1]
-        connection = sumo_util.get_connections(net_xml, from_edge=current_edge, to_edge=next_edge)
-
-        next_lane = next_edge + '_' + connection[0].get('toLane')
-    else:
-        next_lane = None
-
-    return next_lane
 
 
 # Sumo 1.7.0 only

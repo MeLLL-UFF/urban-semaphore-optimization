@@ -205,21 +205,22 @@ def main(args=None, memo=None, external_configurations=None):
     intersection_ids, traffic_light_ids, unregulated_intersection_ids = sumo_util.get_traffic_lights(
         net_xml, multi_intersection_traffic_light_configuration)
 
-    unique_movements, movement_list, connection_to_movement_list = sumo_util.detect_movements(
-        net_xml, intersection_ids, multi_intersection_traffic_light_configuration, is_right_on_red=is_right_on_red)
+    unique_movements, movement_list, connection_to_movement_list, movement_to_connection_list = \
+        sumo_util.detect_movements(
+            net_xml, intersection_ids, multi_intersection_traffic_light_configuration, is_right_on_red=is_right_on_red)
 
     same_lane_origin_movements_list = sumo_util.detect_same_lane_origin_movements(
-        intersection_ids, connection_to_movement_list)
+        intersection_ids, movement_to_connection_list)
 
     connection_to_junction_link_index_list, junction_link_index_to_movement_list = \
         sumo_util.detect_junction_link_index_to_movement(
             net_xml, intersection_ids, connection_to_movement_list, multi_intersection_traffic_light_configuration)
 
-    traffic_light_link_index_to_movement_list = sumo_util.detect_traffic_light_link_index_to_movement(
-        intersection_ids, connection_to_movement_list)
+    movement_to_traffic_light_link_index_list = \
+        sumo_util.detect_movement_to_traffic_light_link_index(intersection_ids, movement_to_connection_list)
 
     link_states_list = sumo_util.detect_movements_link_states(
-        net_xml, intersection_ids, connection_to_movement_list, multi_intersection_traffic_light_configuration)
+        net_xml, intersection_ids, movement_to_connection_list, multi_intersection_traffic_light_configuration)
 
     movement_to_give_preference_to_list = sumo_util.detect_movements_preferences(
         net_xml, intersection_ids, connection_to_movement_list, connection_to_junction_link_index_list,
@@ -235,7 +236,7 @@ def main(args=None, memo=None, external_configurations=None):
     if detect_existing_phases:
         unique_phases, phases_list, movement_to_yellow_time_list = sumo_util.detect_existing_phases(
             traffic_light_xml, intersection_ids, traffic_light_ids, conflicts_list,
-            traffic_light_link_index_to_movement_list)
+            movement_to_traffic_light_link_index_list)
     else:
 
         movement_to_yellow_time_list = [
@@ -269,16 +270,16 @@ def main(args=None, memo=None, external_configurations=None):
     dic_traffic_env_conf_extra['MOVEMENT'] = movement_list
 
     serializable_movement_to_connection_list = []
-    for connection_to_movement in connection_to_movement_list:
+    for movement_to_connection in movement_to_connection_list:
         serializable_movement_to_connection = {}
-        for movement, connections in connection_to_movement.inverse.items():
+        for movement, connections in movement_to_connection.items():
             serializable_connections = [dict(connection.attrib) for connection in connections]
             serializable_movement_to_connection[movement] = serializable_connections
         serializable_movement_to_connection_list.append(serializable_movement_to_connection)
     dic_traffic_env_conf_extra['MOVEMENT_TO_CONNECTION'] = serializable_movement_to_connection_list
 
     dic_traffic_env_conf_extra['CONFLICTS'] = conflicts_list
-    dic_traffic_env_conf_extra['TRAFFIC_LIGHT_LINK_INDEX_TO_MOVEMENT'] = traffic_light_link_index_to_movement_list
+    dic_traffic_env_conf_extra['MOVEMENT_TO_TRAFFIC_LIGHT_LINK_INDEX'] = movement_to_traffic_light_link_index_list
     dic_traffic_env_conf_extra['LINK_STATES'] = link_states_list
 
     dic_traffic_env_conf_extra['MOVEMENT_TO_YELLOW_TIME'] = movement_to_yellow_time_list
@@ -368,10 +369,10 @@ def continue_(existing_experiment, round_='FROM_THE_LAST', args=None, memo=None,
     dic_traffic_env_conf['PHASE_EXPANSION'] = \
         {int(key): value for key, value in dic_traffic_env_conf['PHASE_EXPANSION'].items()}
 
-    dic_traffic_env_conf['TRAFFIC_LIGHT_LINK_INDEX_TO_MOVEMENT'] = \
+    dic_traffic_env_conf['MOVEMENT_TO_TRAFFIC_LIGHT_LINK_INDEX'] = \
         [
-            {int(key): value for key, value in traffic_light_link_index_to_movement.items()}
-            for traffic_light_link_index_to_movement in dic_traffic_env_conf['TRAFFIC_LIGHT_LINK_INDEX_TO_MOVEMENT']
+            {int(key): value for key, value in movement_to_traffic_light_link_index.items()}
+            for movement_to_traffic_light_link_index in dic_traffic_env_conf['MOVEMENT_TO_TRAFFIC_LIGHT_LINK_INDEX']
         ]
 
     if multi_process:

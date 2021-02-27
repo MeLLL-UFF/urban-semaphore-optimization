@@ -682,7 +682,7 @@ def single_experiment_intersection_summary(memo, records_dir, intersection_id, s
     intersection_index = dic_traffic_env_conf['INTERSECTION_ID'].index(intersection_id)
     movements = dic_traffic_env_conf['MOVEMENT'][intersection_index]
     movement_to_connection = dic_traffic_env_conf['MOVEMENT_TO_CONNECTION'][intersection_index]
-    movement_to_traffic_light_index_mapping = sumo_util.get_movement_traffic_light_controller(movement_to_connection)
+    movement_to_traffic_light_index = dic_traffic_env_conf['MOVEMENT_TO_TRAFFIC_LIGHT_LINK_INDEX'][intersection_index]
 
     algorithm_label = memo
 
@@ -734,7 +734,7 @@ def single_experiment_intersection_summary(memo, records_dir, intersection_id, s
             traffic_light_each_step,
             movements,
             movement_to_connection,
-            movement_to_traffic_light_index_mapping,
+            movement_to_traffic_light_index,
             save_path,
             name_base)
 
