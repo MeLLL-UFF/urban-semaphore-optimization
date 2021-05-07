@@ -99,17 +99,6 @@ def main(args=None, memo=None, external_configurations=None):
 
     }
 
-    output_file = external_configurations['SUMOCFG_PARAMETERS']['--log']
-
-    split_output_filename = output_file.rsplit('.', 2)
-    split_output_filename[0] += '___' + suffix
-    output_file = '.'.join(split_output_filename)
-
-    external_configurations['SUMOCFG_PARAMETERS']['--log'] = output_file
-
-    execution_base = split_output_filename[0].rsplit('/', 1)[1]
-    dic_path_extra["EXECUTION_BASE"] = execution_base
-
     model_name = config.DIC_EXP_CONF['MODEL_NAME']
     dic_exp_conf_extra = {
         "TRAFFIC_FILE": traffic_file_list,
@@ -188,7 +177,7 @@ def main(args=None, memo=None, external_configurations=None):
 
 
     net_xml_file = os.path.join(ROOT_DIR, dic_path_extra["PATH_TO_DATA"], net_file)
-    net_xml = xml_util.get_xml(net_xml_file)
+    net_xml = xml_util.get_xml(net_xml_file.replace('__unregulated', '__right_on_red'))
 
     traffic_light_xml_file = os.path.join(ROOT_DIR, dic_path_extra["PATH_TO_DATA"], traffic_light_file)
     traffic_light_xml = xml_util.get_xml(traffic_light_xml_file)
@@ -353,9 +342,12 @@ def continue_(existing_experiment, round_='FROM_THE_LAST', args=None, memo=None,
 
     dir_ = os.path.join(memo, existing_experiment)
 
+    template = "template_ls"
+    data_dir = os.path.join("data", template)
     model_dir = "model/" + dir_
     records_dir = "records/" + dir_
     dic_path = {}
+    dic_path["PATH_TO_DATA"] = data_dir
     dic_path["PATH_TO_MODEL"] = model_dir
     dic_path["PATH_TO_WORK_DIRECTORY"] = records_dir
 
@@ -371,7 +363,7 @@ def continue_(existing_experiment, round_='FROM_THE_LAST', args=None, memo=None,
 
     dic_traffic_env_conf['MOVEMENT_TO_TRAFFIC_LIGHT_LINK_INDEX'] = \
         [
-            {int(key): value for key, value in movement_to_traffic_light_link_index.items()}
+            {key: [int(value) for value in values] for key, values in movement_to_traffic_light_link_index.items()}
             for movement_to_traffic_light_link_index in dic_traffic_env_conf['MOVEMENT_TO_TRAFFIC_LIGHT_LINK_INDEX']
         ]
 

@@ -3,7 +3,6 @@ import math
 
 import traci
 import traci.constants as tc
-import numpy as np
 from shapely.geometry import Polygon, CAP_STYLE
 
 from utils import sumo_util, math_util
@@ -57,7 +56,7 @@ def get_movements_first_stopped_vehicle_greatest_waiting_time(
 
             vehicle_ids = lane_area_detector_vehicle_ids[lane_id]
             if len(vehicle_ids) > 0:
-                vehicle_id = next(iter(vehicle_ids))
+                vehicle_id = vehicle_ids[-1]
                 vehicle = vehicle_subscription_data[vehicle_id]
                 vehicle_waiting_time = vehicle[tc.VAR_WAITING_TIME]
             else:
@@ -71,6 +70,21 @@ def get_movements_first_stopped_vehicle_greatest_waiting_time(
 
 
 def get_time_loss(vehicle_subscription_data, traci_label=None):
+
+    if traci_label is None:
+        traci_connection = traci
+    else:
+        traci_connection = traci.getConnection(traci_label)
+
+    relative_speed = vehicle_subscription_data[tc.VAR_SPEED] / vehicle_subscription_data[tc.VAR_ALLOWED_SPEED]
+    step_length = traci_connection.simulation.getDeltaT()
+
+    time_loss = (1 - relative_speed) * step_length
+
+    return time_loss
+
+
+def get_network_time_loss(vehicle_subscription_data, traci_label=None):
 
     if traci_label is None:
         traci_connection = traci
@@ -190,100 +204,3 @@ def get_blocking_vehicles(vehicle_id, polyline_path, possible_blocking_vehicles,
             blocking_vehicles.append(possible_blocking_vehicle)
 
     return blocking_vehicles
-
-
-# Sumo 1.7.0 only
-def detect_deadlock(intersection_id, net_xml, vehicle_subscription_data,
-                    waiting_too_long_threshold=10, traci_label=None):
-
-    if waiting_too_long_threshold == -1:
-        return []
-
-    if traci_label is None:
-        traci_connection = traci
-    else:
-        traci_connection = traci.getConnection(traci_label)
-
-    internal_lanes = sumo_util.get_internal_lanes(net_xml, intersection_id)
-    lane_path_dict = sumo_util.get_internal_lane_paths(net_xml, intersection_id, internal_lanes)
-
-    vehicle_lane_dict = {}
-    vehicle_waiting_times = {}
-
-    for lane in internal_lanes:
-
-        lane_id = lane.get('id')
-        vehicles = traci_connection.lane.getLastStepVehicleIDs(lane_id)
-        
-        for vehicle_id in vehicles:
-            vehicle_lane_dict[vehicle_id] = lane_id
-            vehicle_waiting_times[vehicle_id] = vehicle_subscription_data[vehicle_id][tc.VAR_WAITING_TIME]
-
-    vehicle_waiting_times = {k: v for k, v in
-                             sorted(vehicle_waiting_times.items(), key=lambda item: item[1], reverse=True)}
-
-    vehicles_stopped = []
-    vehicles_waiting = []
-    vehicles_waiting_too_long = []
-    for vehicle_id, waiting_time in vehicle_waiting_times.items():
-        
-        stop_state = vehicle_subscription_data[vehicle_id][tc.VAR_STOPSTATE]
-        is_stopped = int(f'{stop_state:08b}'[-1]) == 1
-
-        if waiting_time > 0:
-            vehicles_waiting.append(vehicle_id)
-        if waiting_time >= waiting_too_long_threshold:
-            vehicles_waiting_too_long.append(vehicle_id)
-        if is_stopped:
-            vehicles_stopped.append(vehicle_id)
-
-    blocked_vehicles = {}
-
-    bounding_boxes = {}
-    if vehicles_waiting_too_long:
-
-        bounding_boxes = {vehicle: get_bounding_box(vehicle, vehicle_subscription_data)
-                          for vehicle in vehicles_waiting + vehicles_stopped}
-
-    for vehicle_waiting_too_long in vehicles_waiting_too_long:
-
-        possible_blocking_vehicles = \
-            [vehicle_id for vehicle_id in vehicles_waiting
-                if vehicle_lane_dict[vehicle_waiting_too_long] != vehicle_lane_dict[vehicle_id]] + \
-            [vehicle_id for vehicle_id in vehicles_stopped
-                if vehicles_stopped != vehicle_id]
-
-        lane = vehicle_subscription_data[vehicle_waiting_too_long][tc.VAR_LANE_ID]
-        polyline_path = lane_path_dict[lane]
-
-        blocking_vehicles = get_blocking_vehicles(
-            vehicle_waiting_too_long,
-            polyline_path,
-            possible_blocking_vehicles,
-            bounding_boxes,
-            vehicle_subscription_data)
-
-        if blocking_vehicles:
-            blocked_vehicles[vehicle_waiting_too_long] = lane
-
-    return blocked_vehicles
-
-
-# Sumo 1.7.0 only
-def resolve_deadlock(blocked_vehicles, net_xml, vehicle_subscription_data, traci_label=None):
-
-    if traci_label is None:
-        traci_connection = traci
-    else:
-        traci_connection = traci.getConnection(traci_label)
-
-    for index, (blocked_vehicle, lane) in enumerate(blocked_vehicles.items()):
-
-        next_lane = get_next_lane(blocked_vehicle, net_xml, vehicle_subscription_data)
-
-        lane_position = 0
-        for other_blocked_vehicle, other_lane in list(blocked_vehicles.items())[index+1:]:
-            if lane == other_lane:
-                lane_position += vehicle_subscription_data[other_blocked_vehicle][tc.VAR_LENGTH] + 1
-
-        traci_connection.vehicle.moveTo(blocked_vehicle, next_lane, lane_position)

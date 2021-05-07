@@ -99,6 +99,7 @@ class PlanningOnlyAgent(Agent):
 
         # mutable objects need deep copy in the target function
         simulation_possibility_kwargs = {
+            'env': env,
             'initial_step': initial_step,
             'one_state': one_state,  # deep copy needed
             'original_step': original_step,
@@ -156,6 +157,7 @@ class PlanningOnlyAgent(Agent):
     def _run_simulation_possibility(
             self,
             action,
+            env,
             initial_step,
             one_state,
             original_step,
@@ -166,17 +168,14 @@ class PlanningOnlyAgent(Agent):
             previous_planning_actions,
             possible_actions,
             **kwargs):
-            
+
         try:
 
             one_state = copy.deepcopy(one_state)
             rng_state = copy.deepcopy(rng_state)
             previous_planning_actions = copy.deepcopy(previous_planning_actions)
 
-            env = copy.deepcopy(self.env)
-
-            env.external_configurations['SUMOCFG_PARAMETERS'].pop('--log', None)
-            env.external_configurations['SUMOCFG_PARAMETERS'].pop('--duration-log.statistics', None)
+            env = copy.deepcopy(env)
 
             env.external_configurations['SUMOCFG_PARAMETERS'].update(
                 {
@@ -200,10 +199,8 @@ class PlanningOnlyAgent(Agent):
                 write_mode = True
 
             env.write_mode = write_mode
-            env.sumo_output_enabled = False
 
-            _, next_action = env.reset(execution_name)
-            
+            _, next_action = env.reset_for_planning(execution_name)
             rewards = []
 
             if self.dic_agent_conf["PICK_ACTION_AND_KEEP_WITH_IT"]:
@@ -242,7 +239,7 @@ class PlanningOnlyAgent(Agent):
                     rng.bit_generator.state = rng_state
 
                     _, future_rewards = self._choose_action(
-                        initial_step + steps_iterated, 
+                        initial_step + steps_iterated,
                         one_state,
                         original_step,
                         intersection_index,
@@ -263,5 +260,5 @@ class PlanningOnlyAgent(Agent):
         except Exception as e:
             print(e)
             raise e
-        
+
         return rewards

@@ -9,14 +9,11 @@ mlp.use("agg")
 from algorithm.frap_pub import run_batch, replay, summary
 from algorithm.frap_pub.definitions import ROOT_DIR as FRAP_ROOT_DIR
 
-from config import Config as config
-from definitions import ROOT_DIR
-
 
 class Experiment:
 
     @staticmethod
-    def run(scenario, net_file, route_files, sumocfg_file, output_file, traffic_level_configuration,
+    def run(scenario, net_file, route_files, sumocfg_file, traffic_level_configuration,
             additional_files=None, environment_additional_files=None, traffic_light_file=None):
 
         if additional_files is None:
@@ -29,36 +26,28 @@ class Experiment:
             traffic_light_file = net_file
 
         external_configurations = Experiment._create_external_configurations_dict(
-            scenario, net_file, route_files, sumocfg_file, output_file, traffic_level_configuration,
+            scenario, net_file, route_files, sumocfg_file, traffic_level_configuration,
             additional_files, environment_additional_files, traffic_light_file)
 
-        experiment_name = run_batch.run(external_configurations)
-
-        return experiment_name
+        run_batch.run(external_configurations)
 
     @staticmethod
-    def continue_(scenario, experiment, net_file, route_files, sumocfg_file, output_file, traffic_level_configuration):
+    def continue_(scenario, experiment, net_file, route_files, sumocfg_file, traffic_level_configuration,
+                  additional_files, environment_additional_files, traffic_light_file):
 
         external_configurations = Experiment._create_external_configurations_dict(
-            scenario, net_file, route_files, sumocfg_file, output_file, traffic_level_configuration)
+            scenario, net_file, route_files, sumocfg_file, traffic_level_configuration,
+            additional_files, environment_additional_files, traffic_light_file)
 
-        experiment_name = run_batch.continue_(experiment, external_configurations)
-
-        return experiment_name
+        run_batch.continue_(experiment, external_configurations)
 
     @staticmethod
-    def visualize_policy_behavior(scenario, _type, traffic_level_configuration, memo, experiment='last',
-                                  _round='best_time_loss'):
+    def visualize_policy_behavior(scenario, experiment, net_file, route_files, sumocfg_file,
+                                  traffic_level_configuration, additional_files, environment_additional_files,
+                                  traffic_light_file, _type, memo, _round='best_time_loss'):
         # experiment: 'last' or actual name
         # _round: 'last', 'best_time_loss', 'best_average_trip_duration', 'best_reward' or number
 
-        output_folder_base = ROOT_DIR + os.path.join(config.SCENARIO_PATH, 'test_i', scenario, 'output', 'FRAP', _type, 
-            scenario + '__' + _type + '__' + traffic_level_configuration)
-
-        if experiment == 'last':
-            experiment = sorted(os.listdir(output_folder_base))[-1]
-
-        output_folder = os.path.join(output_folder_base, experiment)
         records_folder = os.path.join(FRAP_ROOT_DIR, 'records', memo, experiment)
         summary_folder = os.path.join(FRAP_ROOT_DIR, 'summary', memo, experiment)
 
@@ -78,14 +67,6 @@ class Experiment:
             
             _round = result_df[column_label].idxmax()
 
-        elif _round == 'best_average_trip_duration':
-            result_df = pd.read_csv(os.path.join(output_folder, experiment + '_result.csv'))
-            result_df.set_index(result_df.columns[0], inplace=True)
-
-            column_label = 'test'
-            
-            _round = result_df[column_label].idxmin()
-        
         elif _round == 'best_reward':
             result_df = pd.read_csv(os.path.join(summary_folder, experiment + '-test-reward.csv'))
             result_df.set_index(result_df.columns[0], inplace=True)
@@ -102,48 +83,67 @@ class Experiment:
 
         execution_name = 'replay' + '_' + 'test_round' + '_' + 'round' + '_' + str(_round)
 
-        net_file = os.path.join(records_folder, scenario + '__' + _type + '.net.xml')
-        route_file = os.path.join(records_folder, scenario + '_' + traffic_level_configuration + '.rou.xml')
-        sumocfg_file = os.path.join(records_folder, scenario + '__' + _type + '.sumocfg')
-        output_file = os.path.join(output_folder, '')
-
-        if not os.path.isfile(route_file):
-            raise ValueError("Route file does not exist")
-
-        route_files = [route_file]
-
         external_configurations = Experiment._create_external_configurations_dict(
-            scenario, net_file, route_files, sumocfg_file, output_file, traffic_level_configuration)
+            scenario, net_file, route_files, sumocfg_file, traffic_level_configuration,
+            additional_files, environment_additional_files, traffic_light_file)
 
         replay.run(
             os.path.join(memo, experiment),
-            round_number=_round, 
+            round_number=_round,
             run_cnt=3600,
             execution_name=execution_name,
             if_gui=True,
             rewrite_mode=False,
             external_configurations=external_configurations)
 
+        summary.single_experiment_network_summary(memo, os.path.join('records', memo, experiment), plots='summary_only')
+
 
     @staticmethod
-    def retrain(scenario, experiment, _round, net_file, route_files, sumocfg_file, output_file,
+    def retrain(scenario, experiment, _round, net_file, route_files, sumocfg_file,
                 traffic_level_configuration):
 
         external_configurations = Experiment._create_external_configurations_dict(
-            scenario, net_file, route_files, sumocfg_file, output_file, traffic_level_configuration)
+            scenario, net_file, route_files, sumocfg_file, traffic_level_configuration)
 
-        experiment_name = run_batch.re_run(experiment, _round, external_configurations)
-
-        return experiment_name
-
+        run_batch.re_run(experiment, _round, external_configurations)
 
     @staticmethod
-    def summary(experiment, memo, _round=None, plots='all', baseline_comparison=True, baseline_experiments=None):
-        summary.single_experiment_network_summary(memo, 'records/' + memo + '/' + experiment,
-                                                  _round, plots, baseline_comparison, baseline_experiments)
+    def summary(experiment_info, _round=None, plots='all', baseline_comparison=True, baseline_experiments=None):
+
+        memo, label, color, experiment = experiment_info
+        records_dir = 'records/' + memo + '/' + experiment
+
+        summary.single_experiment_network_summary(memo, records_dir, single_round=_round, plots=plots,
+                                                  baseline_comparison=baseline_comparison,
+                                                  baseline_experiments=baseline_experiments)
+
+    # @staticmethod
+    # def summary(experiment_info, _round=None, plots='all', baseline_comparison=True, baseline_experiments=None):
+    #
+    #     memo_list = []
+    #     label_list = []
+    #     color_list = []
+    #     records_info_list = []
+    #
+    #     if isinstance(experiment_info[0], list):
+    #         for memo, label, color, experiment in experiment_info:
+    #             memo_list.append(memo)
+    #             label_list.append(label)
+    #             color_list.append(color)
+    #             records_info_list.append('records/' + memo + '/' + experiment)
+    #     else:
+    #         memo, label, color, experiment = experiment_info
+    #         memo_list.append(memo)
+    #         label_list.append(label)
+    #         color_list.append(color)
+    #         records_info_list.append('records/' + memo + '/' + experiment)
+    #
+    #     summary.single_experiment_network_summary(memo_list, label_list, color_list, records_info_list,
+    #                                               _round, plots, baseline_comparison, baseline_experiments)
 
     @staticmethod
-    def _create_external_configurations_dict(scenario, net_file, route_files, sumocfg_file, output_file,
+    def _create_external_configurations_dict(scenario, net_file, route_files, sumocfg_file,
                                              traffic_level_configuration, additional_files=None,
                                              environment_additional_files=None, traffic_light_file=None):
 
@@ -190,8 +190,6 @@ class Experiment:
         external_configurations['SUMOCFG_PARAMETERS'] = {
             '-n': net_file,
             '-r': ', '.join(route_files),
-            '--log': output_file,
-            '--duration-log.statistics': True,
             '--time-to-teleport': -1,
             '--collision.stoptime': 10,
             '--collision.mingap-factor': 0,
@@ -199,7 +197,7 @@ class Experiment:
             '--collision.check-junctions': True,
             '--device.rerouting.threads': 4,
             '--save-state.rng': True,
-            '--ignore-junction-blocker': 10  # working in Sumo 1.8.0
+            '--ignore-junction-blocker': 10
         }
 
         if additional_files:

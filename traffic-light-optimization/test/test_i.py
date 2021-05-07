@@ -10,6 +10,8 @@ import subprocess
 
 sys.path.append('traffic-light-optimization')
 
+from algorithm.frap_pub import synchronization_util
+
 # we need to import python modules from the $SUMO_HOME/tools directory
 if 'SUMO_HOME' in os.environ:
     tools = os.path.join(os.environ['SUMO_HOME'], 'tools')
@@ -35,6 +37,8 @@ traffic_level_mapping = {
     'heavy': 0.7
 }
 
+#test_i_folder = definitions.ROOT_DIR + config.SCENARIO_PATH + '/experimental/Bologna_small-0.29.0'
+
 #test_i_folder = definitions.ROOT_DIR + config.SCENARIO_PATH + '/experimental'
 test_i_folder = definitions.ROOT_DIR + config.SCENARIO_PATH + '/test_i'
 
@@ -55,7 +59,7 @@ def _build_experiment_i_routes():
         net_file = scenario_folder + '/' + name + '__' + _type + '.net.xml'
         net_xml = xml_util.get_xml(net_file)
 
-        intersection_ids = sumo_util.get_intersections_with_traffic_light(net_xml)
+        intersection_ids = sumo_util.get_traffic_lights(net_xml)
         junction_to_network_incoming_edges_mapping, _ = sumo_util.get_network_border_edges(net_xml)
 
         sorted_edges_id = []
@@ -133,7 +137,7 @@ def _configure_scenario_routes(scenario, traffic_level_configuration):
     net_file = scenario_folder + '/' + name + '__' + _type + '.net.xml'
     net_xml = xml_util.get_xml(net_file)
 
-    intersection_ids = sumo_util.get_intersections_with_traffic_light(net_xml)
+    intersection_ids = sumo_util.get_traffic_lights(net_xml)
     junction_to_network_incoming_edges_mapping, _ = sumo_util.get_network_border_edges(net_xml)
 
     sorted_edges_id = []
@@ -211,7 +215,7 @@ def create_experiment_generator(_type='regular', algorithm=None):
         net_file = scenario_folder + '/' + scenario + '__' + _type + '.net.xml'
         net_xml = xml_util.get_xml(net_file)
 
-        intersection_ids = sumo_util.get_intersections_with_traffic_light(net_xml)
+        intersection_ids = sumo_util.get_traffic_lights(net_xml)
         junction_to_network_incoming_edges_mapping, _ = sumo_util.get_network_border_edges(net_xml)
 
         sorted_edges_id = []
@@ -226,94 +230,182 @@ def create_experiment_generator(_type='regular', algorithm=None):
             len(sorted_edges_id))
 
         sumocfg_file = scenario_folder + '/' + scenario + '__' + _type + '.sumocfg'
-        base_output_folder = scenario_folder + '/' + 'output' + '/' + str(algorithm) + '/' + _type + '/'
 
         for traffic_level_configuration in traffic_level_configurations:
 
             experiment_name = scenario + '__' + _type + '__' + '_'.join(traffic_level_configuration)
 
-            output_folder = base_output_folder + experiment_name + '/'
-
-            if not os.path.isdir(output_folder):
-                os.makedirs(output_folder)
-
             yield scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, \
-                  sumocfg_file, output_folder
+                  sumocfg_file
 
 
 def run_experiment(arguments):
 
-    scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, sumocfg_file, \
-        output_folder = arguments
+    scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, sumocfg_file \
+        = arguments
 
-    route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
+    #route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
+    route_file = scenario_folder + '/' + 'temp' + '/' + 'routes' + '/' + scenario + '_' + '_'.join(traffic_level_configuration) + '.rou.xml'
 
     route_files = [route_file]
     additional_files = []
+    environment_additional_files = []
+    traffic_light_file = net_file
 
-    output_file = output_folder + experiment_name + '.out.txt'
+    if scenario == 'acosta' or scenario == 'pasubio' or scenario == 'joined':
+        route_files = [
+            scenario_folder + '/' + scenario + ".rou.xml",
+            scenario_folder + '/' + scenario + "_busses.rou.xml"
+        ]
+        additional_files = [
+            scenario_folder + '/' + scenario + "_bus_stops.add.xml",
+            scenario_folder + '/' + scenario + "_detectors.add.xml",
+            scenario_folder + '/' + scenario + "_vtypes.add.xml",
+            scenario_folder + '/' + scenario + "_tls.add.xml",
+        ]
+        environment_additional_files = [
+            scenario_folder + '/' + scenario + "__multi_intersection_traffic_light.json"
+        ]
 
-    if not os.path.isdir(output_folder):
-        os.makedirs(output_folder)
+        traffic_light_file = scenario_folder + '/' + scenario + "_tls.add.xml"
 
-    Experiment.run(net_file, route_files, sumocfg_file, output_file, traffic_level_configuration, additional_files)
+    Experiment.run(scenario, net_file, route_files, sumocfg_file, traffic_level_configuration,
+                   additional_files, environment_additional_files, traffic_light_file)
 
     sys.stdout.flush()
+
+    #os.remove(route_file)
+
+
+def replay_experiment(arguments):
+
+    scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, sumocfg_file, \
+        experiment, _round = arguments
+
+    #route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
+    route_file = scenario_folder + '/' + 'temp' + '/' + 'routes' + '/' + scenario + '_' + '_'.join(traffic_level_configuration) + '.rou.xml'
+
+    route_files = [route_file]
+    additional_files = []
+    environment_additional_files = []
+    traffic_light_file = net_file
+
+    if scenario == 'acosta' or scenario == 'pasubio' or scenario == 'joined':
+
+        route_files = [
+            scenario_folder + '/' + scenario + ".rou.xml",
+            scenario_folder + '/' + scenario + "_busses.rou.xml"
+        ]
+        additional_files = [
+            scenario_folder + '/' + scenario + "_bus_stops.add.xml",
+            scenario_folder + '/' + scenario + "_detectors.add.xml",
+            scenario_folder + '/' + scenario + "_vtypes.add.xml",
+            scenario_folder + '/' + scenario + "_tls.add.xml",
+        ]
+        environment_additional_files = [
+            scenario_folder + '/' + scenario + "__multi_intersection_traffic_light.json"
+        ]
+
+        traffic_light_file = scenario_folder + '/' + scenario + "_tls.add.xml"
+
+    Experiment.visualize_policy_behavior(scenario, experiment, net_file, route_files, sumocfg_file,
+                                         traffic_level_configuration, additional_files,
+                                         environment_additional_files,
+                                         traffic_light_file, _type, 'Frap', _round=_round)
+
+    sys.stdout.flush()
+
+    #os.remove(route_file)
 
 
 def continue_experiment(arguments):
 
     scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, sumocfg_file, \
-        output_folder, experiment = arguments
+        experiment = arguments
 
-    route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
-    output_file = output_folder + experiment_name + '.out.txt'
+    #route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
+    route_file = scenario_folder + '/' + 'temp' + '/' + 'routes' + '/' + scenario + '_' + '_'.join(traffic_level_configuration) + '.rou.xml'
 
-    if not os.path.isdir(output_folder):
-        os.makedirs(output_folder)
+    route_files = [route_file]
+    additional_files = []
+    environment_additional_files = []
+    traffic_light_file = net_file
+
+    if scenario == 'acosta' or scenario == 'pasubio' or scenario == 'joined':
+
+        route_files = [
+            scenario_folder + '/' + scenario + ".rou.xml",
+            scenario_folder + '/' + scenario + "_busses.rou.xml"
+        ]
+        additional_files = [
+            scenario_folder + '/' + scenario + "_bus_stops.add.xml",
+            scenario_folder + '/' + scenario + "_detectors.add.xml",
+            scenario_folder + '/' + scenario + "_vtypes.add.xml",
+            scenario_folder + '/' + scenario + "_tls.add.xml",
+        ]
+        environment_additional_files = [
+            scenario_folder + '/' + scenario + "__multi_intersection_traffic_light.json"
+        ]
+
+        traffic_light_file = scenario_folder + '/' + scenario + "_tls.add.xml"
 
     if algorithm == 'FRAP':
-        Experiment.continue_(experiment, net_file, route_file, sumocfg_file, output_file, traffic_level_configuration)
+        Experiment.continue_(scenario, experiment, net_file, route_files, sumocfg_file,
+                             traffic_level_configuration, additional_files, environment_additional_files,
+                             traffic_light_file)
 
     else:
         raise ValueError('please specify algorithm that can be continued')
 
     sys.stdout.flush()
 
+    #os.remove(route_file)
+
 
 def re_run(arguments):
 
     scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, sumocfg_file, \
-        output_folder, experiment = arguments
+        experiment = arguments
 
-    route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
-    output_file = output_folder + experiment_name + '.out.txt'
+    #route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
+    route_file = scenario_folder + '/' + 'temp' + '/' + 'routes' + '/' + scenario + '_' + '_'.join(traffic_level_configuration) + '.rou.xml'
 
-    if not os.path.isdir(output_folder):
-        os.makedirs(output_folder)
+    route_files = [route_file]
+    additional_files = []
 
     if algorithm == 'FRAP':
         Experiment.retrain(
+            scenario=scenario,
             experiment='0_regular-intersection__right_on_red__custom_4_street_traffic___10_10_07_54_05_10__74168e65-8cce-41de-927d-1a64cbe6b929', 
             _round=3, 
             net_file=net_file, 
-            route_file=route_file, 
+            route_files=route_files,
             sumocfg_file=sumocfg_file, 
-            output_file=output_file, 
             traffic_level_configuration=traffic_level_configuration)
     else:
         raise ValueError('please specify algorithm that can be retrained')
 
     sys.stdout.flush()
 
+    #os.remove(route_file)
 
-def _run(_type='regular', algorithm=None, experiment=None):
+
+def _run(_type='regular', algorithm=None, experiment=None, _round=None, replay=False):
     
-    experiment_generator = create_experiment_generator(_type=_type, algorithm=algorithm)
+    #experiment_generator = create_experiment_generator(_type=_type, algorithm=algorithm)
 
-    #scenario = 'multi_intersection'
-    #test_i_folder = definitions.ROOT_DIR + config.SCENARIO_PATH + '/experimental'
-    #traffic_level_configuration = tuple(['custom_4_street_traffic'])
+    # scenario = 'acosta'
+    # test_i_folder = definitions.ROOT_DIR + config.SCENARIO_PATH + '/experimental/Bologna_small-0.29.0'
+    # traffic_level_configuration = tuple(['native'])
+    # experiment_name = 'Bologna_small' + '__' + scenario
+    # scenario_folder = test_i_folder + '/' + scenario
+    # #net_file = scenario_folder + '/' + scenario + '_' + 'buslanes' +'.net.xml'
+    # net_file = scenario_folder + '/' + scenario + '_' + 'buslanes' + '__' + 'unregulated' + '.net.xml'
+    # sumocfg_file = scenario_folder + '/' + 'run' + '.sumo.cfg'
+
+    # scenario = 'multi_intersection'
+    # test_i_folder = definitions.ROOT_DIR + config.SCENARIO_PATH + '/experimental'
+    # traffic_level_configuration = tuple(['custom_4_street_traffic'])
 
     scenario = '0_regular-intersection'
     traffic_level_configuration = tuple(['custom_4_street_traffic'])
@@ -321,10 +413,9 @@ def _run(_type='regular', algorithm=None, experiment=None):
     scenario_folder = test_i_folder + '/' + scenario
     net_file = scenario_folder + '/' + scenario + '__' + _type + '.net.xml'
     sumocfg_file = scenario_folder + '/' + scenario + '__' + _type + '.sumocfg'
-    output_folder = scenario_folder + '/' + 'output' + '/' + str(algorithm) + '/' + _type + '/' + experiment_name + '/'
 
-    experiment_generator = [(scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, \
-                  sumocfg_file, output_folder)]
+    experiment_generator = [(scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file,
+                             scenario_folder, sumocfg_file)]
 
 
     global NUMBER_OF_PROCESSES
@@ -340,12 +431,22 @@ def _run(_type='regular', algorithm=None, experiment=None):
             pool.map(run_experiment, experiment_generator)
 
     else:
-        experiment_arguments = [
-            (scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder,  
-                sumocfg_file, output_folder, experiment)]
 
-        with NoDaemonPool(processes=NUMBER_OF_PROCESSES) as pool:
-            pool.map(continue_experiment, experiment_arguments)
+        if replay:
+            experiment_arguments = [
+                (scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder,
+                 sumocfg_file, experiment, _round)]
+
+            with NoDaemonPool(processes=NUMBER_OF_PROCESSES) as pool:
+                pool.map(replay_experiment, experiment_arguments)
+
+        else:
+            experiment_arguments = [
+                (scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder,
+                    sumocfg_file, experiment)]
+
+            with NoDaemonPool(processes=NUMBER_OF_PROCESSES) as pool:
+                pool.map(continue_experiment, experiment_arguments)
 
 
 def run():
@@ -362,36 +463,66 @@ if __name__ == "__main__":
     #_run(_type='right_on_red', algorithm='FRAP')
     #_run(_type='unregulated', algorithm='FRAP')
 
-    '''
-    Experiment.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___12_03_11_38_13__88ef8bac-dd06-43d6-ac41-448b93b39baa',
-                 memo='Frap', plots='summary_only', baseline_comparison=True,
-                 baseline_experiments=[
-                     ['Sumo', '0_regular-intersection__right_on_red__custom_4_street_traffic___10_23_10_48_51_10__04092094-1443-4525-99a9-99fa6145a308', 0, 'r', 'right on red'],
-                     ['Sumo', '0_regular-intersection__unregulated__custom_4_street_traffic___10_23_10_51_45_10__110ede2f-8a0b-4b1d-85c0-bff18cf64d40', 0, 'g', 'unregulated']
-                 ])
-    Experiment.summary('0_regular-intersection__right_on_red__custom_4_street_traffic___12_03_11_38_13__88ef8bac-dd06-43d6-ac41-448b93b39baa',
-                       memo='Frap', plots='records_only', _round=148, baseline_comparison=True,
-                       baseline_experiments=[
-                     ['Sumo', '0_regular-intersection__right_on_red__custom_4_street_traffic___10_23_10_48_51_10__04092094-1443-4525-99a9-99fa6145a308', 0, 'r', 'right on red'],
-                     ['Sumo', '0_regular-intersection__unregulated__custom_4_street_traffic___10_23_10_51_45_10__110ede2f-8a0b-4b1d-85c0-bff18cf64d40', 0, 'g', 'unregulated']
-                 ])
-    '''
-    '''
-    experiment = '0_regular-intersection__right_on_red__custom_4_street_traffic___10_04_21_00_35_10__4ff3043f-4ccb-4877-be7f-f47b2f7291e6'
+    # Experiment.summary(
+    #     ['Frap', '0', 'tab:blue', 'acosta_buslanes__native___04_10_02_53_49__82acedfc-9ba3-4e50-acf3-1792b4251d14'],
+    #     plots='summary_only', baseline_comparison=False,
+    #     baseline_experiments=[
+    #         ['Sumo', '0_regular-intersection__right_on_red__custom_4_street_traffic___02_15_09_15_55__89976a1e-3dde-48ef-aaa3-9c44d9267b56', 0, 'r', 'static'],
+    #         ['Sumo', '0_regular-intersection__unregulated__custom_4_street_traffic___02_15_09_56_04__56bfd179-d3dc-461d-a487-1fbb0ae9cfe8', 0, 'g', 'unregulated']
+    #     ])
 
-    _round = 'worst_time_loss'
-    #_round = 0
+    '''
+    Experiment.summary(
+        'multi_intersection__unregulated__custom_4_street_traffic___01_29_10_42_55__75339974-6257-4fb7-8379-daf7f8db4ead',
+        memo='Frap', plots='summary_only', baseline_comparison=True,
+        baseline_experiments=[
+            ['Sumo', '0_regular-intersection__right_on_red__custom_4_street_traffic___02_15_09_15_55__89976a1e-3dde-48ef-aaa3-9c44d9267b56', 0, 'r', 'right on red'],
+            ['Sumo', '0_regular-intersection__unregulated__custom_4_street_traffic___02_15_09_56_04__56bfd179-d3dc-461d-a487-1fbb0ae9cfe8', 0, 'g', 'unregulated']
+        ])
+    Experiment.summary(
+        'multi_intersection__unregulated__custom_4_street_traffic___01_29_10_42_55__75339974-6257-4fb7-8379-daf7f8db4ead',
+        memo='Frap', _round=0, plots='records_only', baseline_comparison=True,
+        baseline_experiments=[
+            ['Sumo', '0_regular-intersection__right_on_red__custom_4_street_traffic___02_15_09_15_55__89976a1e-3dde-48ef-aaa3-9c44d9267b56', 0, 'r', 'right on red'],
+            ['Sumo', '0_regular-intersection__unregulated__custom_4_street_traffic___02_15_09_56_04__56bfd179-d3dc-461d-a487-1fbb0ae9cfe8', 0, 'g', 'unregulated']
+        ])
+    '''
+
+    '''
+    Experiment.summary(
+        [['Sumo', 'label_1', 'k', 'joined_buslanes__native___03_27_13_58_30__24dd0839-784d-4b67-96e6-2079634e73fc'],
+         ['Sumo', 'label_2', 'k', 'joined_buslanes__unregulated__native___03_27_15_03_11__de9c74ae-12d8-4167-8eaf-314a75cd67d8']],
+        plots='summary_only', baseline_comparison=True,
+        baseline_experiments=[
+            ['Sumo', '0_regular-intersection__right_on_red__custom_4_street_traffic___02_15_09_15_55__89976a1e-3dde-48ef-aaa3-9c44d9267b56', 0, 'r', 'static'],
+            ['Sumo', '0_regular-intersection__unregulated__custom_4_street_traffic___02_15_09_56_04__56bfd179-d3dc-461d-a487-1fbb0ae9cfe8', 0, 'g', 'unregulated']
+        ])
+    '''
+
+    '''
+    Experiment.summary(
+        'multi_intersection__unregulated__custom_4_street_traffic___01_29_10_42_55__75339974-6257-4fb7-8379-daf7f8db4ead',
+        memo='Frap', plots='summary_only', baseline_comparison=True,
+        baseline_experiments=[
+            ['Sumo', 'multi_intersection__right_on_red__custom_4_street_traffic___02_15_09_00_21__9503f26d-5453-4504-b819-41a52f9b039a', 0, 'r', 'right on red'],
+            ['Sumo', 'multi_intersection__unregulated__custom_4_street_traffic___02_15_09_58_24__7a5c1750-9118-40a5-bb91-183f780eaf43', 0, 'g', 'unregulated']
+        ])
+    Experiment.summary(
+        'multi_intersection__unregulated__custom_4_street_traffic___01_29_10_42_55__75339974-6257-4fb7-8379-daf7f8db4ead',
+        memo='Frap', _round=0, plots='records_only', baseline_comparison=True,
+        baseline_experiments=[
+            ['Sumo', 'multi_intersection__right_on_red__custom_4_street_traffic___02_15_09_00_21__9503f26d-5453-4504-b819-41a52f9b039a', 0, 'r', 'right on red'],
+            ['Sumo', 'multi_intersection__unregulated__custom_4_street_traffic___02_15_09_58_24__7a5c1750-9118-40a5-bb91-183f780eaf43', 0, 'g', 'unregulated']
+        ])
+    '''
+    '''
+    experiment = '0_regular-intersection__right_on_red__custom_4_street_traffic___11_25_21_45_20__5048bb77-0cf8-4472-8b6f-5f78e1cd4989'
+
+    #_round = 'worst_time_loss'
+    _round = 0
 
     Experiment.visualize_policy_behavior(
         scenario='0_regular-intersection', _type='right_on_red', traffic_level_configuration='custom_4_street_traffic',
-        experiment=experiment, _round=_round)
-    '''
-    '''
-    for _dir, folders, files in os.walk('/home/marcelo/code/urban-semaphore-optimization/scenario/test_i/0_regular-intersection/output/FRAP/right_on_red/'):
+        memo='Frap', experiment=experiment, _round=_round)
 
-        for folder in folders:
-            if '___' not in folder:
-                continue
-            
-            Experiment._consolidate_output_file(_dir + '/' + folder, folder)
     '''

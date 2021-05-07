@@ -1,5 +1,5 @@
 
-FROM tensorflow/tensorflow:latest-gpu
+FROM tensorflow/tensorflow:2.1.0-gpu
 
 ARG USER_ID
 ARG GROUP_ID
@@ -28,7 +28,6 @@ RUN mkdir sumo-1.8.0/build/cmake-build && cd sumo-1.8.0/build/cmake-build \
 
 ENV REGIONS_PATH=/.regions
 ENV SCENARIO_PATH=/app/scenario
-ENV OUTPUT_PATH=/app/output
 
 ENV FRAP_DATA_PATH=/app/traffic-light-optimization/algorithm/frap/internal/frap_pub/data
 ENV FRAP_MODEL_PATH=/app/traffic-light-optimization/algorithm/frap/internal/frap_pub/model
@@ -44,7 +43,6 @@ USER user
 
 VOLUME ${REGIONS_PATH}
 VOLUME ${SCENARIO_PATH}
-VOLUME ${OUTPUT_PATH}
 
 VOLUME ${FRAP_DATA_PATH}
 VOLUME ${FRAP_MODEL_PATH}

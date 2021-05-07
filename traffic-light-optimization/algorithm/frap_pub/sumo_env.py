@@ -1,5 +1,6 @@
 import os
 import sys
+import copy
 import pickle
 import uuid
 
@@ -47,10 +48,12 @@ class SumoEnv:
     SIMULATION_VARIABLES_TO_SUBSCRIBE = [
         tc.VAR_DEPARTED_VEHICLES_NUMBER,
         tc.VAR_PENDING_VEHICLES,
+        tc.VAR_DEPARTED_VEHICLES_IDS,
+        tc.VAR_ARRIVED_VEHICLES_IDS
     ]
 
     def __init__(self, path_to_log, path_to_work_directory, dic_traffic_env_conf, dic_path,
-                 external_configurations=None, mode='train', write_mode=True, sumo_output_enabled=True):
+                 external_configurations=None, mode='train', write_mode=True):
 
         if external_configurations is None:
             external_configurations = {}
@@ -61,13 +64,12 @@ class SumoEnv:
             raise ValueError("Mode must be either 'train', 'test', or replay, current value is " + mode)
         self.mode = mode
         self.write_mode = write_mode
-        self.sumo_output_enabled = sumo_output_enabled
 
         self.path_to_log = path_to_log
         self.path_to_work_directory = path_to_work_directory
         self.dic_traffic_env_conf = dic_traffic_env_conf
         self.dic_path = dic_path
-        self.external_configurations = external_configurations
+        self.external_configurations = copy.deepcopy(external_configurations)
 
         net_file = os.path.join(ROOT_DIR, dic_path["PATH_TO_WORK_DIRECTORY"], dic_traffic_env_conf['NET_FILE'])
         self.net_file_xml = xml_util.get_xml(net_file)
@@ -106,7 +108,14 @@ class SumoEnv:
         self.current_step_vehicles = []
         self.previous_step_vehicles = []
 
-        self.vehicle_arrive_leave_time_dict = {}  # cumulative
+        self.vehicle_departure_arrival_time_dict = {}  # cumulative
+        self.travel_time_dict = {}
+        self.time_loss_dict = {}
+        self.vehicle_pending_departure_time_dict = {}
+        self.pending_travel_time_dict = {}
+        self.pending_time_loss_dict = {}
+
+        self.total_time_loss = 0
 
     def reset(self, execution_name):
 
@@ -127,6 +136,13 @@ class SumoEnv:
         self.action_logs = [[] for _ in range(len(self.intersections))]
         self.network_logs = []
 
+        # for intersection_index, intersection in enumerate(self.intersections):
+        #     path_to_actions_log_file = os.path.join(
+        #         self.path_to_log, "inter_{0}_actions.pkl".format(intersection.id))
+        #     f = open(ROOT_DIR + '/' + path_to_actions_log_file, "rb")
+        #     self.action_logs[intersection_index] = pickle.load(f)
+        #     f.close()
+
         self.edges_list = \
             sumo_util.get_all_edges(self.net_file_xml) + sumo_util.get_all_internal_edges(self.net_file_xml)
         self.lanes_list = \
@@ -144,54 +160,29 @@ class SumoEnv:
         self.total_departed_vehicles = 0
         self.total_pending_vehicles = 0
         self.total_running_vehicles = 0
+        self.total_arrived_vehicles = 0
 
-        self.vehicle_arrive_leave_time_dict = {}  # cumulative
+        self.vehicle_departure_arrival_time_dict = {}  # cumulative
+        self.travel_time_dict = {}
+        self.time_loss_dict = {}
+        self.pending_travel_time_dict = {}
+        self.vehicle_pending_departure_time_dict = {}
+        self.pending_time_loss_dict = {}
 
-        if self.sumo_output_enabled:
-
-            output_file = self.external_configurations['SUMOCFG_PARAMETERS']['--log']
-
-            split_output_filename = output_file.rsplit('.', 2)
-            execution_base = split_output_filename[0].rsplit('/', 1)[1]
-            split_output_filename[0] += '_' + self.execution_name
-            output_file = '.'.join(split_output_filename)
-
-            split_output_filename = output_file.rsplit('/', 1)
-            split_output_filename.insert(1, execution_base)
-            output_file = '/'.join(split_output_filename)
-
-            output_file_path = output_file.rsplit('/', 1)[0]
-            if not os.path.isdir(output_file_path):
-                os.makedirs(output_file_path)
-
-            self.external_configurations['SUMOCFG_PARAMETERS']['--log'] = output_file
-        else:
-            self.external_configurations['SUMOCFG_PARAMETERS'].pop('--log', None)
+        self.total_time_loss = 0
 
         sumo_cmd_str = self._get_sumo_cmd()
 
-        stops_to_issue = []
         print("start sumo")
         synchronization_util.traci_start_lock.acquire()
+        trace_file_path = ROOT_DIR + '/' + self.path_to_log + '/' + 'trace_file_log.txt'
         try:
-            traci.start(sumo_cmd_str, label=self.execution_name)
+            traci.start(sumo_cmd_str, label=self.execution_name, traceFile=trace_file_path, traceGetters=False)
         except Exception as e:
             traci.close()
 
-            # Sumo 1.7.0 only
-            '''
-            if '--load-state' in self.external_configurations['SUMOCFG_PARAMETERS']:
-
-                save_state = self.external_configurations['SUMOCFG_PARAMETERS']['--load-state']
-                time = self.external_configurations['SUMOCFG_PARAMETERS']['--begin']
-
-                net_file = self.external_configurations['SUMOCFG_PARAMETERS']['-n']
-                net_xml = xml_util.get_xml(net_file)
-                stops_to_issue = sumo_util.fix_save_state_stops(net_xml, save_state, time)
-            '''
-
             try:
-                traci.start(sumo_cmd_str, label=self.execution_name)
+                traci.start(sumo_cmd_str, label=self.execution_name, traceFile=trace_file_path, traceGetters=False)
             except Exception as e:
                 print('TRACI TERMINATED')
                 traci.close()
@@ -201,9 +192,6 @@ class SumoEnv:
         traci_connection = traci.getConnection(self.execution_name)
         print("succeed in start sumo")
         synchronization_util.traci_start_lock.release()
-
-        for stop_info in stops_to_issue:
-            traci_connection.vehicle.setStop(**stop_info)
 
         print('SUMO VERSION', traci_connection.getVersion()[1])
 
@@ -222,6 +210,55 @@ class SumoEnv:
         state, done = self.get_state()
 
         next_action = [None]*len(self.intersections)
+
+        return state, next_action
+
+    def reset_for_planning(self, execution_name):
+
+        self.execution_name = execution_name + '__' + str(uuid.uuid4())
+
+        self.intersection_logs = [[] for _ in range(len(self.intersections))]
+        self.action_logs = [[] for _ in range(len(self.intersections))]
+        self.network_logs = []
+
+        sumo_cmd_str = self._get_sumo_cmd()
+
+        print("start sumo")
+        synchronization_util.traci_start_lock.acquire()
+        trace_file_path = ROOT_DIR + '/' + self.path_to_log + '/' + 'trace_file_log.txt'
+        try:
+            traci.start(sumo_cmd_str, label=self.execution_name, traceFile=trace_file_path, traceGetters=False)
+        except Exception as e:
+            traci.close()
+
+            try:
+                traci.start(sumo_cmd_str, label=self.execution_name, traceFile=trace_file_path,
+                            traceGetters=False)
+            except Exception as e:
+                print('TRACI TERMINATED')
+                traci.close()
+                print(str(e))
+                raise e
+
+        traci_connection = traci.getConnection(self.execution_name)
+        print("succeed in start sumo")
+        synchronization_util.traci_start_lock.release()
+
+        print('SUMO VERSION', traci_connection.getVersion()[1])
+
+        # start subscription
+        for lane in self.lanes_list:
+            traci_connection.lane.subscribe(lane, [var for var in self.LANE_VARIABLES_TO_SUBSCRIBE])
+
+        traci_connection.simulation.subscribe([var for var in self.SIMULATION_VARIABLES_TO_SUBSCRIBE])
+
+        vehicle_ids = traci_connection.simulation.getLoadedIDList()
+        for vehicle_id in vehicle_ids:
+            traci_connection.vehicle.subscribe(vehicle_id, [var for var in self.VEHICLE_VARIABLES_TO_SUBSCRIBE])
+
+        state, done = self.get_state()
+
+        next_action = [None] * len(self.intersections)
 
         return state, next_action
 
@@ -249,9 +286,13 @@ class SumoEnv:
 
         self.current_simulation_subscription = traci_connection.simulation.getSubscriptionResults()
 
-        self.total_departed_vehicles += self.current_simulation_subscription[tc.VAR_DEPARTED_VEHICLES_NUMBER]
+        recently_departed_vehicles = self.current_simulation_subscription[tc.VAR_DEPARTED_VEHICLES_IDS]
+        recently_arrived_vehicles = self.current_simulation_subscription[tc.VAR_ARRIVED_VEHICLES_IDS]
+
+        self.total_departed_vehicles += len(recently_departed_vehicles)
         self.total_pending_vehicles = len(self.current_simulation_subscription[tc.VAR_PENDING_VEHICLES])
         self.total_running_vehicles = traci.getConnection(self.execution_name).vehicle.getIDCount()
+        self.total_arrived_vehicles += len(recently_arrived_vehicles)
 
         # ====== vehicle level observations =======
 
@@ -260,19 +301,16 @@ class SumoEnv:
         for lane_id, values in self.current_step_lane_subscription.items():
             lane_vehicles = self.current_step_lane_subscription[lane_id][tc.LAST_STEP_VEHICLE_ID_LIST]
             current_step_vehicles += lane_vehicles
-
         self.current_step_vehicles = current_step_vehicles
-        recently_arrived_vehicles = list(set(self.current_step_vehicles) - set(self.previous_step_vehicles))
-        recently_left_vehicles = list(set(self.previous_step_vehicles) - set(self.current_step_vehicles))
 
         # update subscriptions
-        for vehicle_id in recently_arrived_vehicles:
+        for vehicle_id in recently_departed_vehicles:
             traci_connection.vehicle.subscribe(vehicle_id, [var for var in self.VEHICLE_VARIABLES_TO_SUBSCRIBE])
 
         # vehicle level observations
         self.current_step_vehicle_subscription = {
             vehicle_id: traci_connection.vehicle.getSubscriptionResults(vehicle_id)
-            for vehicle_id in self.current_step_vehicles
+            for vehicle_id in current_step_vehicles
         }
 
         self.current_step_lane_vehicle_subscription = {}
@@ -286,31 +324,60 @@ class SumoEnv:
                     {vehicle_id: self.current_step_vehicle_subscription[vehicle_id]}
 
         # update vehicle arrive and left time
-        self._update_arrive_time(recently_arrived_vehicles)
-        self._update_left_time(recently_left_vehicles)
+        self._update_pending_departure_time(self.current_simulation_subscription[tc.VAR_PENDING_VEHICLES])
+        self._update_departure_time(recently_departed_vehicles)
+        self._update_arrival_time(recently_arrived_vehicles)
 
-    def _update_arrive_time(self, list_vehicles_arrive):
+        self._update_pending_time_loss(self.current_simulation_subscription[tc.VAR_PENDING_VEHICLES])
+        self._update_time_loss(self.current_step_vehicles)
 
-        time = self.get_current_time()
-        # get dic vehicle enter leave time
-        for vehicle_id in list_vehicles_arrive:
-            if vehicle_id not in self.vehicle_arrive_leave_time_dict:
-                self.vehicle_arrive_leave_time_dict[vehicle_id] = \
-                    {"enter_time": time, "leave_time": np.nan}
-            else:
-                print("vehicle already exists!")
-                sys.exit(-1)
-
-    def _update_left_time(self, list_vehicles_left):
+    def _update_pending_departure_time(self, pending_vehicles):
 
         time = self.get_current_time()
-        # update the time for vehicle to leave
-        for vehicle_id in list_vehicles_left:
+        for vehicle_id in pending_vehicles:
+            if vehicle_id not in self.vehicle_pending_departure_time_dict:
+                self.vehicle_pending_departure_time_dict[vehicle_id] = \
+                    {"departure_time": time}
+                self.pending_time_loss_dict[vehicle_id] = 0
+
+    def _update_departure_time(self, recently_departed_vehicles):
+
+        time = self.get_current_time()
+        for vehicle_id in recently_departed_vehicles:
+            if vehicle_id not in self.vehicle_departure_arrival_time_dict:
+                self.vehicle_departure_arrival_time_dict[vehicle_id] = \
+                    {"departure_time": time, "arrival_time": np.nan}
+                self.time_loss_dict[vehicle_id] = 0
+
+    def _update_arrival_time(self, recently_arrived_vehicles):
+
+        time = self.get_current_time()
+        for vehicle_id in recently_arrived_vehicles:
             try:
-                self.vehicle_arrive_leave_time_dict[vehicle_id]["leave_time"] = time
+                self.vehicle_departure_arrival_time_dict[vehicle_id]["arrival_time"] = time
+                self.travel_time_dict[vehicle_id] = \
+                    self.vehicle_departure_arrival_time_dict[vehicle_id]["arrival_time"] - \
+                    self.vehicle_departure_arrival_time_dict[vehicle_id]["departure_time"]
+                if vehicle_id in self.vehicle_pending_departure_time_dict:
+                    self.pending_travel_time_dict[vehicle_id] = \
+                        self.vehicle_departure_arrival_time_dict[vehicle_id]["arrival_time"] - \
+                        self.vehicle_pending_departure_time_dict[vehicle_id]["departure_time"]
             except KeyError:
                 print("vehicle not recorded when entering")
                 sys.exit(-1)
+
+    def _update_pending_time_loss(self, pending_vehicles):
+
+        for vehicle_id in pending_vehicles:
+            time_loss = 1
+            self.pending_time_loss_dict[vehicle_id] += time_loss
+
+    def _update_time_loss(self, current_step_vehicles):
+
+        for vehicle_id in current_step_vehicles:
+            subscription_data = self.current_step_vehicle_subscription[vehicle_id]
+            time_loss = sumo_traci_util.get_time_loss(subscription_data, self.execution_name)
+            self.time_loss_dict[vehicle_id] += time_loss
 
     def get_current_time(self):
         traci_connection = traci.getConnection(self.execution_name)
@@ -340,14 +407,50 @@ class SumoEnv:
 
         if self.mode == 'test' or self.mode == 'replay':
 
-            time_loss = sumo_traci_util.get_time_loss(
+            trip_time_loss_dict = {}
+            for key in self.travel_time_dict.keys():
+                trip_time_loss_dict[key] = self.time_loss_dict[key]
+
+            time_losses = trip_time_loss_dict.values()
+            average_time_loss = sum(time_losses)/len(time_losses) if len(time_losses) != 0 else 0
+
+            # trip_time_loss_with_pending_dict = copy.deepcopy(trip_time_loss_dict)
+            # for key, value in self.pending_time_loss_dict.items():
+            #     if key in trip_time_loss_dict:
+            #         trip_time_loss_with_pending_dict[key] += value
+            #
+            # time_losses = trip_time_loss_with_pending_dict.values()
+            # average_time_loss_with_pending = sum(time_losses) / len(time_losses) if len(time_losses) != 0 else 0
+
+            travel_times = self.travel_time_dict.values()
+            average_travel_time = sum(travel_times)/len(travel_times) if len(travel_times) != 0 else 0
+
+            # travel_time_with_pending_dict = copy.deepcopy(self.travel_time_dict)
+            # for key, value in self.pending_travel_time_dict.items():
+            #     travel_time_with_pending_dict[key] = self.pending_travel_time_dict[key]
+            #
+            # travel_times = travel_time_with_pending_dict.values()
+            # average_travel_time_with_pending = sum(travel_times) / len(travel_times) if len(travel_times) != 0 else 0
+
+            throughput = self.total_arrived_vehicles
+
+            time_loss = sumo_traci_util.get_network_time_loss(
                 self.current_step_vehicle_subscription,
                 self.execution_name)
+            time_loss += self.total_pending_vehicles * 1
+
+            self.total_time_loss += time_loss
+            total_vehicles = self.total_departed_vehicles + self.total_pending_vehicles
+
+            consolidated_time_loss_per_driver = self.total_time_loss / total_vehicles if total_vehicles != 0 else 0
+            instant_time_loss_per_driver = time_loss / (self.total_running_vehicles + self.total_pending_vehicles) \
+                if (self.total_running_vehicles + self.total_pending_vehicles) != 0 else 0
             extra = {
-                "time_loss": time_loss + self.total_pending_vehicles * 1,
-                "total_departed_vehicles": self.total_departed_vehicles,
-                "total_pending_vehicles": self.total_pending_vehicles,
-                "total_running_vehicles": self.total_running_vehicles
+                "average_time_loss": average_time_loss,
+                "average_travel_time": average_travel_time,
+                "throughput": throughput,
+                "consolidated_time_loss_per_driver": consolidated_time_loss_per_driver,
+                "instant_time_loss_per_driver": instant_time_loss_per_driver
             }
 
             self.network_logs.append({
@@ -359,10 +462,10 @@ class SumoEnv:
             if self.mode == 'replay':
 
                 traffic_light = sumo_traci_util.get_traffic_light_state(
-                    intersection.id,
+                    intersection.traffic_light_id,
                     self.execution_name)
 
-                time_loss = sumo_traci_util.get_time_loss(
+                time_loss = sumo_traci_util.get_network_time_loss(
                     intersection.current_step_vehicle_subscription,
                     self.execution_name)
 
@@ -403,7 +506,7 @@ class SumoEnv:
 
                 self.action_logs[intersection_index].append({
                     "time": current_time,
-                    "action": action[intersection_index],
+                    "action": action[intersection_index]
                 })
 
     def save_log(self):
@@ -419,21 +522,21 @@ class SumoEnv:
             for intersection_index, intersection in enumerate(self.intersections):
 
                 path_to_log_file = os.path.join(self.path_to_log, "inter_{0}.pkl".format(intersection.id))
-                f = open(ROOT_DIR + '/' + path_to_log_file, "wb+")
+                f = open(ROOT_DIR + '/' + path_to_log_file, "wb")
                 pickle.dump(self.intersection_logs[intersection_index], f)
                 f.close()
 
                 if self.mode == 'replay':
                     path_to_detailed_log_file = os.path.join(
                         self.path_to_log, "inter_{0}_detailed.pkl".format(intersection.id))
-                    f = open(ROOT_DIR + '/' + path_to_detailed_log_file, "wb+")
+                    f = open(ROOT_DIR + '/' + path_to_detailed_log_file, "wb")
                     pickle.dump(self.intersection_logs[intersection_index], f)
                     f.close()
 
                 if self.mode == 'test':
                     path_to_actions_log_file = os.path.join(
                         self.path_to_log, "inter_{0}_actions.pkl".format(intersection.id))
-                    f = open(ROOT_DIR + '/' + path_to_actions_log_file, "wb+")
+                    f = open(ROOT_DIR + '/' + path_to_actions_log_file, "wb")
                     pickle.dump(self.action_logs[intersection_index], f)
                     f.close()
 
@@ -502,6 +605,9 @@ class SumoEnv:
             state_feature = self.get_feature(
                 list(set(self.dic_traffic_env_conf['STATE_FEATURE_LIST'] + ['current_phase', 'time_this_phase'])))
 
+            # action = [self.action_logs[intersection_index][int(instant_time)]['action']
+            #           for intersection_index, _ in enumerate(self.intersections)]
+
             # _step
             self._inner_step(action)
 
@@ -550,30 +656,10 @@ class SumoEnv:
             traci_connection = traci.getConnection(self.execution_name)
             traci_connection.simulationStep()
 
-        deadlock_waiting_too_long_threshold = self.dic_traffic_env_conf["DEADLOCK_WAITING_TOO_LONG_THRESHOLD"]
-
         # get new measurements
         self.update_current_measurements()
         for intersection in self.intersections:
             intersection.update_current_measurements()
-
-            # Sumo 1.7.0 only
-            '''
-            blocked_vehicles = sumo_traci_util.detect_deadlock(
-                intersection.id,
-                intersection.net_file_xml,
-                intersection.current_step_vehicle_subscription,
-                waiting_too_long_threshold=deadlock_waiting_too_long_threshold,
-                traci_label=self.execution_name
-            )
-
-            sumo_traci_util.resolve_deadlock(
-                blocked_vehicles,
-                intersection.net_file_xml,
-                intersection.current_step_vehicle_subscription,
-                traci_label=self.execution_name
-            )
-            '''
 
     def _check_episode_done(self, state_list):
 

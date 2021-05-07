@@ -44,10 +44,13 @@ def run(dir, round_number, run_cnt, execution_name, if_gui, rewrite_mode=False, 
     if external_configurations is None:
         external_configurations = {}
 
+    template = "template_ls"
+    data_dir = os.path.join("data", template)
     model_dir = "model/" + dir
     records_dir = "records/" + dir
     model_round = 'round' + '_' + str(round_number)
     dic_path = {}
+    dic_path["PATH_TO_DATA"] = data_dir
     dic_path["PATH_TO_MODEL"] = model_dir
     dic_path["PATH_TO_WORK_DIRECTORY"] = records_dir
 

@@ -9,7 +9,6 @@ services:
     volumes:
       - '../.regions:/.regions'
       - './scenario:/app/scenario'
-      - './output:/app/output'
       - './traffic-light-optimization/algorithm/frap/internal/frap_pub/data:/app/traffic-light-optimization/algorithm/frap/internal/frap_pub/data'
       - './traffic-light-optimization/algorithm/frap/internal/frap_pub/model:/app/traffic-light-optimization/algorithm/frap/internal/frap_pub/model'
       - './traffic-light-optimization/algorithm/frap/internal/frap_pub/records:/app/traffic-light-optimization/algorithm/frap/internal/frap_pub/records'

@@ -37,9 +37,6 @@ def run(external_configurations=None):
     records_dir = dic_path["PATH_TO_WORK_DIRECTORY"]
     summary.single_experiment_network_summary(memo, records_dir, plots='summary_only')
     print("****************************** summary_detail ends ******************************")
-    experiment_name = dic_path["EXECUTION_BASE"]
-
-    return experiment_name
 
 
 def continue_(experiment, external_configurations=None):
@@ -56,7 +53,6 @@ def continue_(experiment, external_configurations=None):
     summary.single_experiment_network_summary(memo, records_dir, plots='summary_only')
     print("****************************** summary_detail ends ******************************")
 
-    return experiment
 
 def re_run(experiment, round_, external_configurations=None):
 
@@ -68,8 +64,6 @@ def re_run(experiment, round_, external_configurations=None):
 
     _, dic_path = runexp.continue_(experiment, round_, args, memo, external_configurations)
     print("****************************** runexp ends (generate, train, test)!! ******************************")
-
-    return experiment
 
 if __name__ == "__main__":
     run()

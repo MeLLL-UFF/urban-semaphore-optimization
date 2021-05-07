@@ -57,6 +57,8 @@ class Intersection:
         self.unique_movements = dic_traffic_env_conf['UNIQUE_MOVEMENT']
         self.unique_phases = dic_traffic_env_conf['UNIQUE_PHASE']
 
+        self.phases_indices = [self.unique_phases.index(phase) for phase in self.phases]
+
         self.is_right_on_red = dic_traffic_env_conf['IS_RIGHT_ON_RED']
 
         self.min_action_time = dic_traffic_env_conf['MIN_ACTION_TIME']
@@ -330,14 +332,10 @@ class Intersection:
         # ====== vehicle level observations =======
 
         self.current_step_vehicle_subscription = {}
-        current_step_vehicles = self._update_vehicle_subscription()
+        self.current_step_vehicles = self._update_vehicle_subscription()
 
         self.current_step_lane_area_detector_vehicle_ids = {}
         self._update_detector_vehicles()
-
-        self.current_step_vehicles = current_step_vehicles
-        recently_arrived_vehicles = list(set(self.current_step_vehicles) - set(self.previous_step_vehicles))
-        recently_left_vehicles = list(set(self.previous_step_vehicles) - set(self.current_step_vehicles))
 
         # update vehicle minimum speed in history
         self._update_vehicle_min_speed()
@@ -715,7 +713,7 @@ class Intersection:
             vehicle_id: self.current_step_vehicle_subscription[vehicle_id] for vehicle_id in vehicle_ids
         }
 
-        time_loss = sumo_traci_util.get_time_loss(vehicle_subscription_data, self.execution_name)
+        time_loss = sumo_traci_util.get_network_time_loss(vehicle_subscription_data, self.execution_name)
 
         return time_loss
 
@@ -1067,9 +1065,6 @@ class Intersection:
         return additional_info
 
     def select_action_based_on_time_restriction(self, threshold=120):
-        # order movements by the waiting time of the first vehicle
-        # select all phases, covering all movements in order
-        # check time necessary to avoid transgressing waiting time threshold
 
         if threshold == -1:
             return -1
@@ -1081,23 +1076,22 @@ class Intersection:
         movement_waiting_time_dict = {k: v for k, v in sorted(
             movement_waiting_time_dict.items(), key=lambda x: x[1], reverse=True)}
 
-        phase_movements_list = [phase.split('_') for phase in self.phases]
-        waiting_time_sum_per_phase = [sum(movement_waiting_time_dict[movement] for movement in phase_movements)
-                                      for phase_movements in phase_movements_list]
+        movement, waiting_time = list(movement_waiting_time_dict.items())[0]
 
-        selected_phases = [self.phases[item[0]] for item in
-                           sorted(enumerate(waiting_time_sum_per_phase), key=lambda x: x[1])]
+        if waiting_time + self.min_action_time >= threshold:
+            phase_movements_list = [phase.split('_') for phase in self.phases]
 
-        for index, phase in enumerate(selected_phases):
-            
-            movements = phase.split('_')
-            
-            waiting_times = []
-            for movement in movements:
-                waiting_times.append(movement_waiting_time_dict[movement])
+            selected_phases = [(index, phase)
+                               for index, phase in zip(self.phases_indices, phase_movements_list) if movement in phase]
 
-            if max(waiting_times) + (index + 1) * self.min_action_time >= threshold:
-                return self.unique_phases.index(selected_phases[0])
+            waiting_time_sum_per_phase = sorted(
+                [(index, sum(movement_waiting_time_dict[movement] for movement in phase_movements))
+                 for index, phase_movements in selected_phases],
+                key=lambda x: x[1], reverse=True)
+
+            phase_index, _ = waiting_time_sum_per_phase[0]
+
+            return phase_index
 
         return -1
 

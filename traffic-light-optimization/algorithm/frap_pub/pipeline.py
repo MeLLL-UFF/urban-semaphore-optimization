@@ -49,13 +49,6 @@ class Pipeline:
                 self._copy_sumo_file(_list_sumo_files=_list_sumo_files)
                 self._modify_sumo_file(sumocfg_file=sumocfg_file)
 
-                # Sumo 1.7.0 only
-                '''
-                route_file_name = dic_traffic_env_conf['TRAFFIC_FILE']
-                route_filepath = os.path.join(ROOT_DIR, self.dic_path["PATH_TO_WORK_DIRECTORY"], route_file_name)
-                sumo_util.convert_flows_to_trips(route_filepath)
-                '''
-
             elif self.dic_traffic_env_conf["SIMULATOR_TYPE"] == 'anon':
                 self._copy_anon_file()
             # test_duration
@@ -166,10 +159,13 @@ class Pipeline:
             test_dir = os.path.join(ROOT_DIR, self.dic_path["PATH_TO_WORK_DIRECTORY"], "test_round")
 
             if round_ == 'FROM_THE_LAST':
-                round_folders = next(os.walk(test_dir))[1]
-                round_folders.sort(key=lambda x: int(x.split('_')[1]))
-                last_round = round_folders[-1]
-                round_start = int(last_round.split('_')[1])
+                try:
+                    round_folders = next(os.walk(test_dir))[1]
+                    round_folders.sort(key=lambda x: int(x.split('_')[1]))
+                    last_round = round_folders[-1]
+                    round_start = int(last_round.split('_')[1])
+                except StopIteration:
+                    round_start = 0
             else:
                 round_start = round_
                 round_end = round_ + 1
