@@ -968,7 +968,7 @@ class Intersection:
                         )
 
                         next_internal_lane_chains = sumo_util.get_next_lanes(self.net_file_xml, lane, internal=True)
-                        next_external_lanes = sumo_util.get_next_lanes(self.net_file_xml, lane)
+                        next_external_lanes = sumo_util.get_next_lanes(self.net_file_xml, next_external_lane)
 
                         next_lanes = list(zip(next_internal_lane_chains, next_external_lanes))
 
