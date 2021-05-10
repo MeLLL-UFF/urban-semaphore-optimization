@@ -203,7 +203,7 @@ def _configure_scenario_routes(scenario, traffic_level_configuration):
     return route_file
 
 
-def create_experiment_generator(_type='regular', algorithm=None):
+def create_experiment_generator(_type='regular'):
     # _type : regular, right_on_red, unregulated
 
     test_i_scenarios = sorted(next(os.walk(test_i_folder))[1])
@@ -235,13 +235,13 @@ def create_experiment_generator(_type='regular', algorithm=None):
 
             experiment_name = scenario + '__' + _type + '__' + '_'.join(traffic_level_configuration)
 
-            yield scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, \
+            yield scenario, traffic_level_configuration, experiment_name, _type, net_file, scenario_folder, \
                   sumocfg_file
 
 
 def run_experiment(arguments):
 
-    scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, sumocfg_file \
+    scenario, traffic_level_configuration, experiment_name, _type, net_file, scenario_folder, sumocfg_file \
         = arguments
 
     #route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
@@ -250,7 +250,7 @@ def run_experiment(arguments):
     route_files = [route_file]
     additional_files = []
     environment_additional_files = []
-    traffic_light_file = net_file
+    traffic_light_file = net_file.split('/')[-1]
 
     if scenario == 'acosta' or scenario == 'pasubio' or scenario == 'joined':
         route_files = [
@@ -267,7 +267,7 @@ def run_experiment(arguments):
             scenario_folder + '/' + scenario + "__multi_intersection_traffic_light.json"
         ]
 
-        traffic_light_file = scenario_folder + '/' + scenario + "_tls.add.xml"
+        traffic_light_file = scenario + "_tls.add.xml"
 
     Experiment.run(scenario, net_file, route_files, sumocfg_file, traffic_level_configuration,
                    additional_files, environment_additional_files, traffic_light_file)
@@ -279,7 +279,7 @@ def run_experiment(arguments):
 
 def replay_experiment(arguments):
 
-    scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, sumocfg_file, \
+    scenario, traffic_level_configuration, experiment_name, _type, net_file, scenario_folder, sumocfg_file, \
         experiment, _round = arguments
 
     #route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
@@ -288,7 +288,7 @@ def replay_experiment(arguments):
     route_files = [route_file]
     additional_files = []
     environment_additional_files = []
-    traffic_light_file = net_file
+    traffic_light_file = net_file.split('/')[-1]
 
     if scenario == 'acosta' or scenario == 'pasubio' or scenario == 'joined':
 
@@ -306,7 +306,7 @@ def replay_experiment(arguments):
             scenario_folder + '/' + scenario + "__multi_intersection_traffic_light.json"
         ]
 
-        traffic_light_file = scenario_folder + '/' + scenario + "_tls.add.xml"
+        traffic_light_file = scenario + "_tls.add.xml"
 
     Experiment.visualize_policy_behavior(scenario, experiment, net_file, route_files, sumocfg_file,
                                          traffic_level_configuration, additional_files,
@@ -320,51 +320,16 @@ def replay_experiment(arguments):
 
 def continue_experiment(arguments):
 
-    scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, sumocfg_file, \
-        experiment = arguments
+    experiment = arguments
 
-    #route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
-    route_file = scenario_folder + '/' + 'temp' + '/' + 'routes' + '/' + scenario + '_' + '_'.join(traffic_level_configuration) + '.rou.xml'
-
-    route_files = [route_file]
-    additional_files = []
-    environment_additional_files = []
-    traffic_light_file = net_file
-
-    if scenario == 'acosta' or scenario == 'pasubio' or scenario == 'joined':
-
-        route_files = [
-            scenario_folder + '/' + scenario + ".rou.xml",
-            scenario_folder + '/' + scenario + "_busses.rou.xml"
-        ]
-        additional_files = [
-            scenario_folder + '/' + scenario + "_bus_stops.add.xml",
-            scenario_folder + '/' + scenario + "_detectors.add.xml",
-            scenario_folder + '/' + scenario + "_vtypes.add.xml",
-            scenario_folder + '/' + scenario + "_tls.add.xml",
-        ]
-        environment_additional_files = [
-            scenario_folder + '/' + scenario + "__multi_intersection_traffic_light.json"
-        ]
-
-        traffic_light_file = scenario_folder + '/' + scenario + "_tls.add.xml"
-
-    if algorithm == 'FRAP':
-        Experiment.continue_(scenario, experiment, net_file, route_files, sumocfg_file,
-                             traffic_level_configuration, additional_files, environment_additional_files,
-                             traffic_light_file)
-
-    else:
-        raise ValueError('please specify algorithm that can be continued')
+    Experiment.continue_(experiment)
 
     sys.stdout.flush()
-
-    #os.remove(route_file)
 
 
 def re_run(arguments):
 
-    scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder, sumocfg_file, \
+    scenario, traffic_level_configuration, experiment_name, _type, net_file, scenario_folder, sumocfg_file, \
         experiment = arguments
 
     #route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
@@ -373,57 +338,51 @@ def re_run(arguments):
     route_files = [route_file]
     additional_files = []
 
-    if algorithm == 'FRAP':
-        Experiment.retrain(
-            scenario=scenario,
-            experiment='0_regular-intersection__right_on_red__custom_4_street_traffic___10_10_07_54_05_10__74168e65-8cce-41de-927d-1a64cbe6b929', 
-            _round=3, 
-            net_file=net_file, 
-            route_files=route_files,
-            sumocfg_file=sumocfg_file, 
-            traffic_level_configuration=traffic_level_configuration)
-    else:
-        raise ValueError('please specify algorithm that can be retrained')
+    Experiment.retrain(
+        scenario=scenario,
+        experiment='0_regular-intersection__right_on_red__custom_4_street_traffic___10_10_07_54_05_10__74168e65-8cce-41de-927d-1a64cbe6b929',
+        _round=3,
+        net_file=net_file,
+        route_files=route_files,
+        sumocfg_file=sumocfg_file,
+        traffic_level_configuration=traffic_level_configuration)
 
     sys.stdout.flush()
 
     #os.remove(route_file)
 
 
-def _run(_type='regular', algorithm=None, experiment=None, _round=None, replay=False):
+def _run(_type='regular', experiment=None, _round=None, replay=False):
     
-    #experiment_generator = create_experiment_generator(_type=_type, algorithm=algorithm)
+    #experiment_generator = create_experiment_generator(_type=_type)
 
-    # scenario = 'acosta'
-    # test_i_folder = definitions.ROOT_DIR + config.SCENARIO_PATH + '/experimental/Bologna_small-0.29.0'
-    # traffic_level_configuration = tuple(['native'])
-    # experiment_name = 'Bologna_small' + '__' + scenario
-    # scenario_folder = test_i_folder + '/' + scenario
-    # #net_file = scenario_folder + '/' + scenario + '_' + 'buslanes' +'.net.xml'
-    # net_file = scenario_folder + '/' + scenario + '_' + 'buslanes' + '__' + 'unregulated' + '.net.xml'
-    # sumocfg_file = scenario_folder + '/' + 'run' + '.sumo.cfg'
+    scenario = 'acosta'
+    test_i_folder = definitions.ROOT_DIR + config.SCENARIO_PATH + '/experimental/Bologna_small-0.29.0'
+    traffic_level_configuration = tuple(['native'])
+    experiment_name = 'Bologna_small' + '__' + scenario
+    scenario_folder = test_i_folder + '/' + scenario
+    net_file = scenario_folder + '/' + scenario + '_' + 'buslanes' +'.net.xml'
+    #net_file = scenario_folder + '/' + scenario + '_' + 'buslanes' + '__' + 'unregulated' + '.net.xml'
+    sumocfg_file = scenario_folder + '/' + 'run' + '.sumo.cfg'
 
     # scenario = 'multi_intersection'
     # test_i_folder = definitions.ROOT_DIR + config.SCENARIO_PATH + '/experimental'
     # traffic_level_configuration = tuple(['custom_4_street_traffic'])
 
-    scenario = '0_regular-intersection'
-    traffic_level_configuration = tuple(['custom_4_street_traffic'])
-    experiment_name = scenario + '__' + _type + '__' + '_'.join(traffic_level_configuration)
-    scenario_folder = test_i_folder + '/' + scenario
-    net_file = scenario_folder + '/' + scenario + '__' + _type + '.net.xml'
-    sumocfg_file = scenario_folder + '/' + scenario + '__' + _type + '.sumocfg'
+    # scenario = '0_regular-intersection'
+    # traffic_level_configuration = tuple(['custom_4_street_traffic'])
+    # experiment_name = scenario + '__' + _type + '__' + '_'.join(traffic_level_configuration)
+    # scenario_folder = test_i_folder + '/' + scenario
+    # net_file = scenario_folder + '/' + scenario + '__' + _type + '.net.xml'
+    # sumocfg_file = scenario_folder + '/' + scenario + '__' + _type + '.sumocfg'
 
-    experiment_generator = [(scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file,
+    experiment_generator = [(scenario, traffic_level_configuration, experiment_name, _type, net_file,
                              scenario_folder, sumocfg_file)]
 
 
     global NUMBER_OF_PROCESSES
 
-    if algorithm == 'FRAP':
-        NUMBER_OF_PROCESSES = 4
-    else:
-        NUMBER_OF_PROCESSES = 32
+    NUMBER_OF_PROCESSES = 4
 
     if experiment is None:
 
@@ -434,16 +393,14 @@ def _run(_type='regular', algorithm=None, experiment=None, _round=None, replay=F
 
         if replay:
             experiment_arguments = [
-                (scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder,
+                (scenario, traffic_level_configuration, experiment_name, _type, net_file, scenario_folder,
                  sumocfg_file, experiment, _round)]
 
             with NoDaemonPool(processes=NUMBER_OF_PROCESSES) as pool:
                 pool.map(replay_experiment, experiment_arguments)
 
         else:
-            experiment_arguments = [
-                (scenario, traffic_level_configuration, experiment_name, _type, algorithm, net_file, scenario_folder,
-                    sumocfg_file, experiment)]
+            experiment_arguments = [(experiment)]
 
             with NoDaemonPool(processes=NUMBER_OF_PROCESSES) as pool:
                 pool.map(continue_experiment, experiment_arguments)
@@ -453,15 +410,12 @@ def run():
     #'OFF', STATIC, and FRAP
     #_run(_type='unregulated')
     #_run(_type='right_on_red')
-    _run(_type='right_on_red', algorithm='FRAP')
+    _run(_type='right_on_red')
 
 
 if __name__ == "__main__":
     #_build_experiment_i_routes()
     run()
-
-    #_run(_type='right_on_red', algorithm='FRAP')
-    #_run(_type='unregulated', algorithm='FRAP')
 
     # Experiment.summary(
     #     ['Frap', '0', 'tab:blue', 'acosta_buslanes__native___04_10_02_53_49__82acedfc-9ba3-4e50-acf3-1792b4251d14'],

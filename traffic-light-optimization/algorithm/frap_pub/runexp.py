@@ -330,10 +330,7 @@ def main(args=None, memo=None, external_configurations=None):
     return memo, deploy_dic_path
 
 
-def continue_(existing_experiment, round_='FROM_THE_LAST', args=None, memo=None, external_configurations=None):
-
-    if external_configurations is None:
-        external_configurations = {}
+def continue_(existing_experiment, round_='FROM_THE_LAST', args=None, memo=None):
 
     process_list = []
     n_workers = args.workers #len(traffic_file_list)
@@ -357,6 +354,8 @@ def continue_(existing_experiment, round_='FROM_THE_LAST', args=None, memo=None,
         dic_exp_conf = json.load(f)
     with open(os.path.join(ROOT_DIR, records_dir, "traffic_env.conf"), "r") as f:
         dic_traffic_env_conf = json.load(f)
+    with open(os.path.join(ROOT_DIR, records_dir, "external_configurations.conf"), "r") as f:
+        external_configurations = json.load(f)
 
     dic_traffic_env_conf['PHASE_EXPANSION'] = \
         {int(key): value for key, value in dic_traffic_env_conf['PHASE_EXPANSION'].items()}

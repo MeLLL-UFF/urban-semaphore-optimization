@@ -493,7 +493,11 @@ class Pipeline:
         json.dump(self.dic_agent_conf, open(os.path.join(ROOT_DIR, path, "agent.conf"), "w"),
                   indent=4)
         json.dump(self.dic_traffic_env_conf,
-                  open(os.path.join(ROOT_DIR, path, "traffic_env.conf"), "w"), indent=4)
+                  open(os.path.join(ROOT_DIR, path, "traffic_env.conf"), "w"),
+                  indent=4)
+        json.dump(self.external_configurations,
+                  open(os.path.join(ROOT_DIR, path, "external_configurations.conf"), "w"),
+                  indent=4)
 
     def _copy_sumo_file(self, path=None, _list_sumo_files=[]):
         if path == None:

@@ -32,14 +32,9 @@ class Experiment:
         run_batch.run(external_configurations)
 
     @staticmethod
-    def continue_(scenario, experiment, net_file, route_files, sumocfg_file, traffic_level_configuration,
-                  additional_files, environment_additional_files, traffic_light_file):
+    def continue_(experiment):
 
-        external_configurations = Experiment._create_external_configurations_dict(
-            scenario, net_file, route_files, sumocfg_file, traffic_level_configuration,
-            additional_files, environment_additional_files, traffic_light_file)
-
-        run_batch.continue_(experiment, external_configurations)
+        run_batch.continue_(experiment)
 
     @staticmethod
     def visualize_policy_behavior(scenario, experiment, net_file, route_files, sumocfg_file,

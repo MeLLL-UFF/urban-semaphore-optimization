@@ -39,15 +39,12 @@ def run(external_configurations=None):
     print("****************************** summary_detail ends ******************************")
 
 
-def continue_(experiment, external_configurations=None):
-
-    if external_configurations is None:
-        external_configurations = {}
+def continue_(experiment):
 
     args = parse_args()
     memo = args.memo
 
-    _, dic_path = runexp.continue_(experiment, 'FROM_THE_LAST', args, memo, external_configurations)
+    _, dic_path = runexp.continue_(experiment, 'FROM_THE_LAST', args, memo)
     print("****************************** runexp ends (generate, train, test)!! ******************************")
     records_dir = dic_path["PATH_TO_WORK_DIRECTORY"]
     summary.single_experiment_network_summary(memo, records_dir, plots='summary_only')
