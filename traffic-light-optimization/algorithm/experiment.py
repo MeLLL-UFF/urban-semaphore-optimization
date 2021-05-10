@@ -175,7 +175,8 @@ class Experiment:
         external_configurations['TRAFFIC_LIGHT_FILE'] = traffic_light_file
         external_configurations['_LIST_SUMO_FILES'] = [
             external_configurations['SUMOCFG_FILE'],
-            external_configurations['NET_FILE']
+            external_configurations['NET_FILE'],
+            external_configurations['TRAFFIC_LIGHT_FILE']
         ]
 
         external_configurations['TRAFFIC_LEVEL_CONFIGURATION'] = traffic_level_configuration
@@ -186,10 +187,10 @@ class Experiment:
             '-n': net_file,
             '-r': ', '.join(route_files),
             '--time-to-teleport': -1,
-            '--collision.stoptime': 10,
+            #'--collision.stoptime': 10,
             '--collision.mingap-factor': 0,
             '--collision.action': 'warn',
-            '--collision.check-junctions': True,
+            #'--collision.check-junctions': True,
             '--device.rerouting.threads': 4,
             '--save-state.rng': True,
             '--ignore-junction-blocker': 10
