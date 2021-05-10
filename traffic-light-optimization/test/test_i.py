@@ -330,7 +330,7 @@ def continue_experiment(arguments):
 def re_run(arguments):
 
     scenario, traffic_level_configuration, experiment_name, _type, net_file, scenario_folder, sumocfg_file, \
-        experiment = arguments
+        experiment, _round = arguments
 
     #route_file = _configure_scenario_routes(scenario, traffic_level_configuration)
     route_file = scenario_folder + '/' + 'temp' + '/' + 'routes' + '/' + scenario + '_' + '_'.join(traffic_level_configuration) + '.rou.xml'
@@ -340,8 +340,8 @@ def re_run(arguments):
 
     Experiment.retrain(
         scenario=scenario,
-        experiment='0_regular-intersection__right_on_red__custom_4_street_traffic___10_10_07_54_05_10__74168e65-8cce-41de-927d-1a64cbe6b929',
-        _round=3,
+        experiment=experiment,
+        _round=_round,
         net_file=net_file,
         route_files=route_files,
         sumocfg_file=sumocfg_file,
