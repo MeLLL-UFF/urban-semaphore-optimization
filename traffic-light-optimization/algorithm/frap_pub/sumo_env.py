@@ -177,12 +177,18 @@ class SumoEnv:
         synchronization_util.traci_start_lock.acquire()
         trace_file_path = ROOT_DIR + '/' + self.path_to_log + '/' + 'trace_file_log.txt'
         try:
-            traci.start(sumo_cmd_str, label=self.execution_name, traceFile=trace_file_path, traceGetters=False)
+            traci.start(sumo_cmd_str, label=self.execution_name, doSwitch=False,
+                        traceFile=trace_file_path, traceGetters=False)
         except Exception as e:
-            traci.close()
 
             try:
-                traci.start(sumo_cmd_str, label=self.execution_name, traceFile=trace_file_path, traceGetters=False)
+                traci.close()
+            except Exception as e:
+                print(str(e))
+
+            try:
+                traci.start(sumo_cmd_str, label=self.execution_name, doSwitch=False,
+                            traceFile=trace_file_path, traceGetters=False)
             except Exception as e:
                 print('TRACI TERMINATED')
                 traci.close()
@@ -227,13 +233,18 @@ class SumoEnv:
         synchronization_util.traci_start_lock.acquire()
         trace_file_path = ROOT_DIR + '/' + self.path_to_log + '/' + 'trace_file_log.txt'
         try:
-            traci.start(sumo_cmd_str, label=self.execution_name, traceFile=trace_file_path, traceGetters=False)
+            traci.start(sumo_cmd_str, label=self.execution_name, doSwitch=False,
+                        traceFile=trace_file_path, traceGetters=False)
         except Exception as e:
-            traci.close()
 
             try:
-                traci.start(sumo_cmd_str, label=self.execution_name, traceFile=trace_file_path,
-                            traceGetters=False)
+                traci.close()
+            except Exception as e:
+                print(str(e))
+
+            try:
+                traci.start(sumo_cmd_str, label=self.execution_name, doSwitch=False,
+                            traceFile=trace_file_path, traceGetters=False)
             except Exception as e:
                 print('TRACI TERMINATED')
                 traci.close()
@@ -291,7 +302,7 @@ class SumoEnv:
 
         self.total_departed_vehicles += len(recently_departed_vehicles)
         self.total_pending_vehicles = len(self.current_simulation_subscription[tc.VAR_PENDING_VEHICLES])
-        self.total_running_vehicles = traci.getConnection(self.execution_name).vehicle.getIDCount()
+        self.total_running_vehicles = traci_connection.vehicle.getIDCount()
         self.total_arrived_vehicles += len(recently_arrived_vehicles)
 
         # ====== vehicle level observations =======
