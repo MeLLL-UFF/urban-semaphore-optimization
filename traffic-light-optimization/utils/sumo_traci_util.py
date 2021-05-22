@@ -204,3 +204,91 @@ def get_blocking_vehicles(vehicle_id, polyline_path, possible_blocking_vehicles,
             blocking_vehicles.append(possible_blocking_vehicle)
 
     return blocking_vehicles
+
+
+import socket
+import time
+import subprocess
+import warnings
+
+import sumolib  # noqa
+from traci.connection import Connection
+from traci.exceptions import FatalTraCIError, TraCIException
+
+# Overridden
+def start(cmd, port=None, numRetries=tc.DEFAULT_NUM_RETRIES, waitBetweenRetries=1, label="default", verbose=False,
+          traceFile=None, traceGetters=True, stdout=None, doSwitch=True):
+    """
+    Start a sumo server using cmd, establish a connection to it and
+    store it under the given label. This method is not thread-safe.
+
+    - cmd (list): uses the Popen syntax. i.e. ['sumo', '-c', 'run.sumocfg']. The remote
+      port option will be added automatically
+    - numRetries (int): retries on failing to connect to sumo (more retries are needed
+      if a big .net.xml file must be loaded)
+    - label (string) : distinguish multiple traci connections used in the same script
+    - verbose (bool): print complete cmd
+    - traceFile (string): write all traci commands to FILE for debugging
+    - traceGetters (bool): whether to include get-commands in traceFile
+    - stdout (iostream): where to pipe sumo process stdout
+    """
+    if label in traci.main._connections:
+        raise TraCIException("Connection '%s' is already active." % label)
+
+    if traceFile is not None:
+        traci.main._startTracing(traceFile, cmd, port, label, traceGetters)
+
+    while numRetries >= 0 and label not in traci.main._connections:
+        sumoPort = sumolib.miscutils.getFreeSocketPort() if port is None else port
+        cmd2 = cmd + ["--remote-port", str(sumoPort)]
+        if verbose:
+            print("Calling " + ' '.join(cmd2))
+        sumoProcess = subprocess.Popen(cmd2, stdout=stdout)
+        try:
+            return init(sumoPort, numRetries, "localhost", label, sumoProcess, waitBetweenRetries, doSwitch)
+        except TraCIException as e:
+            if port is not None:
+                break
+            warnings.warn(("Could not connect to TraCI server using port %s (%s)." +
+                           " Retrying with different port.") % (sumoPort, e))
+            numRetries -= 1
+    raise FatalTraCIError("Could not connect.")
+
+
+# Overridden
+def init(port=8813, numRetries=tc.DEFAULT_NUM_RETRIES, host="localhost", label="default", proc=None,
+         waitBetweenRetries=1, doSwitch=True):
+    """
+    Establish a connection to a TraCI-Server and store it under the given
+    label. This method is not thread-safe. It accesses the connection
+    pool concurrently.
+    """
+    traci.main._connections[label] = connect(port, numRetries, host, proc, waitBetweenRetries)
+    if doSwitch:
+        traci.switch(label)
+    return traci.main._connections[label].getVersion()
+
+
+# Overridden
+def connect(port=8813, numRetries=100, host="localhost", proc=None, waitBetweenRetries=1):
+    """
+    Establish a connection to a TraCI-Server and return the
+    connection object. The connection is not saved in the pool and not
+    accessible via traci.switch. It should be safe to use different
+    connections established by this method in different threads.
+    """
+    for retry in range(1, numRetries + 2):
+        try:
+            conn = Connection(host, port, proc)
+            if traci.main._connectHook is not None:
+                traci.main._connectHook(conn)
+            return conn
+        except socket.error as e:
+            if proc is not None and proc.poll() is not None:
+                raise TraCIException("TraCI server already finished")
+            if retry > 100:
+                print("Could not connect to TraCI server at %s:%s" % (host, port), e)
+            if retry < numRetries + 1:
+                print(" Retrying in %s seconds" % waitBetweenRetries)
+                time.sleep(waitBetweenRetries)
+    raise FatalTraCIError("Could not connect in %s tries" % (numRetries + 1))

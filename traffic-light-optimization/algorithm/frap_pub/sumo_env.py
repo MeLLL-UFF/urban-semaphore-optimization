@@ -174,7 +174,6 @@ class SumoEnv:
         sumo_cmd_str = self._get_sumo_cmd()
 
         print("start sumo")
-        synchronization_util.traci_start_lock.acquire()
         trace_file_path = ROOT_DIR + '/' + self.path_to_log + '/' + 'trace_file_log.txt'
         try:
             traci.start(sumo_cmd_str, label=self.execution_name, doSwitch=False,
@@ -197,7 +196,6 @@ class SumoEnv:
 
         traci_connection = traci.getConnection(self.execution_name)
         print("succeed in start sumo")
-        synchronization_util.traci_start_lock.release()
 
         print('SUMO VERSION', traci_connection.getVersion()[1])
 
@@ -223,6 +221,9 @@ class SumoEnv:
 
         self.execution_name = execution_name + '__' + str(uuid.uuid4())
 
+        for intersection in self.intersections:
+            intersection.execution_name = self.execution_name
+
         self.intersection_logs = [[] for _ in range(len(self.intersections))]
         self.action_logs = [[] for _ in range(len(self.intersections))]
         self.network_logs = []
@@ -230,11 +231,10 @@ class SumoEnv:
         sumo_cmd_str = self._get_sumo_cmd()
 
         print("start sumo")
-        synchronization_util.traci_start_lock.acquire()
         trace_file_path = ROOT_DIR + '/' + self.path_to_log + '/' + 'trace_file_log.txt'
         try:
-            traci.start(sumo_cmd_str, label=self.execution_name, doSwitch=False,
-                        traceFile=trace_file_path, traceGetters=False)
+            sumo_traci_util.start(sumo_cmd_str, label=self.execution_name, numRetries=100, waitBetweenRetries=0.001,
+                                  doSwitch=False, traceFile=trace_file_path, traceGetters=False)
         except Exception as e:
 
             try:
@@ -243,8 +243,8 @@ class SumoEnv:
                 print(str(e))
 
             try:
-                traci.start(sumo_cmd_str, label=self.execution_name, doSwitch=False,
-                            traceFile=trace_file_path, traceGetters=False)
+                sumo_traci_util.start(sumo_cmd_str, label=self.execution_name, numRetries=100, waitBetweenRetries=0.001,
+                                      doSwitch=False, traceFile=trace_file_path, traceGetters=False)
             except Exception as e:
                 print('TRACI TERMINATED')
                 traci.close()
@@ -253,7 +253,6 @@ class SumoEnv:
 
         traci_connection = traci.getConnection(self.execution_name)
         print("succeed in start sumo")
-        synchronization_util.traci_start_lock.release()
 
         print('SUMO VERSION', traci_connection.getVersion()[1])
 

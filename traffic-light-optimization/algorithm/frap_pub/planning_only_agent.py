@@ -193,7 +193,7 @@ class PlanningOnlyAgent(Agent):
 
             write_mode = False
             if self.mode == 'train':
-                env.path_to_log += '__' + execution_name
+                env.path_to_log = self.env.path_to_log + '__' + execution_name
                 if not os.path.exists(ROOT_DIR + '/' + env.path_to_log):
                     os.makedirs(ROOT_DIR + '/' + env.path_to_log)
                 write_mode = True
