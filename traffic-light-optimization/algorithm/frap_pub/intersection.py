@@ -207,60 +207,60 @@ class Intersection:
         self.state_feature_list = dic_traffic_env_conf["STATE_FEATURE_LIST"]
 
         self.feature_dict_function = {
-            'current_phase': lambda: [self.current_phase_index],
-            'time_this_phase': lambda: [self.current_phase_duration],
-            'vehicle_position_img': lambda: None,
-            'vehicle_speed_img': lambda: None,
-            'vehicle_acceleration_img': lambda: None,
-            'vehicle_waiting_time_img': lambda: None,
-            'movement_number_of_vehicles': lambda:
+            'current_phase': lambda self: [self.current_phase_index],
+            'time_this_phase': lambda self: [self.current_phase_duration],
+            'vehicle_position_img': lambda self: None,
+            'vehicle_speed_img': lambda self: None,
+            'vehicle_acceleration_img': lambda self: None,
+            'vehicle_waiting_time_img': lambda self: None,
+            'movement_number_of_vehicles': lambda self:
                 self.pad_movements(self.get_number_of_vehicles, self.movement_to_entering_lane),
-            'movement_number_of_vehicles_been_stopped_threshold_01': lambda:
+            'movement_number_of_vehicles_been_stopped_threshold_01': lambda self:
                 self.pad_movements(
                     self.get_number_of_vehicles_been_stopped, self.movement_to_entering_lane, threshold=0.1),
-            'movement_number_of_vehicles_been_stopped_threshold_1': lambda:
+            'movement_number_of_vehicles_been_stopped_threshold_1': lambda self:
                 self.pad_movements(
                     self.get_number_of_vehicles_been_stopped, self.movement_to_entering_lane, threshold=1),
-            'movement_queue_length': lambda:
+            'movement_queue_length': lambda self:
                 self.pad_movements(self.get_queue_length, self.movement_to_entering_lane),
-            'movement_number_of_vehicles_left': lambda: None,
-            'movement_sum_duration_vehicles_left': lambda: None,
-            'movement_sum_waiting_time': lambda:
+            'movement_number_of_vehicles_left': lambda self: None,
+            'movement_sum_duration_vehicles_left': lambda self: None,
+            'movement_sum_waiting_time': lambda self:
                 self.pad_movements(self.get_waiting_time, self.movement_to_entering_lane),
-            'terminal': lambda: None,
-            'movement_pressure_presslight': lambda:
+            'terminal': lambda self: None,
+            'movement_pressure_presslight': lambda self:
                 np.array(self.pad_movements(self.get_density, self.movement_to_entering_lane)) -
                 np.array(self.pad_movements(self.get_density, self.movement_to_exiting_lane)),
-            'movement_pressure_mplight': lambda:
+            'movement_pressure_mplight': lambda self:
                 np.array(self.pad_movements(self.get_number_of_vehicles, self.movement_to_entering_lane)) -
                 np.array(self.pad_movements(self.get_number_of_vehicles, self.movement_to_exiting_lane)),
-            'movement_pressure_time_loss': lambda:
+            'movement_pressure_time_loss': lambda self:
                 np.array(self.pad_movements(self.get_time_loss, self.movement_to_entering_lane)) -
                 np.array(self.pad_movements(self.get_time_loss, self.movement_to_exiting_lane)),
-            'movement_sum_time_loss': lambda:
+            'movement_sum_time_loss': lambda self:
                 self.pad_movements(self.get_time_loss, self.movement_to_entering_lane)
         }
 
         self.reward_dict_function = {
-            'flickering': lambda: None,
-            'sum_queue_length': lambda: -np.sum(self.get_queue_length(self.controlled_entering_lane_ids)),
-            'avg_movement_queue_length': lambda: -np.average(self.get_feature('movement_queue_length')),
-            'sum_waiting_time': lambda: -np.sum(self.get_waiting_time(self.controlled_entering_lane_ids)),
-            'sum_num_vehicle_left': lambda: None,
-            'sum_duration_vehicles_left': lambda: None,
+            'flickering': lambda self: None,
+            'sum_queue_length': lambda self: -np.sum(self.get_queue_length(self.controlled_entering_lane_ids)),
+            'avg_movement_queue_length': lambda self: -np.average(self.get_feature('movement_queue_length')),
+            'sum_waiting_time': lambda self: -np.sum(self.get_waiting_time(self.controlled_entering_lane_ids)),
+            'sum_num_vehicle_left': lambda self: None,
+            'sum_duration_vehicles_left': lambda self: None,
             'sum_number_of_vehicles_been_stopped_threshold_01':
-                lambda: -np.sum(self.get_number_of_vehicles_been_stopped(self.controlled_entering_lane_ids, 0.1)),
+                lambda self: -np.sum(self.get_number_of_vehicles_been_stopped(self.controlled_entering_lane_ids, 0.1)),
             'sum_number_of_vehicles_been_stopped_threshold_1':
-                lambda: -np.sum(self.get_number_of_vehicles_been_stopped(self.controlled_entering_lane_ids, 1)),
-            'pressure_presslight': lambda:
+                lambda self: -np.sum(self.get_number_of_vehicles_been_stopped(self.controlled_entering_lane_ids, 1)),
+            'pressure_presslight': lambda self:
                 -np.abs(np.sum(self.get_feature('movement_pressure_presslight'))),
-            'pressure_mplight': lambda:
+            'pressure_mplight': lambda self:
                 -(np.sum(self.get_queue_length(self.controlled_entering_lane_ids)) -
                   np.sum(self.get_queue_length(self.controlled_exiting_lane_ids))),
-            'pressure_time_loss': lambda:
+            'pressure_time_loss': lambda self:
                 -(np.sum(self.get_time_loss(self.controlled_entering_lane_ids)) -
                   np.sum(self.get_time_loss(self.controlled_exiting_lane_ids))),
-            'time_loss': lambda:
+            'time_loss': lambda self:
                 -np.sum(self.get_time_loss(self.controlled_entering_lane_ids))
         }
 
@@ -573,7 +573,7 @@ class Intersection:
 
         feature_dict = {}
         for f in self.state_feature_list:
-            feature_dict[f] = self.feature_dict_function[f]()
+            feature_dict[f] = self.feature_dict_function[f](self)
 
         self.feature_dict = feature_dict
 
@@ -765,7 +765,7 @@ class Intersection:
             if feature_name in self.feature_dict:
                 feature = self.feature_dict[feature_name]
             elif feature_name in self.feature_dict_function:
-                feature = self.feature_dict_function[feature_name]()
+                feature = self.feature_dict_function[feature_name](self)
                 self.feature_dict[feature_name] = feature
             else:
                 raise ValueError("There is no " + str(feature_name))
@@ -786,7 +786,7 @@ class Intersection:
         reward = 0
         for r in reward_info_dict:
             if reward_info_dict[r] != 0:
-                reward += reward_info_dict[r] * self.reward_dict_function[r]()
+                reward += reward_info_dict[r] * self.reward_dict_function[r](self)
 
         return reward
 
