@@ -292,3 +292,14 @@ def connect(port=8813, numRetries=100, host="localhost", proc=None, waitBetweenR
                 print(" Retrying in %s seconds" % waitBetweenRetries)
                 time.sleep(waitBetweenRetries)
     raise FatalTraCIError("Could not connect in %s tries" % (numRetries + 1))
+
+
+def close_connection(execution_name):
+
+    if execution_name not in traci.main._connections:
+        raise FatalTraCIError("Not connected.")
+    traci.main._connections[execution_name].close(wait=True)
+    traci.main._connections[execution_name].simulation._setConnection(None)
+    del traci.main._connections[execution_name]
+    if execution_name in traci.main._traceFile:
+        del traci.main._traceFile[execution_name]

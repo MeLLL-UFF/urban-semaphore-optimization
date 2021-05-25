@@ -23,6 +23,8 @@ class PlanningOnlyAgent(Agent):
 
         super().__init__(dic_agent_conf, dic_traffic_env_conf, dic_path, dic_exp_conf, mode)
 
+        self.rng = np.random.Generator(np.random.MT19937(23423))
+
         self.env = None
         self.dic_exp_conf = dic_exp_conf
 
@@ -50,13 +52,11 @@ class PlanningOnlyAgent(Agent):
             action = self.replay_action(step, intersection_index)
         else:
 
-            rng = np.random.Generator(np.random.MT19937(23423))
-
             previous_planning_actions = []
             if self.previous_actions[intersection_index] is not None:
                 previous_planning_actions.append(self.previous_actions[intersection_index])
 
-            action, _ = self._choose_action(step, state, step, intersection_index, rng,
+            action, _ = self._choose_action(step, state, step, intersection_index, self.rng,
                                             self.planning_iterations, previous_planning_actions)
 
             self.previous_actions[intersection_index] = action
@@ -105,7 +105,7 @@ class PlanningOnlyAgent(Agent):
             'original_step': original_step,
             'intersection_index': intersection_index,
             'save_state_filepath': save_state_filepath,
-            'rng_state': rng.bit_generator.state,  # deep copy needed
+            'rng': rng,  # deep copy needed
             'planning_iterations': planning_iterations,
             'previous_planning_actions': previous_planning_actions,  # deep copy needed
             'possible_actions': possible_actions,
@@ -163,7 +163,7 @@ class PlanningOnlyAgent(Agent):
             original_step,
             intersection_index,
             save_state_filepath,
-            rng_state,
+            rng,
             planning_iterations,
             previous_planning_actions,
             possible_actions,
@@ -171,10 +171,8 @@ class PlanningOnlyAgent(Agent):
 
         try:
 
-            one_state = copy.deepcopy(one_state)
-            rng_state = copy.deepcopy(rng_state)
+            rng = copy.deepcopy(rng)
             previous_planning_actions = copy.deepcopy(previous_planning_actions)
-
             env = copy.deepcopy(env)
 
             env.external_configurations['SUMOCFG_PARAMETERS'].update(
@@ -234,9 +232,6 @@ class PlanningOnlyAgent(Agent):
 
                 planning_iterations -= 1
                 if planning_iterations > 0 or done:
-
-                    rng = np.random.Generator(np.random.MT19937(23423))
-                    rng.bit_generator.state = rng_state
 
                     _, future_rewards = self._choose_action(
                         initial_step + steps_iterated,

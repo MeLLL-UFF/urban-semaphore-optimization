@@ -176,28 +176,28 @@ class SumoEnv:
         print("start sumo")
         trace_file_path = ROOT_DIR + '/' + self.path_to_log + '/' + 'trace_file_log.txt'
         try:
-            traci.start(sumo_cmd_str, label=self.execution_name, doSwitch=False,
-                        traceFile=trace_file_path, traceGetters=False)
+            version = traci.start(sumo_cmd_str, label=self.execution_name, doSwitch=False,
+                                  traceFile=trace_file_path, traceGetters=False)
         except Exception as e:
 
             try:
-                traci.close()
+                self.end_sumo()
             except Exception as e:
                 print(str(e))
 
             try:
-                traci.start(sumo_cmd_str, label=self.execution_name, doSwitch=False,
-                            traceFile=trace_file_path, traceGetters=False)
+                version = traci.start(sumo_cmd_str, label=self.execution_name, doSwitch=False,
+                                      traceFile=trace_file_path, traceGetters=False)
             except Exception as e:
                 print('TRACI TERMINATED')
-                traci.close()
+                self.end_sumo()
                 print(str(e))
                 raise e
 
         traci_connection = traci.getConnection(self.execution_name)
         print("succeed in start sumo")
 
-        print('SUMO VERSION', traci_connection.getVersion()[1])
+        print('SUMO VERSION', version[1])
 
         # start subscription
         for lane in self.lanes_list:
@@ -233,28 +233,32 @@ class SumoEnv:
         print("start sumo")
         trace_file_path = ROOT_DIR + '/' + self.path_to_log + '/' + 'trace_file_log.txt'
         try:
-            sumo_traci_util.start(sumo_cmd_str, label=self.execution_name, numRetries=100, waitBetweenRetries=0.001,
-                                  doSwitch=False, traceFile=trace_file_path, traceGetters=False)
+            version = sumo_traci_util.start(sumo_cmd_str, label=self.execution_name,
+                                            numRetries=100, waitBetweenRetries=0.01,
+                                            doSwitch=False,
+                                            traceFile=trace_file_path, traceGetters=False)
         except Exception as e:
 
             try:
-                traci.close()
+                self.end_sumo()
             except Exception as e:
                 print(str(e))
 
             try:
-                sumo_traci_util.start(sumo_cmd_str, label=self.execution_name, numRetries=100, waitBetweenRetries=0.001,
-                                      doSwitch=False, traceFile=trace_file_path, traceGetters=False)
+                version = sumo_traci_util.start(sumo_cmd_str, label=self.execution_name,
+                                                numRetries=100, waitBetweenRetries=0.01,
+                                                doSwitch=False,
+                                                traceFile=trace_file_path, traceGetters=False)
             except Exception as e:
                 print('TRACI TERMINATED')
-                traci.close()
+                self.end_sumo()
                 print(str(e))
                 raise e
 
         traci_connection = traci.getConnection(self.execution_name)
         print("succeed in start sumo")
 
-        print('SUMO VERSION', traci_connection.getVersion()[1])
+        print('SUMO VERSION', version[1])
 
         # start subscription
         for lane in self.lanes_list:
@@ -273,8 +277,7 @@ class SumoEnv:
         return state, next_action
 
     def end_sumo(self):
-        traci_connection = traci.getConnection(self.execution_name)
-        traci_connection.close()
+        sumo_traci_util.close_connection(self.execution_name)
 
     def update_previous_measurements(self):
 
@@ -561,6 +564,8 @@ class SumoEnv:
 
         if name is None:
             state_name = self.execution_name + '_' + 'save_state' + '_' + str(self.get_current_time()) + '.sbx'
+        else:
+            state_name = name
 
         filepath = os.path.join(ROOT_DIR, self.environment_state_path, state_name)
 
