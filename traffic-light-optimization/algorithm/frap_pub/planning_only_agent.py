@@ -34,7 +34,7 @@ class PlanningOnlyAgent(Agent):
 
         context = mp.get_context('spawn')
         self.process_pool_executor = ProcessPoolExecutor(
-            max_workers=pow(self.action_sampling_size, self.planning_iterations), mp_context=context)
+            max_workers=max(pow(self.action_sampling_size, self.planning_iterations), 16), mp_context=context)
 
         self.tiebreak_policy = self.dic_agent_conf["TIEBREAK_POLICY"]
 
