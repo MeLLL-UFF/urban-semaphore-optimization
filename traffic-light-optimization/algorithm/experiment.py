@@ -187,10 +187,10 @@ class Experiment:
             '-n': net_file,
             '-r': ', '.join(route_files),
             '--time-to-teleport': -1,
-            #'--collision.stoptime': 10,
+            '--collision.stoptime': 10,
             '--collision.mingap-factor': 0,
             '--collision.action': 'warn',
-            #'--collision.check-junctions': True,
+            '--collision.check-junctions': True,
             '--device.rerouting.threads': 4,
             '--save-state.rng': True,
             '--ignore-junction-blocker': 10

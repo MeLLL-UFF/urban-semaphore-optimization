@@ -106,6 +106,7 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations=None):
             step += steps_iterated
         env.save_log()
         env.end_sumo()
+        agent.shutdown()
         if not dic_exp_conf["DEBUG"]:
             path_to_log = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round",
                                        model_round)

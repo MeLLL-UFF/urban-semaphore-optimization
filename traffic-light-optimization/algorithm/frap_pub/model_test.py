@@ -182,6 +182,7 @@ def test(model_dir, cnt_round, run_cnt, dic_traffic_env_conf, if_gui, external_c
 
         #write_summary(dic_path, run_cnt, cnt_round)
         env.end_sumo()
+        agent.shutdown()
         if not dic_exp_conf["DEBUG"]:
             path_to_log = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round", model_round)
             # print("downsample", path_to_log)

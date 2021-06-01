@@ -2,8 +2,8 @@ import os
 import copy
 import pickle
 from functools import partial
-import statistics
-from concurrent.futures import ThreadPoolExecutor
+import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 
@@ -29,8 +29,12 @@ class PlanningOnlyAgent(Agent):
         self.dic_exp_conf = dic_exp_conf
 
         self.phases = self.dic_traffic_env_conf['PHASE']
+        self.action_sampling_size = self.dic_agent_conf["ACTION_SAMPLING_SIZE"]
         self.planning_iterations = self.dic_agent_conf["PLANNING_ITERATIONS"]
-        self.pick_action_and_keep_with_it = self.dic_agent_conf["PICK_ACTION_AND_KEEP_WITH_IT"]
+
+        context = mp.get_context('spawn')
+        self.process_pool_executor = ProcessPoolExecutor(
+            max_workers=pow(self.action_sampling_size, self.planning_iterations), mp_context=context)
 
         self.tiebreak_policy = self.dic_agent_conf["TIEBREAK_POLICY"]
 
@@ -52,12 +56,7 @@ class PlanningOnlyAgent(Agent):
             action = self.replay_action(step, intersection_index)
         else:
 
-            previous_planning_actions = []
-            if self.previous_actions[intersection_index] is not None:
-                previous_planning_actions.append(self.previous_actions[intersection_index])
-
-            action, _ = self._choose_action(step, state, step, intersection_index, self.rng,
-                                            self.planning_iterations, previous_planning_actions)
+            action = self._choose_action(step, state, intersection_index)
 
             self.previous_actions[intersection_index] = action
 
@@ -86,98 +85,136 @@ class PlanningOnlyAgent(Agent):
     def load_network(self, *args, **kwargs):
         pass
 
-    def _choose_action(self, initial_step, one_state, original_step, intersection_index, rng, planning_iterations,
-                       previous_planning_actions, possible_actions=None, env=None, *args, **kwargs):
+    def shutdown(self):
+        self.process_pool_executor.shutdown()
 
-        if possible_actions is None:
-            possible_actions = range(0, len(self.phases[intersection_index]))
+    def _choose_action(self, step, state, intersection_index):
 
-        if env is None:
-            env = self.env
+        previous_planning_actions = []
+        if self.previous_actions[intersection_index] is not None:
+            previous_planning_actions.append(self.previous_actions[intersection_index])
 
-        save_state_filepath = env.save_state()
+        save_state_filepath = self.env.save_state()
 
-        # mutable objects need deep copy in the target function
+        states = [state]
+        planning_step_list = [step]
+        previous_planning_actions_list = [[]]
+        save_state_filepath_list = [save_state_filepath]
+
+        possible_future_rewards = np.array([])
+
+        remaining_planning_iterations = self.planning_iterations
+
         simulation_possibility_kwargs = {
-            'env': env,
-            'initial_step': initial_step,
-            'one_state': one_state,  # deep copy needed
-            'original_step': original_step,
+            'env': self.env,
+            'original_step': step,
             'intersection_index': intersection_index,
-            'save_state_filepath': save_state_filepath,
-            'rng': rng,  # deep copy needed
-            'planning_iterations': planning_iterations,
-            'previous_planning_actions': previous_planning_actions,  # deep copy needed
-            'possible_actions': possible_actions,
         }
 
-        simulation_possibility_kwargs.update(
-            **kwargs
-        )
+        while remaining_planning_iterations > 0:
 
-        with ThreadPoolExecutor(max_workers=len(possible_actions)) as executor:
-            possible_future_rewards = executor.map(
-                partial(self._run_simulation_possibility, **simulation_possibility_kwargs),
-                possible_actions
-            )
+            save_state_filepath_to_remove_list = save_state_filepath_list
 
-        possible_future_rewards = list(possible_future_rewards)
+            possible_actions = []
 
-        mean_rewards = [statistics.mean(future_rewards) for future_rewards in possible_future_rewards]
+            for state in states:
+                possible_actions.extend(self._get_possible_actions(state, intersection_index))
 
-        best_actions = np.flatnonzero(mean_rewards == np.max(mean_rewards))
+            save_state_filepath_list = self._expand_data_list(save_state_filepath_list)
+
+            planning_step_list = self._expand_data_list(planning_step_list)
+
+            previous_planning_actions_list = self._expand_data_list(previous_planning_actions_list, deepcopy=True)
+
+            states, rewards, steps_iterated_list, save_state_filepath_list = list(zip(*list(
+                self.process_pool_executor.map(
+                    partial(PlanningOnlyAgent._run_simulation_possibility, **simulation_possibility_kwargs),
+                    possible_actions, planning_step_list, previous_planning_actions_list, save_state_filepath_list
+            ))))
+
+            for save_state_filepath_to_remove in save_state_filepath_to_remove_list:
+                os.remove(save_state_filepath_to_remove)
+
+            if len(possible_future_rewards) != 0:
+                for i in range(len(possible_future_rewards) - 1, -1, -1):
+                    possible_future_rewards = \
+                        np.concatenate([possible_future_rewards[:i],
+                                        [possible_future_rewards[i]] * self.action_sampling_size,
+                                        possible_future_rewards[i+1:]],
+                                       axis=None)
+            else:
+                possible_future_rewards = np.array([0] * self.action_sampling_size)
+
+            possible_future_rewards = np.add(possible_future_rewards, rewards)
+
+            if len(previous_planning_actions_list) != 0:
+                for i in range(len(previous_planning_actions_list) - 1, -1, -1):
+                    previous_planning_actions_list[i].append(possible_actions[i])
+
+            save_state_filepath_list = list(save_state_filepath_list)
+
+            for i in range(len(planning_step_list) - 1, -1, -1):
+                planning_step_list[i] += steps_iterated_list[i]
+
+            remaining_planning_iterations -= 1
+
+        for save_state_filepath_to_remove in save_state_filepath_list:
+            os.remove(save_state_filepath_to_remove)
+
+        best_actions = np.flatnonzero(possible_future_rewards == np.max(possible_future_rewards))
 
         if len(best_actions) > 1:
             if self.tiebreak_policy == 'random':
-                action = rng.choice(best_actions)
+                action = self.rng.choice(best_actions)
 
             elif self.tiebreak_policy == 'maintain':
                 if previous_planning_actions and previous_planning_actions[-1] in best_actions:
                     action = previous_planning_actions[-1]
                 else:
-                    action = rng.choice(best_actions)
+                    action = self.rng.choice(best_actions)
 
             elif self.tiebreak_policy == 'change':
                 if previous_planning_actions and previous_planning_actions[-1] in best_actions:
                     index = np.argwhere(best_actions == previous_planning_actions[-1])[0]
                     best_actions = np.delete(best_actions, index)
 
-                action = rng.choice(best_actions)
+                action = self.rng.choice(best_actions)
             else:
                 raise ValueError('Invalid tiebreak_policy: ' + str(self.tiebreak_policy))
         else:
             action = best_actions[0]
 
-        rewards = possible_future_rewards[action]
+        return action
 
-        os.remove(save_state_filepath)
+    def _expand_data_list(self, data, deepcopy=False):
+        for i in range(len(data) - 1, -1, -1):
+            if deepcopy:
+                data = data[:i] + [copy.deepcopy(data[i]) for _ in range(self.action_sampling_size)] + data[i + 1:]
+            else:
+                data = data[:i] + [data[i]] * self.action_sampling_size + data[i + 1:]
 
-        return action, rewards
+        return data
 
+    def _get_possible_actions(self, state, intersection_index):
+        return range(0, len(self.phases[intersection_index]))
+
+    @staticmethod
     def _run_simulation_possibility(
-            self,
             action,
-            env,
-            initial_step,
-            one_state,
-            original_step,
-            intersection_index,
-            save_state_filepath,
-            rng,
-            planning_iterations,
+            planning_step,
             previous_planning_actions,
-            possible_actions,
-            **kwargs):
+            save_state_filepath,
+            env,
+            original_step,
+            intersection_index):
 
         try:
 
-            rng = copy.deepcopy(rng)
-            previous_planning_actions = copy.deepcopy(previous_planning_actions)
             env = copy.deepcopy(env)
 
             env.external_configurations['SUMOCFG_PARAMETERS'].update(
                 {
-                    '--begin': initial_step,
+                    '--begin': planning_step,
                     '--load-state': save_state_filepath
                 }
             )
@@ -186,74 +223,29 @@ class PlanningOnlyAgent(Agent):
                              'previous_phases' + '_' + (
                                  '-'.join(str(x) for x in previous_planning_actions)
                                  if len(previous_planning_actions) else str(None)) + '__' + \
-                             'initial_step' + '_' + str(initial_step) + '__' + \
+                             'planning_step' + '_' + str(planning_step) + '__' + \
                              'phase' + '_' + str(action)
 
-            write_mode = False
-            if self.mode == 'train':
-                env.path_to_log = self.env.path_to_log + '__' + execution_name
-                if not os.path.exists(ROOT_DIR + '/' + env.path_to_log):
-                    os.makedirs(ROOT_DIR + '/' + env.path_to_log)
-                write_mode = True
-
-            env.write_mode = write_mode
+            env.path_to_log = env.path_to_log + '__' + execution_name
+            if not os.path.exists(ROOT_DIR + '/' + env.path_to_log):
+                os.makedirs(ROOT_DIR + '/' + env.path_to_log)
 
             _, next_action = env.reset_for_planning(execution_name)
-            rewards = []
 
-            if self.dic_agent_conf["PICK_ACTION_AND_KEEP_WITH_IT"]:
+            action_list = ['no_op']*len(next_action)
+            action_list[intersection_index] = action
 
-                test_run_counts = planning_iterations * self.dic_traffic_env_conf["MIN_ACTION_TIME"]
+            next_state, reward, done, steps_iterated, _ = env.step(action_list)
+            next_state = next_state[0]
+            reward = reward[0]
 
-                done = False
-                step = 0
-                while not done and step < test_run_counts:
+            save_state_filepath = env.save_state()
 
-                    action_list = ['no_op']*len(next_action)
-                    action_list[intersection_index] = action
-
-                    next_state, reward, done, steps_iterated, next_action = env.step(action_list)
-
-                    one_state = next_state[intersection_index]
-                    rewards.append(reward[0])
-                    step += steps_iterated
-
-            else:
-
-                action_list = ['no_op']*len(next_action)
-                action_list[intersection_index] = action
-
-                next_state, reward, done, steps_iterated, _ = env.step(action_list)
-
-                one_state = next_state[intersection_index]
-                rewards.append(reward[0])
-
-                previous_planning_actions.append(action)
-
-                planning_iterations -= 1
-                if planning_iterations > 0 or done:
-
-                    _, future_rewards = self._choose_action(
-                        initial_step + steps_iterated,
-                        one_state,
-                        original_step,
-                        intersection_index,
-                        rng,
-                        planning_iterations,
-                        previous_planning_actions,
-                        possible_actions,
-                        env,
-                        **kwargs
-                    )
-
-                    rewards.extend(future_rewards)
-
-            if self.mode == 'train':
-                env.save_log()
+            env.save_log()
             env.end_sumo()
 
         except Exception as e:
             print(e)
             raise e
 
-        return rewards
+        return next_state, reward, steps_iterated, save_state_filepath

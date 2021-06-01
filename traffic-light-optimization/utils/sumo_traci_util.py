@@ -14,32 +14,47 @@ VAR_LANE_END_POSITION = 'VAR_LANE_END_POSITION'
 VAR_IS_PARTIAL_DETECTOR = 'VAR_IS_PARTIAL_DETECTOR'
 
 
-def get_current_time(traci_label=None):
+def get_traci_connection(traci_label):
 
-    if traci_label is None:
+    if traci_label is None or traci.isLibsumo():
         traci_connection = traci
     else:
         traci_connection = traci.getConnection(traci_label)
+
+    return traci_connection
+
+
+def close_connection(execution_name):
+
+    if traci.isLibsumo():
+        traci.close()
+    else:
+        if execution_name not in traci.main._connections:
+            raise FatalTraCIError("Not connected.")
+        traci.main._connections[execution_name].close(wait=True)
+        traci.main._connections[execution_name].simulation._setConnection(None)
+        del traci.main._connections[execution_name]
+        if execution_name in traci.main._traceFile:
+            del traci.main._traceFile[execution_name]
+
+
+def get_current_time(traci_label=None):
+
+    traci_connection = get_traci_connection(traci_label)
 
     return traci_connection.simulation.getTime()
 
 
 def set_traffic_light_state(intersection, state, traci_label=None):
     
-    if traci_label is None:
-        traci_connection = traci
-    else:
-        traci_connection = traci.getConnection(traci_label)
+    traci_connection = get_traci_connection(traci_label)
 
     traci_connection.trafficlight.setRedYellowGreenState(intersection, state)
 
 
 def get_traffic_light_state(traffic_light_id, traci_label=None):
 
-    if traci_label is None:
-        traci_connection = traci
-    else:
-        traci_connection = traci.getConnection(traci_label)
+    traci_connection = get_traci_connection(traci_label)
 
     return traci_connection.trafficlight.getRedYellowGreenState(traffic_light_id)
 
@@ -71,10 +86,7 @@ def get_movements_first_stopped_vehicle_greatest_waiting_time(
 
 def get_time_loss(vehicle_subscription_data, traci_label=None):
 
-    if traci_label is None:
-        traci_connection = traci
-    else:
-        traci_connection = traci.getConnection(traci_label)
+    traci_connection = get_traci_connection(traci_label)
 
     relative_speed = vehicle_subscription_data[tc.VAR_SPEED] / vehicle_subscription_data[tc.VAR_ALLOWED_SPEED]
     step_length = traci_connection.simulation.getDeltaT()
@@ -86,10 +98,7 @@ def get_time_loss(vehicle_subscription_data, traci_label=None):
 
 def get_network_time_loss(vehicle_subscription_data, traci_label=None):
 
-    if traci_label is None:
-        traci_connection = traci
-    else:
-        traci_connection = traci.getConnection(traci_label)
+    traci_connection = get_traci_connection(traci_label)
 
     if vehicle_subscription_data:
         
@@ -110,10 +119,7 @@ def get_network_time_loss(vehicle_subscription_data, traci_label=None):
 def get_relative_occupancy(vehicle_subscription_data, detector_cumulative_length, detector_additional_info,
                            traci_label=None):
 
-    if traci_label is None:
-        traci_connection = traci
-    else:
-        traci_connection = traci.getConnection(traci_label)
+    traci_connection = get_traci_connection(traci_label)
 
     total_occupied_length = 0
 
@@ -292,14 +298,3 @@ def connect(port=8813, numRetries=100, host="localhost", proc=None, waitBetweenR
                 print(" Retrying in %s seconds" % waitBetweenRetries)
                 time.sleep(waitBetweenRetries)
     raise FatalTraCIError("Could not connect in %s tries" % (numRetries + 1))
-
-
-def close_connection(execution_name):
-
-    if execution_name not in traci.main._connections:
-        raise FatalTraCIError("Not connected.")
-    traci.main._connections[execution_name].close(wait=True)
-    traci.main._connections[execution_name].simulation._setConnection(None)
-    del traci.main._connections[execution_name]
-    if execution_name in traci.main._traceFile:
-        del traci.main._traceFile[execution_name]

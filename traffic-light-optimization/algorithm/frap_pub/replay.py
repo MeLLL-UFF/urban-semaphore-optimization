@@ -123,6 +123,7 @@ def run(dir, round_number, run_cnt, execution_name, if_gui, rewrite_mode=False, 
         step += steps_iterated
     env.save_log()
     env.end_sumo()
+    agent.shutdown()
     
     if rewrite_mode:
         path_to_log = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round", model_round)
@@ -209,6 +210,7 @@ def run_wrapper(dir, one_round, run_cnt, if_gui, external_configurations=None):
             step += steps_iterated
         env.save_log()
         env.end_sumo()
+        agent.shutdown()
         if not __debug__:
             path_to_log = os.path.join(dic_path["PATH_TO_WORK_DIRECTORY"], "test_round", model_round)
             # print("downsample", path_to_log)

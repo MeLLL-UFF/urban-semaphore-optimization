@@ -12,7 +12,6 @@ from utils import sumo_util, sumo_traci_util, xml_util
 
 from algorithm.frap_pub.definitions import ROOT_DIR
 from algorithm.frap_pub.intersection import Intersection
-from algorithm.frap_pub import synchronization_util
 
 
 class SumoEnv:
@@ -117,9 +116,12 @@ class SumoEnv:
 
         self.total_time_loss = 0
 
+        self.is_planning = False
+
     def reset(self, execution_name):
 
         self.execution_name = execution_name + '__' + str(uuid.uuid4())
+        self.is_planning = False
 
         self.intersections = []
 
@@ -176,8 +178,11 @@ class SumoEnv:
         print("start sumo")
         trace_file_path = ROOT_DIR + '/' + self.path_to_log + '/' + 'trace_file_log.txt'
         try:
-            version = traci.start(sumo_cmd_str, label=self.execution_name, doSwitch=False,
-                                  traceFile=trace_file_path, traceGetters=False)
+            if traci.isLibsumo():
+                version = traci.start(sumo_cmd_str, traceFile=trace_file_path, traceGetters=False)
+            else:
+                version = traci.start(sumo_cmd_str, label=self.execution_name, doSwitch=False,
+                                      traceFile=trace_file_path, traceGetters=False)
         except Exception as e:
 
             try:
@@ -186,17 +191,19 @@ class SumoEnv:
                 print(str(e))
 
             try:
-                version = traci.start(sumo_cmd_str, label=self.execution_name, doSwitch=False,
-                                      traceFile=trace_file_path, traceGetters=False)
+                if traci.isLibsumo():
+                    version = traci.start(sumo_cmd_str, traceFile=trace_file_path, traceGetters=False)
+                else:
+                    version = traci.start(sumo_cmd_str, label=self.execution_name, doSwitch=False,
+                                          traceFile=trace_file_path, traceGetters=False)
             except Exception as e:
                 print('TRACI TERMINATED')
                 self.end_sumo()
                 print(str(e))
                 raise e
 
-        traci_connection = traci.getConnection(self.execution_name)
+        traci_connection = sumo_traci_util.get_traci_connection(self.execution_name)
         print("succeed in start sumo")
-
         print('SUMO VERSION', version[1])
 
         # start subscription
@@ -220,6 +227,7 @@ class SumoEnv:
     def reset_for_planning(self, execution_name):
 
         self.execution_name = execution_name + '__' + str(uuid.uuid4())
+        self.is_planning = True
 
         for intersection in self.intersections:
             intersection.execution_name = self.execution_name
@@ -233,10 +241,14 @@ class SumoEnv:
         print("start sumo")
         trace_file_path = ROOT_DIR + '/' + self.path_to_log + '/' + 'trace_file_log.txt'
         try:
-            version = sumo_traci_util.start(sumo_cmd_str, label=self.execution_name,
-                                            numRetries=100, waitBetweenRetries=0.01,
-                                            doSwitch=False,
-                                            traceFile=trace_file_path, traceGetters=False)
+            if traci.isLibsumo():
+                version = traci.start(sumo_cmd_str)
+            else:
+                version = sumo_traci_util.start(sumo_cmd_str, label=self.execution_name,
+                                                numRetries=100, waitBetweenRetries=0.01,
+                                                doSwitch=False,
+                                                traceFile=trace_file_path, traceGetters=False)
+
         except Exception as e:
 
             try:
@@ -245,19 +257,21 @@ class SumoEnv:
                 print(str(e))
 
             try:
-                version = sumo_traci_util.start(sumo_cmd_str, label=self.execution_name,
-                                                numRetries=100, waitBetweenRetries=0.01,
-                                                doSwitch=False,
-                                                traceFile=trace_file_path, traceGetters=False)
+                if traci.isLibsumo():
+                    version = traci.start(sumo_cmd_str)
+                else:
+                    version = sumo_traci_util.start(sumo_cmd_str, label=self.execution_name,
+                                                    numRetries=100, waitBetweenRetries=0.01,
+                                                    doSwitch=False,
+                                                    traceFile=trace_file_path, traceGetters=False)
             except Exception as e:
                 print('TRACI TERMINATED')
                 self.end_sumo()
                 print(str(e))
                 raise e
 
-        traci_connection = traci.getConnection(self.execution_name)
+        traci_connection = sumo_traci_util.get_traci_connection(self.execution_name)
         print("succeed in start sumo")
-
         print('SUMO VERSION', version[1])
 
         # start subscription
@@ -266,7 +280,7 @@ class SumoEnv:
 
         traci_connection.simulation.subscribe([var for var in self.SIMULATION_VARIABLES_TO_SUBSCRIBE])
 
-        vehicle_ids = traci_connection.simulation.getLoadedIDList()
+        vehicle_ids = traci_connection.vehicle.getIDList()
         for vehicle_id in vehicle_ids:
             traci_connection.vehicle.subscribe(vehicle_id, [var for var in self.VEHICLE_VARIABLES_TO_SUBSCRIBE])
 
@@ -290,7 +304,7 @@ class SumoEnv:
 
     def update_current_measurements(self):
 
-        traci_connection = traci.getConnection(self.execution_name)
+        traci_connection = sumo_traci_util.get_traci_connection(self.execution_name)
 
         # ====== lane level observations =======
 
@@ -336,13 +350,15 @@ class SumoEnv:
                 self.current_step_lane_vehicle_subscription[lane_id] = \
                     {vehicle_id: self.current_step_vehicle_subscription[vehicle_id]}
 
-        # update vehicle arrive and left time
-        self._update_pending_departure_time(self.current_simulation_subscription[tc.VAR_PENDING_VEHICLES])
-        self._update_departure_time(recently_departed_vehicles)
-        self._update_arrival_time(recently_arrived_vehicles)
+        if not self.is_planning:
 
-        self._update_pending_time_loss(self.current_simulation_subscription[tc.VAR_PENDING_VEHICLES])
-        self._update_time_loss(self.current_step_vehicles)
+            # update vehicle arrive and left time
+            self._update_pending_departure_time(self.current_simulation_subscription[tc.VAR_PENDING_VEHICLES])
+            self._update_departure_time(recently_departed_vehicles)
+            self._update_arrival_time(recently_arrived_vehicles)
+
+            self._update_pending_time_loss(self.current_simulation_subscription[tc.VAR_PENDING_VEHICLES])
+            self._update_time_loss(self.current_step_vehicles)
 
     def _update_pending_departure_time(self, pending_vehicles):
 
@@ -393,7 +409,7 @@ class SumoEnv:
             self.time_loss_dict[vehicle_id] += time_loss
 
     def get_current_time(self):
-        traci_connection = traci.getConnection(self.execution_name)
+        traci_connection = sumo_traci_util.get_traci_connection(self.execution_name)
         return traci_connection.simulation.getTime()
 
     def get_feature(self, feature_name_list):
@@ -559,17 +575,17 @@ class SumoEnv:
 
     def save_state(self, name=None):
 
-        if not os.path.isdir(ROOT_DIR + '/' + self.environment_state_path):
-            os.makedirs(ROOT_DIR + '/' + self.environment_state_path)
+        if not os.path.isdir('/dev/shm' + '/' + self.environment_state_path):
+            os.makedirs('/dev/shm' + '/' + self.environment_state_path)
 
         if name is None:
             state_name = self.execution_name + '_' + 'save_state' + '_' + str(self.get_current_time()) + '.sbx'
         else:
             state_name = name
 
-        filepath = os.path.join(ROOT_DIR, self.environment_state_path, state_name)
+        filepath = os.path.join('/dev/shm', self.environment_state_path, state_name)
 
-        traci_connection = traci.getConnection(self.execution_name)
+        traci_connection = sumo_traci_util.get_traci_connection(self.execution_name)
         traci_connection.simulation.saveState(filepath)
 
         return filepath
@@ -659,7 +675,6 @@ class SumoEnv:
 
         # set signals
         for intersection_index, intersection in enumerate(self.intersections):
-
             intersection.set_signal(
                 action=action[intersection_index],
                 action_pattern=self.dic_traffic_env_conf["ACTION_PATTERN"]
@@ -667,8 +682,8 @@ class SumoEnv:
 
         # run one step
 
+        traci_connection = sumo_traci_util.get_traci_connection(self.execution_name)
         for i in range(int(1/self.dic_traffic_env_conf["INTERVAL"])):
-            traci_connection = traci.getConnection(self.execution_name)
             traci_connection.simulationStep()
 
         # get new measurements

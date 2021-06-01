@@ -207,61 +207,43 @@ class Intersection:
         self.state_feature_list = dic_traffic_env_conf["STATE_FEATURE_LIST"]
 
         self.feature_dict_function = {
-            'current_phase': lambda self: [self.current_phase_index],
-            'time_this_phase': lambda self: [self.current_phase_duration],
-            'vehicle_position_img': lambda self: None,
-            'vehicle_speed_img': lambda self: None,
-            'vehicle_acceleration_img': lambda self: None,
-            'vehicle_waiting_time_img': lambda self: None,
-            'movement_number_of_vehicles': lambda self:
-                self.pad_movements(self.get_number_of_vehicles, self.movement_to_entering_lane),
-            'movement_number_of_vehicles_been_stopped_threshold_01': lambda self:
-                self.pad_movements(
-                    self.get_number_of_vehicles_been_stopped, self.movement_to_entering_lane, threshold=0.1),
-            'movement_number_of_vehicles_been_stopped_threshold_1': lambda self:
-                self.pad_movements(
-                    self.get_number_of_vehicles_been_stopped, self.movement_to_entering_lane, threshold=1),
-            'movement_queue_length': lambda self:
-                self.pad_movements(self.get_queue_length, self.movement_to_entering_lane),
-            'movement_number_of_vehicles_left': lambda self: None,
-            'movement_sum_duration_vehicles_left': lambda self: None,
-            'movement_sum_waiting_time': lambda self:
-                self.pad_movements(self.get_waiting_time, self.movement_to_entering_lane),
-            'terminal': lambda self: None,
-            'movement_pressure_presslight': lambda self:
-                np.array(self.pad_movements(self.get_density, self.movement_to_entering_lane)) -
-                np.array(self.pad_movements(self.get_density, self.movement_to_exiting_lane)),
-            'movement_pressure_mplight': lambda self:
-                np.array(self.pad_movements(self.get_number_of_vehicles, self.movement_to_entering_lane)) -
-                np.array(self.pad_movements(self.get_number_of_vehicles, self.movement_to_exiting_lane)),
-            'movement_pressure_time_loss': lambda self:
-                np.array(self.pad_movements(self.get_time_loss, self.movement_to_entering_lane)) -
-                np.array(self.pad_movements(self.get_time_loss, self.movement_to_exiting_lane)),
-            'movement_sum_time_loss': lambda self:
-                self.pad_movements(self.get_time_loss, self.movement_to_entering_lane)
+            'current_phase': self.get_current_phase_state,
+            'time_this_phase': self.get_time_this_phase_state,
+            'vehicle_position_img': self.get_vehicle_position_img_state,
+            'vehicle_speed_img': self.get_vehicle_speed_img_state,
+            'vehicle_acceleration_img': self.get_vehicle_acceleration_img_state,
+            'vehicle_waiting_time_img': self.get_vehicle_waiting_time_img_state,
+            'movement_number_of_vehicles': self.get_movement_number_of_vehicles_state,
+            'movement_number_of_vehicles_been_stopped_threshold_01':
+                self.get_movement_number_of_vehicles_been_stopped_threshold_01_state,
+            'movement_number_of_vehicles_been_stopped_threshold_1':
+                self.get_movement_number_of_vehicles_been_stopped_threshold_1_state,
+            'movement_queue_length': self.get_movement_queue_length_state,
+            'movement_number_of_vehicles_left': self.get_movement_number_of_vehicles_left_state,
+            'movement_sum_duration_vehicles_left': self.get_movement_sum_duration_vehicles_left_state,
+            'movement_sum_waiting_time': self.get_movement_sum_waiting_time_state,
+            'terminal': self.get_terminal_state,
+            'movement_pressure_presslight': self.get_movement_pressure_presslight_state,
+            'movement_pressure_mplight': self.get_movement_pressure_mplight_state,
+            'movement_pressure_time_loss': self.get_movement_pressure_time_loss_state,
+            'movement_sum_time_loss': self.get_movement_sum_time_loss_state
         }
 
         self.reward_dict_function = {
-            'flickering': lambda self: None,
-            'sum_queue_length': lambda self: -np.sum(self.get_queue_length(self.controlled_entering_lane_ids)),
-            'avg_movement_queue_length': lambda self: -np.average(self.get_feature('movement_queue_length')),
-            'sum_waiting_time': lambda self: -np.sum(self.get_waiting_time(self.controlled_entering_lane_ids)),
-            'sum_num_vehicle_left': lambda self: None,
-            'sum_duration_vehicles_left': lambda self: None,
+            'flickering': self.get_flickering_reward,
+            'sum_queue_length': self.get_sum_queue_length_reward,
+            'avg_movement_queue_length': self.get_avg_movement_queue_length_reward,
+            'sum_waiting_time': self.get_sum_waiting_time_reward,
+            'sum_num_vehicle_left': self.get_sum_num_vehicle_left_reward,
+            'sum_duration_vehicles_left': self.get_sum_duration_vehicles_left_reward,
             'sum_number_of_vehicles_been_stopped_threshold_01':
-                lambda self: -np.sum(self.get_number_of_vehicles_been_stopped(self.controlled_entering_lane_ids, 0.1)),
+                self.get_sum_number_of_vehicles_been_stopped_threshold_01_reward,
             'sum_number_of_vehicles_been_stopped_threshold_1':
-                lambda self: -np.sum(self.get_number_of_vehicles_been_stopped(self.controlled_entering_lane_ids, 1)),
-            'pressure_presslight': lambda self:
-                -np.abs(np.sum(self.get_feature('movement_pressure_presslight'))),
-            'pressure_mplight': lambda self:
-                -(np.sum(self.get_queue_length(self.controlled_entering_lane_ids)) -
-                  np.sum(self.get_queue_length(self.controlled_exiting_lane_ids))),
-            'pressure_time_loss': lambda self:
-                -(np.sum(self.get_time_loss(self.controlled_entering_lane_ids)) -
-                  np.sum(self.get_time_loss(self.controlled_exiting_lane_ids))),
-            'time_loss': lambda self:
-                -np.sum(self.get_time_loss(self.controlled_entering_lane_ids))
+                self.get_sum_number_of_vehicles_been_stopped_threshold_1_reward,
+            'pressure_presslight': self.get_pressure_presslight_reward,
+            'pressure_mplight': self.get_pressure_mplight_reward,
+            'pressure_time_loss': self.get_pressure_time_loss_reward,
+            'time_loss': self.get_time_loss_reward
         }
 
     def reset(self):
@@ -317,7 +299,7 @@ class Intersection:
     def update_current_measurements(self):
         # need change, debug in seeing format
         
-        traci_connection = traci.getConnection(self.execution_name)
+        traci_connection = sumo_traci_util.get_traci_connection(self.execution_name)
 
         if self.current_phase_index == self.previous_phase_index:
             self.current_phase_duration += 1
@@ -460,7 +442,7 @@ class Intersection:
 
     def _update_vehicle_subscription(self):
 
-        traci_connection = traci.getConnection(self.execution_name)
+        traci_connection = sumo_traci_util.get_traci_connection(self.execution_name)
 
         current_step_vehicles = []
 
@@ -539,7 +521,7 @@ class Intersection:
 
     def _update_detector_vehicles(self):
 
-        traci_connection = traci.getConnection(self.execution_name)
+        traci_connection = sumo_traci_util.get_traci_connection(self.execution_name)
 
         entering_lane_tuples_list = list(self.subscription_extension['entering_lanes'].items())
         exiting_lane_tuples_list = list(self.subscription_extension['exiting_lanes'].items())
@@ -573,7 +555,7 @@ class Intersection:
 
         feature_dict = {}
         for f in self.state_feature_list:
-            feature_dict[f] = self.feature_dict_function[f](self)
+            feature_dict[f] = self.feature_dict_function[f]()
 
         self.feature_dict = feature_dict
 
@@ -582,22 +564,30 @@ class Intersection:
     def build_detector_subscription_function(self):
 
         detector_subscription_function = {
-            tc.LAST_STEP_VEHICLE_NUMBER: lambda vehicle_ids:
-                len(vehicle_ids),
-            tc.LAST_STEP_VEHICLE_ID_LIST: lambda vehicle_ids:
-                vehicle_ids,
-            tc.LAST_STEP_VEHICLE_HALTING_NUMBER: lambda vehicle_ids:
-                sum(1 if self.current_step_vehicle_subscription[vehicle_id][tc.VAR_SPEED] < 0.1 else 0
-                    for vehicle_id in vehicle_ids),
-            tc.VAR_WAITING_TIME: lambda vehicle_ids:
-                sum(self.current_step_vehicle_subscription[vehicle_id][tc.VAR_WAITING_TIME]
-                    for vehicle_id in vehicle_ids),
+            tc.LAST_STEP_VEHICLE_NUMBER: self.get_detector_last_step_vehicle_number,
+            tc.LAST_STEP_VEHICLE_ID_LIST: self.get_detector_last_step_vehicle_id_list,
+            tc.LAST_STEP_VEHICLE_HALTING_NUMBER: self.get_detector_last_step_vehicle_halting_number,
+            tc.VAR_WAITING_TIME: self.get_detector_var_waiting_time,
             tc.LAST_STEP_MEAN_SPEED: self.get_detector_last_step_mean_speed,
             sumo_traci_util.VAR_CUMULATIVE_LENGTH: self.get_detector_cumulative_length,
             tc.VAR_MAXSPEED: self.get_detector_max_speed
         }
 
         return detector_subscription_function
+
+    def get_detector_last_step_vehicle_number(self, vehicle_ids):
+        return len(vehicle_ids)
+
+    def get_detector_last_step_vehicle_id_list(self, vehicle_ids):
+        return vehicle_ids
+
+    def get_detector_last_step_vehicle_halting_number(self, vehicle_ids):
+        return sum(1 if self.current_step_vehicle_subscription[vehicle_id][tc.VAR_SPEED] < 0.1 else 0
+                   for vehicle_id in vehicle_ids)
+
+    def get_detector_var_waiting_time(self, vehicle_ids):
+        return sum(self.current_step_vehicle_subscription[vehicle_id][tc.VAR_WAITING_TIME]
+                   for vehicle_id in vehicle_ids)
 
     def get_detector_last_step_mean_speed(self, vehicle_ids):
         speed_list = [self.current_step_vehicle_subscription[vehicle_id][tc.VAR_SPEED]
@@ -749,7 +739,7 @@ class Intersection:
         return number_of_vehicles_ever_stopped
 
     def get_current_time(self):
-        traci_connection = traci.getConnection(self.execution_name)
+        traci_connection = sumo_traci_util.get_traci_connection(self.execution_name)
         return traci_connection.simulation.getTime()
 
     def get_feature(self, feature_names):
@@ -765,7 +755,7 @@ class Intersection:
             if feature_name in self.feature_dict:
                 feature = self.feature_dict[feature_name]
             elif feature_name in self.feature_dict_function:
-                feature = self.feature_dict_function[feature_name](self)
+                feature = self.feature_dict_function[feature_name]()
                 self.feature_dict[feature_name] = feature
             else:
                 raise ValueError("There is no " + str(feature_name))
@@ -786,7 +776,7 @@ class Intersection:
         reward = 0
         for r in reward_info_dict:
             if reward_info_dict[r] != 0:
-                reward += reward_info_dict[r] * self.reward_dict_function[r](self)
+                reward += reward_info_dict[r] * self.reward_dict_function[r]()
 
         return reward
 
@@ -1103,3 +1093,101 @@ class Intersection:
                 return self.next_phase_to_set_index
 
         return -1
+
+    def get_current_phase_state(self):
+        return [self.current_phase_index]
+
+    def get_time_this_phase_state(self):
+        return [self.current_phase_duration]
+
+    def get_vehicle_position_img_state(self):
+        return None
+
+    def get_vehicle_speed_img_state(self):
+        return None
+
+    def get_vehicle_acceleration_img_state(self):
+        return None
+
+    def get_vehicle_waiting_time_img_state(self):
+        return None
+
+    def get_movement_number_of_vehicles_state(self):
+        return self.pad_movements(self.get_number_of_vehicles, self.movement_to_entering_lane)
+
+    def get_movement_number_of_vehicles_been_stopped_threshold_01_state(self):
+        return self.pad_movements(
+            self.get_number_of_vehicles_been_stopped, self.movement_to_entering_lane, threshold=0.1)
+
+    def get_movement_number_of_vehicles_been_stopped_threshold_1_state(self):
+        return self.pad_movements(
+            self.get_number_of_vehicles_been_stopped, self.movement_to_entering_lane, threshold=1)
+
+    def get_movement_queue_length_state(self):
+        return self.pad_movements(self.get_queue_length, self.movement_to_entering_lane)
+
+    def get_movement_number_of_vehicles_left_state(self):
+        return None
+
+    def get_movement_sum_duration_vehicles_left_state(self):
+        return None
+
+    def get_movement_sum_waiting_time_state(self):
+        return self.pad_movements(self.get_waiting_time, self.movement_to_entering_lane)
+
+    def get_terminal_state(self):
+        return None
+
+    def get_movement_pressure_presslight_state(self):
+        return np.array(self.pad_movements(self.get_density, self.movement_to_entering_lane)) - \
+               np.array(self.pad_movements(self.get_density, self.movement_to_exiting_lane))
+
+    def get_movement_pressure_mplight_state(self):
+        return np.array(self.pad_movements(self.get_number_of_vehicles, self.movement_to_entering_lane)) - \
+               np.array(self.pad_movements(self.get_number_of_vehicles, self.movement_to_exiting_lane))
+
+    def get_movement_pressure_time_loss_state(self):
+        return np.array(self.pad_movements(self.get_time_loss, self.movement_to_entering_lane)) - \
+               np.array(self.pad_movements(self.get_time_loss, self.movement_to_exiting_lane))
+
+    def get_movement_sum_time_loss_state(self):
+        return self.pad_movements(self.get_time_loss, self.movement_to_entering_lane)
+
+
+    def get_flickering_reward(self):
+        return None
+
+    def get_sum_queue_length_reward(self):
+        return -np.sum(self.get_queue_length(self.controlled_entering_lane_ids))
+
+    def get_avg_movement_queue_length_reward(self):
+        return -np.average(self.get_feature('movement_queue_length'))
+
+    def get_sum_waiting_time_reward(self):
+        return -np.sum(self.get_waiting_time(self.controlled_entering_lane_ids))
+
+    def get_sum_num_vehicle_left_reward(self):
+        return None
+
+    def get_sum_duration_vehicles_left_reward(self):
+        return None
+
+    def get_sum_number_of_vehicles_been_stopped_threshold_01_reward(self):
+        return -np.sum(self.get_number_of_vehicles_been_stopped(self.controlled_entering_lane_ids, 0.1))
+
+    def get_sum_number_of_vehicles_been_stopped_threshold_1_reward(self):
+        return -np.sum(self.get_number_of_vehicles_been_stopped(self.controlled_entering_lane_ids, 1))
+
+    def get_pressure_presslight_reward(self):
+        return -np.abs(np.sum(self.get_feature('movement_pressure_presslight')))
+
+    def get_pressure_mplight_reward(self):
+        return -(np.sum(self.get_queue_length(self.controlled_entering_lane_ids)) -
+                 np.sum(self.get_queue_length(self.controlled_exiting_lane_ids)))
+
+    def get_pressure_time_loss_reward(self):
+        return -(np.sum(self.get_time_loss(self.controlled_entering_lane_ids)) -
+                 np.sum(self.get_time_loss(self.controlled_exiting_lane_ids)))
+
+    def get_time_loss_reward(self):
+        return -np.sum(self.get_time_loss(self.controlled_entering_lane_ids))

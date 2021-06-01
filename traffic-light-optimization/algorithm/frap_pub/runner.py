@@ -78,6 +78,7 @@ class Runner:
             stop_cnt += steps_iterated
         self.env.save_log()
         self.env.end_sumo()
+        self.agent.shutdown()
 
         if self.dic_traffic_env_conf["DONE_ENABLE"]:
             run_cnt_log = open(os.path.join(ROOT_DIR, self.dic_path["PATH_TO_WORK_DIRECTORY"],

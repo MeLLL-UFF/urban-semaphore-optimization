@@ -1,5 +1,6 @@
 import os
 import copy
+import time
 
 import numpy as np
 
@@ -108,10 +109,10 @@ class Generator:
         stop_cnt = 0
         while not done and step < self.dic_exp_conf["RUN_COUNTS"]:
             action_list = [None]*len(next_action)
-            
+
             new_actions_needed = np.where(np.array(next_action) == None)[0]
             for index in new_actions_needed:
-                
+
                 one_state = state[index]
 
                 action = self.agent.choose_action(step, one_state, intersection_index=index)
@@ -144,6 +145,7 @@ class Generator:
 
         self.env.save_log()
         self.env.end_sumo()
+        self.agent.shutdown()
 
         if self.dic_traffic_env_conf["DONE_ENABLE"]:
             run_cnt_log = open(os.path.join(ROOT_DIR, self.dic_path["PATH_TO_WORK_DIRECTORY"],

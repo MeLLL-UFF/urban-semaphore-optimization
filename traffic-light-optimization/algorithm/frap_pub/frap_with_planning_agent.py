@@ -39,15 +39,14 @@ class FrapWithPlanningAgent(FrapAgent, PlanningOnlyAgent):
 
         return action
 
-    def _choose_action(self, initial_step, one_state, original_step, intersection_index, rng, planning_iterations,
-                       previous_planning_actions, possible_actions=None, env=None, *args, **kwargs):
+    def _get_possible_actions(self, state, intersection_index):
 
         intersection_phases = self.phases[intersection_index]
 
         phase_indices = [self.unique_phases.index(intersection_phase) for intersection_phase in intersection_phases]
 
         if self.action_sampling_policy == 'best':
-            q_values = self.q_network.predict(self.convert_state_to_input(one_state))
+            q_values = self.q_network.predict(self.convert_state_to_input(state))
             sorted_q_values = sorted(zip(phase_indices, q_values[0][phase_indices]), key=lambda x: x[1], reverse=True)
             
             possible_actions = list(list(zip(*sorted_q_values[0: self.action_sampling_size]))[0])
@@ -55,13 +54,9 @@ class FrapWithPlanningAgent(FrapAgent, PlanningOnlyAgent):
         elif self.action_sampling_policy == 'random':
             sample_size = min(self.action_sampling_size, len(phase_indices))
 
-            possible_actions = rng.choice(phase_indices, sample_size, replace=False)
+            possible_actions = self.rng.choice(phase_indices, sample_size, replace=False)
 
         else:
             raise ValueError('Incorrect action sampling policy')
 
-        action, rewards = PlanningOnlyAgent._choose_action(
-            self, initial_step, one_state, original_step, intersection_index, rng, planning_iterations,
-            previous_planning_actions, possible_actions, env, **kwargs)
-
-        return action, rewards
+        return possible_actions

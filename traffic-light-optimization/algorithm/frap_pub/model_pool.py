@@ -141,6 +141,7 @@ class ModelPool():
                 step += steps_iterated
             env.save_log()
             env.end_sumo()
+            agent.shutdown()
 
             # summary items (duration) from csv
             df_vehicle_inter_0 = pd.read_csv(os.path.join(ROOT_DIR, path_to_log, "vehicle_inter_0.csv"),

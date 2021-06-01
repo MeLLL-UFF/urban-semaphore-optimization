@@ -12,3 +12,6 @@ class Agent:
     def choose_action(self, step, state, *args, **kwargs):
 
         raise NotImplementedError
+
+    def shutdown(self):
+        pass

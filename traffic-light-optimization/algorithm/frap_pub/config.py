@@ -168,8 +168,9 @@ DIC_SUMO_AGENT_CONF = {
 }
 
 DIC_PLANNINGONLY_AGENT_CONF = {
-    "PLANNING_ITERATIONS": 3,
     "PICK_ACTION_AND_KEEP_WITH_IT": False,
+    "ACTION_SAMPLING_SIZE": 2,
+    "PLANNING_ITERATIONS": 3,
     "TIEBREAK_POLICY": 'random'  # 'random', 'maintain', 'change'
 }
 
@@ -196,7 +197,6 @@ DIC_FRAPWITHPLANNING_AGENT_CONF = {
     "MERGE": "multiply",
 
     "PLANNING_ITERATIONS": 2,
-    "PICK_ACTION_AND_KEEP_WITH_IT": False,
     "TIEBREAK_POLICY": 'random',  # 'random', 'maintain', 'change'
     "ACTION_SAMPLING_SIZE": 2,
     "ACTION_SAMPLING_POLICY": 'best',  # 'best', 'random'
