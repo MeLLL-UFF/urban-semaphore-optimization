@@ -544,28 +544,28 @@ class SumoEnv:
 
             if self.mode == 'test' or self.mode == 'replay':
                 path_to_detailed_log_file = os.path.join(self.path_to_log, "network_detailed.pkl")
-                f = open(ROOT_DIR + '/' + path_to_detailed_log_file, "wb+")
+                f = open(ROOT_DIR + '/' + path_to_detailed_log_file, "ab")
                 pickle.dump(self.network_logs, f)
                 f.close()
 
             for intersection_index, intersection in enumerate(self.intersections):
 
                 path_to_log_file = os.path.join(self.path_to_log, "inter_{0}.pkl".format(intersection.id))
-                f = open(ROOT_DIR + '/' + path_to_log_file, "wb")
+                f = open(ROOT_DIR + '/' + path_to_log_file, "ab")
                 pickle.dump(self.intersection_logs[intersection_index], f)
                 f.close()
 
                 if self.mode == 'replay':
                     path_to_detailed_log_file = os.path.join(
                         self.path_to_log, "inter_{0}_detailed.pkl".format(intersection.id))
-                    f = open(ROOT_DIR + '/' + path_to_detailed_log_file, "wb")
+                    f = open(ROOT_DIR + '/' + path_to_detailed_log_file, "ab")
                     pickle.dump(self.intersection_logs[intersection_index], f)
                     f.close()
 
                 if self.mode == 'test':
                     path_to_actions_log_file = os.path.join(
                         self.path_to_log, "inter_{0}_actions.pkl".format(intersection.id))
-                    f = open(ROOT_DIR + '/' + path_to_actions_log_file, "wb")
+                    f = open(ROOT_DIR + '/' + path_to_actions_log_file, "ab")
                     pickle.dump(self.action_logs[intersection_index], f)
                     f.close()
 
@@ -576,7 +576,7 @@ class SumoEnv:
     def save_state(self, name=None):
 
         if not os.path.isdir('/dev/shm' + '/' + self.environment_state_path):
-            os.makedirs('/dev/shm' + '/' + self.environment_state_path)
+            os.makedirs('/dev/shm' + '/' + self.environment_state_path, exist_ok=True)
 
         if name is None:
             state_name = self.execution_name + '_' + 'save_state' + '_' + str(self.get_current_time()) + '.sbx'

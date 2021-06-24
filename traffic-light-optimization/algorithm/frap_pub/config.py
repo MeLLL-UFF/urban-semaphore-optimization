@@ -199,7 +199,7 @@ DIC_FRAPWITHPLANNING_AGENT_CONF = {
     "PLANNING_ITERATIONS": 2,
     "TIEBREAK_POLICY": 'random',  # 'random', 'maintain', 'change'
     "ACTION_SAMPLING_SIZE": 2,
-    "ACTION_SAMPLING_POLICY": 'best',  # 'best', 'random'
+    "ACTION_SAMPLING_POLICY": 'random',  # 'best', 'random', 'exploration_exploitation'
     "PLANNING_SAMPLE_ONLY": True
 }
 

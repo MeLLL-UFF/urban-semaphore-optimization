@@ -107,18 +107,21 @@ def plot_instant_time_loss_per_driver(instant_time_loss_per_driver_df,
     ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     ax.yaxis.set_minor_locator(MultipleLocator(0.025))
 
+    ax.set_ylabel('instant time loss per driver')
+
     ax.xaxis.set_major_locator(MaxNLocator(nbins=12))
     ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
     ax.xaxis.set_minor_locator(MultipleLocator(10))
+
+    ax.set_xlabel('round')
 
     ax.set_axisbelow(True)
     ax.grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
 
     length = 10
-    metric_minimum_value = \
-        instant_time_loss_per_driver_df.rolling(length, min_periods=10, center=True).mean().min()[0]
-    final_instant_time_loss_per_driver = np.round(metric_minimum_value, decimals=2)
-
+    instant_time_loss_per_driver_df = \
+        instant_time_loss_per_driver_df.rolling(length, min_periods=length, center=True).mean()
+    final_instant_time_loss_per_driver = np.round(instant_time_loss_per_driver_df.min()[0], decimals=2)
 
     if is_summary:
         plot_label = algorithm_label + ' ' + '(' + str(final_instant_time_loss_per_driver) + ')'
@@ -152,9 +155,8 @@ def plot_instant_time_loss_per_driver(instant_time_loss_per_driver_df,
                     ax.plot(data, linewidth=2, linestyle=':', color=color,
                             label=label + ' ' + '(' + str(np.round(data.mean(), decimals=2)) + ')')
 
-    ax.legend()
+    ax.legend(loc='lower left', fontsize=20)
 
-    ax.set_title('instant time loss per driver')
     plt.savefig(save_path + "/" + name_base + "-" + 'instant_time_loss_per_driver' + ".png")
     plt.close()
 
@@ -172,17 +174,21 @@ def plot_consolidated_time_loss_per_driver(consolidated_time_loss_per_driver_df,
     ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
     ax.yaxis.set_minor_locator(MultipleLocator(10))
 
+    ax.set_ylabel('consolidated time loss per driver')
+
     ax.xaxis.set_major_locator(MaxNLocator(nbins=12))
     ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
     ax.xaxis.set_minor_locator(MultipleLocator(10))
+
+    ax.set_xlabel('round')
 
     ax.set_axisbelow(True)
     ax.grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
 
     length = 10
-    metric_minimum_value = \
-        consolidated_time_loss_per_driver_df.rolling(length, min_periods=10, center=True).mean().min()[0]
-    final_consolidated_time_loss_per_driver = np.round(metric_minimum_value, decimals=2)
+    consolidated_time_loss_per_driver_df = \
+        consolidated_time_loss_per_driver_df.rolling(length, min_periods=length, center=True).mean()
+    final_consolidated_time_loss_per_driver = np.round(consolidated_time_loss_per_driver_df.min()[0], decimals=2)
 
     if is_summary:
         plot_label = algorithm_label + ' ' + '(' + str(final_consolidated_time_loss_per_driver) + ')'
@@ -218,7 +224,6 @@ def plot_consolidated_time_loss_per_driver(consolidated_time_loss_per_driver_df,
 
     ax.legend()
 
-    ax.set_title('consolidated time loss per driver')
     plt.savefig(save_path + "/" + name_base + "-" + 'consolidated_time_loss_per_driver' + ".png")
     plt.close()
 

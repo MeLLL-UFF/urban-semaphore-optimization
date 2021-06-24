@@ -1,3 +1,4 @@
+import random
 
 from algorithm.frap_pub.frap_agent import FrapAgent
 from algorithm.frap_pub.planning_only_agent import PlanningOnlyAgent
@@ -45,13 +46,21 @@ class FrapWithPlanningAgent(FrapAgent, PlanningOnlyAgent):
 
         phase_indices = [self.unique_phases.index(intersection_phase) for intersection_phase in intersection_phases]
 
-        if self.action_sampling_policy == 'best':
+        action_sampling_policy = self.action_sampling_policy
+
+        if action_sampling_policy == 'exploration_exploitation':
+            if random.random() <= self.dic_agent_conf["EPSILON"]:
+                action_sampling_policy = 'random'
+            else:
+                action_sampling_policy = 'best'
+
+        if action_sampling_policy == 'best':
             q_values = self.q_network.predict(self.convert_state_to_input(state))
             sorted_q_values = sorted(zip(phase_indices, q_values[0][phase_indices]), key=lambda x: x[1], reverse=True)
             
             possible_actions = list(list(zip(*sorted_q_values[0: self.action_sampling_size]))[0])
 
-        elif self.action_sampling_policy == 'random':
+        elif action_sampling_policy == 'random':
             sample_size = min(self.action_sampling_size, len(phase_indices))
 
             possible_actions = self.rng.choice(phase_indices, sample_size, replace=False)

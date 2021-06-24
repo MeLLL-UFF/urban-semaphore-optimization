@@ -20,21 +20,26 @@ class ConstructSample:
         self.logging_data = None
         self.samples = None
 
-    def load_data(self, folder, intersection_id):
+    def load_data_generator(self, folder, intersection_id):
 
+        f_logging_data = None
         try:
             # load settings
             self.measure_time = self.dic_traffic_env_conf["MEASURE_TIME"]
             self.min_action_time = self.dic_traffic_env_conf["MIN_ACTION_TIME"]
             f_logging_data = open(os.path.join(ROOT_DIR, self.path_to_samples, folder,
                                                "inter_{0}.pkl".format(intersection_id)), "rb")
-            self.logging_data = pickle.load(f_logging_data)
-            f_logging_data.close()
-            return True
+
+            while True:
+                self.logging_data = pickle.load(f_logging_data)
+                yield True
 
         except FileNotFoundError:
             print(os.path.join(ROOT_DIR, self.path_to_samples, folder), "files not found")
-            return False
+            yield False
+        except EOFError:
+            f_logging_data.close()
+            yield False
 
     def construct_state(self, features, index, time):
         state = self.logging_data[index]
@@ -82,37 +87,40 @@ class ConstructSample:
 
             for intersection_id in self.dic_traffic_env_conf["INTERSECTION_ID"]:
 
-                loaded = self.load_data(folder, intersection_id)
-                if not loaded:
-                    continue
+                load_data_generator_object = self.load_data_generator(folder, intersection_id)
 
-                samples = []
-                total_time = int(self.logging_data[-1]['time'] + 1)
-                # construct samples
-                for index in range(start_index, len(self.logging_data) - self.measure_time + 1, self.min_action_time):
-                    time = int(self.logging_data[index]['time'])
-                    state = self.construct_state(self.dic_traffic_env_conf["STATE_FEATURE_LIST"], index, time)
-                    instant_reward, average_reward = self.construct_reward(index, time)
-                    action = self.judge_action(index)
+                loaded = next(load_data_generator_object)
+                while loaded:
 
-                    if time + self.min_action_time == total_time:
-                        next_state = self.construct_state(
-                            self.dic_traffic_env_conf["STATE_FEATURE_LIST"],
-                            index + self.min_action_time - 1,
-                            time + self.min_action_time - 1
-                        )
-                    else:
-                        next_state = self.construct_state(
-                            self.dic_traffic_env_conf["STATE_FEATURE_LIST"],
-                            index + self.min_action_time,
-                            time + self.min_action_time
-                        )
+                    samples = []
+                    total_time = int(self.logging_data[-1]['time'] + 1)
+                    # construct samples
+                    for index in range(start_index, len(self.logging_data) - self.measure_time + 1, self.min_action_time):
+                        time = int(self.logging_data[index]['time'])
+                        state = self.construct_state(self.dic_traffic_env_conf["STATE_FEATURE_LIST"], index, time)
+                        instant_reward, average_reward = self.construct_reward(index, time)
+                        action = self.judge_action(index)
 
-                    sample = [state, action, next_state, average_reward, instant_reward, time]
-                    samples.append(sample)
+                        if time + self.min_action_time == total_time:
+                            next_state = self.construct_state(
+                                self.dic_traffic_env_conf["STATE_FEATURE_LIST"],
+                                index + self.min_action_time - 1,
+                                time + self.min_action_time - 1
+                            )
+                        else:
+                            next_state = self.construct_state(
+                                self.dic_traffic_env_conf["STATE_FEATURE_LIST"],
+                                index + self.min_action_time,
+                                time + self.min_action_time
+                            )
 
-                samples = self.evaluate_sample(samples)
-                self.samples.extend(samples)
+                        sample = [state, action, next_state, average_reward, instant_reward, time]
+                        samples.append(sample)
+
+                    samples = self.evaluate_sample(samples)
+                    self.samples.extend(samples)
+
+                    loaded = next(load_data_generator_object)
 
         self.dump_sample(self.samples, "")
 

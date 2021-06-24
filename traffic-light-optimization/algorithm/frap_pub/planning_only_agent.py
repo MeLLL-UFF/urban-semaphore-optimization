@@ -8,6 +8,7 @@ from concurrent.futures import ProcessPoolExecutor
 import numpy as np
 
 from utils import xml_util
+from algorithm.frap_pub.synchronization_util import save_log_lock
 
 from algorithm.frap_pub.agent import Agent
 from algorithm.frap_pub.definitions import ROOT_DIR
@@ -101,12 +102,19 @@ class PlanningOnlyAgent(Agent):
         previous_planning_actions_list = [[]]
         save_state_filepath_list = [save_state_filepath]
 
+        env = copy.deepcopy(self.env)
+
+        env.path_to_log = env.path_to_log + '__' + 'planning'
+        if not os.path.exists(ROOT_DIR + '/' + env.path_to_log):
+            os.makedirs(ROOT_DIR + '/' + env.path_to_log)
+
+        envs = [env]
+
         possible_future_rewards = np.array([])
 
         remaining_planning_iterations = self.planning_iterations
 
         simulation_possibility_kwargs = {
-            'env': self.env,
             'original_step': step,
             'intersection_index': intersection_index,
         }
@@ -122,14 +130,16 @@ class PlanningOnlyAgent(Agent):
 
             save_state_filepath_list = self._expand_data_list(save_state_filepath_list)
 
+            envs = self._expand_data_list(envs, deepcopy=True)
+
             planning_step_list = self._expand_data_list(planning_step_list)
 
             previous_planning_actions_list = self._expand_data_list(previous_planning_actions_list, deepcopy=True)
 
-            states, rewards, steps_iterated_list, save_state_filepath_list = list(zip(*list(
+            states, rewards, steps_iterated_list, save_state_filepath_list, envs = list(zip(*list(
                 self.process_pool_executor.map(
                     partial(PlanningOnlyAgent._run_simulation_possibility, **simulation_possibility_kwargs),
-                    possible_actions, planning_step_list, previous_planning_actions_list, save_state_filepath_list
+                    possible_actions, planning_step_list, previous_planning_actions_list, save_state_filepath_list, envs
             ))))
 
             for save_state_filepath_to_remove in save_state_filepath_to_remove_list:
@@ -145,13 +155,14 @@ class PlanningOnlyAgent(Agent):
             else:
                 possible_future_rewards = np.array([0] * self.action_sampling_size)
 
-            possible_future_rewards = np.add(possible_future_rewards, rewards)
+            possible_future_rewards = np.add(possible_future_rewards, [0, 0])
 
             if len(previous_planning_actions_list) != 0:
                 for i in range(len(previous_planning_actions_list) - 1, -1, -1):
                     previous_planning_actions_list[i].append(possible_actions[i])
 
             save_state_filepath_list = list(save_state_filepath_list)
+            envs = list(envs)
 
             for i in range(len(planning_step_list) - 1, -1, -1):
                 planning_step_list[i] += steps_iterated_list[i]
@@ -210,7 +221,7 @@ class PlanningOnlyAgent(Agent):
 
         try:
 
-            env = copy.deepcopy(env)
+            xml_util.register_copyreg()
 
             env.external_configurations['SUMOCFG_PARAMETERS'].update(
                 {
@@ -226,10 +237,6 @@ class PlanningOnlyAgent(Agent):
                              'planning_step' + '_' + str(planning_step) + '__' + \
                              'phase' + '_' + str(action)
 
-            env.path_to_log = env.path_to_log + '__' + execution_name
-            if not os.path.exists(ROOT_DIR + '/' + env.path_to_log):
-                os.makedirs(ROOT_DIR + '/' + env.path_to_log)
-
             _, next_action = env.reset_for_planning(execution_name)
 
             action_list = ['no_op']*len(next_action)
@@ -241,11 +248,13 @@ class PlanningOnlyAgent(Agent):
 
             save_state_filepath = env.save_state()
 
+            save_log_lock.acquire()
             env.save_log()
+            save_log_lock.release()
             env.end_sumo()
 
         except Exception as e:
             print(e)
             raise e
 
-        return next_state, reward, steps_iterated, save_state_filepath
+        return next_state, reward, steps_iterated, save_state_filepath, env

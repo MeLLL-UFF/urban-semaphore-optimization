@@ -12,7 +12,7 @@ from utils import summary_util
 
 from algorithm.frap_pub.definitions import ROOT_DIR
 
-font = {'size': 24}
+font = {"family": "Times New Roman", 'size': 24}
 mlp.rc('font', **font)
 
 def single_experiment_intersection_summary(memo, records_dir, intersection_id, single_round=0, plots='all',

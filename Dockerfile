@@ -1,5 +1,5 @@
 
-FROM tensorflow/tensorflow:2.1.0-gpu
+FROM tensorflow/tensorflow:2.1.2-gpu
 
 ARG USER_ID
 ARG GROUP_ID
@@ -17,8 +17,8 @@ RUN apt-get update -y && \
     xargs apt-get install -y <./system-requirements-linux.txt
 
 COPY --chown=root ./requirements.txt /app
-RUN pip3 install --upgrade pip && \
-    pip3 install -r requirements.txt
+RUN python3.7 -m pip install --upgrade pip && \
+    python3.7 -m pip install -r requirements.txt
 
 RUN curl https://sumo.dlr.de/releases/1.8.0/sumo-src-1.8.0.tar.gz \
     | tar -xz
@@ -50,5 +50,5 @@ VOLUME ${FRAP_RECORDS_PATH}
 VOLUME ${FRAP_SUMMARY_PATH}
 
 
-ENTRYPOINT ["python3"]
+ENTRYPOINT ["python3.7"]
 CMD ["./traffic-light-optimization/sumo_main.py"]

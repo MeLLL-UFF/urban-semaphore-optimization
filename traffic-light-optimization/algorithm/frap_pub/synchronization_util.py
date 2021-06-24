@@ -1,8 +1,7 @@
 
-import threading
 import multiprocessing
 
-traci_start_lock = threading.Lock()
+save_log_lock = multiprocessing.Lock()
 
 
 network_update_begin_barrier = None
