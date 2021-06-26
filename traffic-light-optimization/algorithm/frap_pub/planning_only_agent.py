@@ -155,7 +155,7 @@ class PlanningOnlyAgent(Agent):
             else:
                 possible_future_rewards = np.array([0] * self.action_sampling_size)
 
-            possible_future_rewards = np.add(possible_future_rewards, [0, 0])
+            possible_future_rewards = np.add(possible_future_rewards, rewards)
 
             if len(previous_planning_actions_list) != 0:
                 for i in range(len(previous_planning_actions_list) - 1, -1, -1):
