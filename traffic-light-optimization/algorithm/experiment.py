@@ -113,30 +113,6 @@ class Experiment:
                                                   baseline_comparison=baseline_comparison,
                                                   baseline_experiments=baseline_experiments)
 
-    # @staticmethod
-    # def summary(experiment_info, _round=None, plots='all', baseline_comparison=True, baseline_experiments=None):
-    #
-    #     memo_list = []
-    #     label_list = []
-    #     color_list = []
-    #     records_info_list = []
-    #
-    #     if isinstance(experiment_info[0], list):
-    #         for memo, label, color, experiment in experiment_info:
-    #             memo_list.append(memo)
-    #             label_list.append(label)
-    #             color_list.append(color)
-    #             records_info_list.append('records/' + memo + '/' + experiment)
-    #     else:
-    #         memo, label, color, experiment = experiment_info
-    #         memo_list.append(memo)
-    #         label_list.append(label)
-    #         color_list.append(color)
-    #         records_info_list.append('records/' + memo + '/' + experiment)
-    #
-    #     summary.single_experiment_network_summary(memo_list, label_list, color_list, records_info_list,
-    #                                               _round, plots, baseline_comparison, baseline_experiments)
-
     @staticmethod
     def _create_external_configurations_dict(scenario, net_file, route_files, sumocfg_file,
                                              traffic_level_configuration, additional_files=None,

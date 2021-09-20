@@ -471,15 +471,15 @@ class SumoEnv:
             self.total_time_loss += time_loss
             total_vehicles = self.total_departed_vehicles + self.total_pending_vehicles
 
-            consolidated_time_loss_per_driver = self.total_time_loss / total_vehicles if total_vehicles != 0 else 0
-            instant_time_loss_per_driver = time_loss / (self.total_running_vehicles + self.total_pending_vehicles) \
+            cumulative_time_loss_per_driver = self.total_time_loss / total_vehicles if total_vehicles != 0 else 0
+            percentage_time_loss_per_driver = time_loss / (self.total_running_vehicles + self.total_pending_vehicles) \
                 if (self.total_running_vehicles + self.total_pending_vehicles) != 0 else 0
             extra = {
                 "average_time_loss": average_time_loss,
                 "average_travel_time": average_travel_time,
                 "throughput": throughput,
-                "consolidated_time_loss_per_driver": consolidated_time_loss_per_driver,
-                "instant_time_loss_per_driver": instant_time_loss_per_driver
+                "cumulative_time_loss_per_driver": cumulative_time_loss_per_driver,
+                "percentage_time_loss_per_driver": percentage_time_loss_per_driver
             }
 
             self.network_logs.append({

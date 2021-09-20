@@ -44,58 +44,7 @@ def consolidate_reward(reward_each_step, save_path, name_base):
     plt.savefig(save_path + "/" + name_base + "-" + 'reward')
     plt.close()
 
-# deprecated
-def consolidate_instant_time_loss_per_driver_average(time_loss_each_step, total_running_vehicles_each_step,
-                                                     total_pending_vehicles_each_step, save_path, name_base):
-
-    instant_time_loss_per_driver_average_df = pd.DataFrame(
-        {'time_loss': time_loss_each_step,
-         'total_running_vehicles': total_running_vehicles_each_step,
-         'total_pending_vehicles': total_pending_vehicles_each_step})
-
-    instant_time_loss_per_driver_average_df['total_running_and_pending_vehicles'] = \
-        instant_time_loss_per_driver_average_df['total_running_vehicles'] + \
-        instant_time_loss_per_driver_average_df['total_pending_vehicles']
-
-    instant_time_loss_per_driver_average_df['instant_time_loss_per_driver'] = \
-        instant_time_loss_per_driver_average_df['time_loss'] / \
-        instant_time_loss_per_driver_average_df['total_running_and_pending_vehicles']
-
-    instant_time_loss_per_driver_average_df = \
-        pd.DataFrame(instant_time_loss_per_driver_average_df['instant_time_loss_per_driver'])
-
-    instant_time_loss_per_driver_average_df.to_csv(
-        save_path + "/" + name_base + "-" + 'instant_time_loss_per_driver' + ".csv")
-
-    return instant_time_loss_per_driver_average_df
-
-# deprecated
-def consolidate_consolidated_time_loss_per_driver(time_loss_each_step, total_departed_vehicles_each_step,
-                                                  total_pending_vehicles_each_step, save_path, name_base):
-
-    consolidated_time_loss_per_driver_df = pd.DataFrame(
-        {'time_loss': time_loss_each_step,
-         'total_departed_vehicles': total_departed_vehicles_each_step,
-         'total_pending_vehicles': total_pending_vehicles_each_step})
-
-    consolidated_time_loss_per_driver_df['total_departed_and_pending_vehicles'] = \
-        consolidated_time_loss_per_driver_df['total_departed_vehicles'] + \
-        consolidated_time_loss_per_driver_df['total_pending_vehicles']
-
-    consolidated_time_loss_per_driver_df['consolidated_time_loss_per_driver'] = \
-        consolidated_time_loss_per_driver_df['time_loss'].cumsum() / \
-        consolidated_time_loss_per_driver_df['total_departed_and_pending_vehicles']
-
-    consolidated_time_loss_per_driver_df = \
-        pd.DataFrame(consolidated_time_loss_per_driver_df['consolidated_time_loss_per_driver'])
-
-    consolidated_time_loss_per_driver_df.to_csv(
-        save_path + "/" + name_base + "-" + 'consolidated_time_loss_per_driver' + ".csv")
-
-    return consolidated_time_loss_per_driver_df
-
-
-def plot_instant_time_loss_per_driver(instant_time_loss_per_driver_df,
+def plot_percentage_time_loss_per_driver(percentage_time_loss_per_driver_df,
                                       save_path, name_base, algorithm_label, baseline_comparison=False,
                                       baseline_experiments=None, is_summary=False):
 
@@ -108,7 +57,7 @@ def plot_instant_time_loss_per_driver(instant_time_loss_per_driver_df,
     ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     ax.yaxis.set_minor_locator(MultipleLocator(0.025))
 
-    ax.set_ylabel('instant time loss per driver')
+    ax.set_ylabel('percentage time loss per driver')
 
     ax.xaxis.set_major_locator(MaxNLocator(nbins=12))
     ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
@@ -120,17 +69,17 @@ def plot_instant_time_loss_per_driver(instant_time_loss_per_driver_df,
     ax.grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
 
     length = 10
-    instant_time_loss_per_driver_df = \
-        instant_time_loss_per_driver_df.rolling(length, min_periods=length, center=True).mean()
-    final_instant_time_loss_per_driver = np.round(instant_time_loss_per_driver_df.min()[0], decimals=2)
+    percentage_time_loss_per_driver_df = \
+        percentage_time_loss_per_driver_df.rolling(length, min_periods=length, center=True).mean()
+    final_percentage_time_loss_per_driver = np.round(percentage_time_loss_per_driver_df.min()[0], decimals=2)
 
     if is_summary:
-        plot_label = algorithm_label + ' ' + '(' + str(final_instant_time_loss_per_driver) + ')'
+        plot_label = algorithm_label + ' ' + '(' + str(final_percentage_time_loss_per_driver) + ')'
     else:
         plot_label = algorithm_label + ' ' + '(' + \
-                     str(np.round(instant_time_loss_per_driver_df.mean().values[0], decimals=2)) + ')'
+                     str(np.round(percentage_time_loss_per_driver_df.mean().values[0], decimals=2)) + ')'
 
-    ax.plot(instant_time_loss_per_driver_df, linewidth=2, color='k', label=plot_label)
+    ax.plot(percentage_time_loss_per_driver_df, linewidth=2, color='k', label=plot_label)
 
     if baseline_comparison:
 
@@ -141,28 +90,28 @@ def plot_instant_time_loss_per_driver(instant_time_loss_per_driver_df,
             records_folder = os.path.join(
                 FRAP_ROOT_DIR, 'records', memo, experiment, 'test_round', 'round' + '_' + str(round_))
 
-            result_file = records_folder + '/' + experiment + '-test-instant_time_loss_per_driver.csv'
+            result_file = records_folder + '/' + experiment + '-test-percentage_time_loss_per_driver.csv'
 
             if os.path.isfile(result_file):
                 result_df = pd.read_csv(result_file)
 
                 if is_summary:
-                    data = result_df['instant_time_loss_per_driver'].mean()
-                    ax.plot([0, instant_time_loss_per_driver_df.shape[0]],
+                    data = result_df['percentage_time_loss_per_driver'].mean()
+                    ax.plot([0, percentage_time_loss_per_driver_df.shape[0]],
                             [data, data], linewidth=2, linestyle=':', color=color,
                             label=label + ' ' + '(' + str(np.round(data, decimals=2)) + ')')
                 else:
-                    data = result_df['instant_time_loss_per_driver']
+                    data = result_df['percentage_time_loss_per_driver']
                     ax.plot(data, linewidth=2, linestyle=':', color=color,
                             label=label + ' ' + '(' + str(np.round(data.mean(), decimals=2)) + ')')
 
     ax.legend(loc='lower left', fontsize=20)
 
-    plt.savefig(save_path + "/" + name_base + "-" + 'instant_time_loss_per_driver')
+    plt.savefig(save_path + "/" + name_base + "-" + 'percentage_time_loss_per_driver')
     plt.close()
 
 
-def plot_consolidated_time_loss_per_driver(consolidated_time_loss_per_driver_df,
+def plot_cumulative_time_loss_per_driver(cumulative_time_loss_per_driver_df,
                                            save_path, name_base, algorithm_label,
                                            baseline_comparison=False, baseline_experiments=None,
                                            is_summary=False):
@@ -175,7 +124,7 @@ def plot_consolidated_time_loss_per_driver(consolidated_time_loss_per_driver_df,
     ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
     ax.yaxis.set_minor_locator(MultipleLocator(10))
 
-    ax.set_ylabel('consolidated time loss per driver')
+    ax.set_ylabel('cumulative time loss per driver')
 
     ax.xaxis.set_major_locator(MaxNLocator(nbins=12))
     ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
@@ -187,17 +136,17 @@ def plot_consolidated_time_loss_per_driver(consolidated_time_loss_per_driver_df,
     ax.grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
 
     length = 10
-    consolidated_time_loss_per_driver_df = \
-        consolidated_time_loss_per_driver_df.rolling(length, min_periods=length, center=True).mean()
-    final_consolidated_time_loss_per_driver = np.round(consolidated_time_loss_per_driver_df.min()[0], decimals=2)
+    cumulative_time_loss_per_driver_df = \
+        cumulative_time_loss_per_driver_df.rolling(length, min_periods=length, center=True).mean()
+    final_cumulative_time_loss_per_driver = np.round(cumulative_time_loss_per_driver_df.min()[0], decimals=2)
 
     if is_summary:
-        plot_label = algorithm_label + ' ' + '(' + str(final_consolidated_time_loss_per_driver) + ')'
+        plot_label = algorithm_label + ' ' + '(' + str(final_cumulative_time_loss_per_driver) + ')'
     else:
         plot_label = algorithm_label + ' ' + '(' + \
-                     str(np.round(consolidated_time_loss_per_driver_df.iloc[-1, 0], decimals=2)) + ')'
+                     str(np.round(cumulative_time_loss_per_driver_df.iloc[-1, 0], decimals=2)) + ')'
 
-    ax.plot(consolidated_time_loss_per_driver_df, linewidth=2, color='k', label=plot_label)
+    ax.plot(cumulative_time_loss_per_driver_df, linewidth=2, color='k', label=plot_label)
 
     if baseline_comparison:
 
@@ -208,157 +157,25 @@ def plot_consolidated_time_loss_per_driver(consolidated_time_loss_per_driver_df,
             records_folder = os.path.join(
                 FRAP_ROOT_DIR, 'records', memo, experiment, 'test_round', 'round' + '_' + str(round_))
 
-            result_file = records_folder + '/' + experiment + '-test-consolidated_time_loss_per_driver.csv'
+            result_file = records_folder + '/' + experiment + '-test-cumulative_time_loss_per_driver.csv'
 
             if os.path.isfile(result_file):
                 result_df = pd.read_csv(result_file)
 
                 if is_summary:
-                    data = result_df['consolidated_time_loss_per_driver'].iloc[-1]
-                    ax.plot([0, consolidated_time_loss_per_driver_df.shape[0]],
+                    data = result_df['cumulative_time_loss_per_driver'].iloc[-1]
+                    ax.plot([0, cumulative_time_loss_per_driver_df.shape[0]],
                             [data, data], linewidth=2, linestyle=':', color=color,
                             label=label + ' ' + '(' + str(np.round(data, decimals=2)) + ')')
                 else:
-                    data = result_df['consolidated_time_loss_per_driver']
+                    data = result_df['cumulative_time_loss_per_driver']
                     ax.plot(data, linewidth=2, linestyle=':', color=color,
                             label=label + ' ' + '(' + str(np.round(data.iloc[-1], decimals=2)) + ')')
 
     ax.legend()
 
-    plt.savefig(save_path + "/" + name_base + "-" + 'consolidated_time_loss_per_driver')
+    plt.savefig(save_path + "/" + name_base + "-" + 'cumulative_time_loss_per_driver')
     plt.close()
-
-
-# def plot_instant_time_loss_per_driver_average(instant_time_loss_per_driver_average_df_list,
-#                                               save_path, name_base, algorithm_label, color, baseline_comparison=False,
-#                                               baseline_experiments=None, is_summary=False):
-#
-#     f, ax = plt.subplots(1, 1, figsize=(20, 9), dpi=600)
-#
-#     ax.margins(0.01)
-#
-#     ax.set_ylim([0, 1])
-#     ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
-#     ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-#     ax.yaxis.set_minor_locator(MultipleLocator(0.025))
-#
-#     ax.xaxis.set_major_locator(MaxNLocator(nbins=12))
-#     ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
-#     ax.xaxis.set_minor_locator(MultipleLocator(10))
-#
-#     ax.set_axisbelow(True)
-#     ax.grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
-#
-#     for algorithm_label, color, instant_time_loss_per_driver_average_df in zip(algorithm_label, color, instant_time_loss_per_driver_average_df_list):
-#
-#         tail_length = 10
-#         instant_time_loss_tail_per_driver = instant_time_loss_per_driver_average_df.iloc[-tail_length:]
-#         final_instant_time_loss_per_driver = np.round(np.mean(
-#             instant_time_loss_tail_per_driver[instant_time_loss_tail_per_driver > 0]), decimals=2)
-#
-#         if is_summary:
-#             plot_label = algorithm_label + ' ' + '(' + str(final_instant_time_loss_per_driver.values[0]) + ')'
-#         else:
-#             plot_label = algorithm_label + ' ' + '(' + \
-#                          str(np.round(instant_time_loss_per_driver_average_df.mean().values[0], decimals=2)) + ')'
-#
-#         ax.plot(instant_time_loss_per_driver_average_df, linewidth=2, color=color, label=plot_label)
-#
-#     if baseline_comparison:
-#
-#         for baseline_experiment in baseline_experiments:
-#
-#             memo, experiment, round_, color, label = baseline_experiment
-#
-#             records_folder = os.path.join(
-#                 FRAP_ROOT_DIR, 'records', memo, experiment, 'test_round', 'round' + '_' + str(round_))
-#
-#             result_file = records_folder + '/' + experiment + '-test-instant_time_loss_per_driver.csv'
-#
-#             if os.path.isfile(result_file):
-#                 result_df = pd.read_csv(result_file)
-#
-#                 if is_summary:
-#                     data = result_df['instant_time_loss_per_driver'].mean()
-#                     ax.plot([0, instant_time_loss_per_driver_average_df.shape[0]],
-#                             [data, data], linewidth=2, linestyle=':', color=color,
-#                             label=label + ' ' + '(' + str(np.round(data, decimals=2)) + ')')
-#                 else:
-#                     data = result_df['instant_time_loss_per_driver']
-#                     ax.plot(data, linewidth=2, linestyle=':', color=color,
-#                             label=label + ' ' + '(' + str(np.round(data.mean(), decimals=2)) + ')')
-#
-#     ax.legend()
-#
-#     ax.set_title('instant time loss per driver')
-#     plt.savefig(save_path + "/" + name_base + "-" + 'instant_time_loss_per_driver')
-#     plt.close()
-#
-#
-# def plot_consolidated_time_loss_per_driver(consolidated_time_loss_per_driver_df_list,
-#                                            save_path, name_base, algorithm_label, color,
-#                                            baseline_comparison=False, baseline_experiments=None,
-#                                            is_summary=False):
-#     f, ax = plt.subplots(1, 1, figsize=(20, 9), dpi=600)
-#
-#     ax.margins(0.01)
-#
-#     ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
-#     ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
-#     ax.yaxis.set_minor_locator(MultipleLocator(10))
-#
-#     ax.xaxis.set_major_locator(MaxNLocator(nbins=12))
-#     ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
-#     ax.xaxis.set_minor_locator(MultipleLocator(10))
-#
-#     ax.set_axisbelow(True)
-#     ax.grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
-#
-#     for algorithm_label, color, consolidated_time_loss_per_driver_df in zip(algorithm_label, color,
-#                                                                      consolidated_time_loss_per_driver_df_list):
-#
-#         tail_length = 10
-#         consolidated_time_loss_per_driver_tail = consolidated_time_loss_per_driver_df.iloc[-tail_length:]
-#         final_consolidated_time_loss_per_driver = np.round(np.mean(
-#             consolidated_time_loss_per_driver_tail[consolidated_time_loss_per_driver_tail > 0]), decimals=2)[0]
-#
-#         if is_summary:
-#             plot_label = algorithm_label + ' ' + '(' + str(final_consolidated_time_loss_per_driver) + ')'
-#         else:
-#             plot_label = algorithm_label + ' ' + '(' + \
-#                          str(np.round(consolidated_time_loss_per_driver_df.iloc[-1, 0], decimals=2)) + ')'
-#
-#         ax.plot(consolidated_time_loss_per_driver_df, linewidth=2, color=color, label=plot_label)
-#
-#     if baseline_comparison:
-#
-#         for baseline_experiment in baseline_experiments:
-#
-#             memo, experiment, round_, color, label = baseline_experiment
-#
-#             records_folder = os.path.join(
-#                 FRAP_ROOT_DIR, 'records', memo, experiment, 'test_round', 'round' + '_' + str(round_))
-#
-#             result_file = records_folder + '/' + experiment + '-test-consolidated_time_loss_per_driver.csv'
-#
-#             if os.path.isfile(result_file):
-#                 result_df = pd.read_csv(result_file)
-#
-#                 if is_summary:
-#                     data = result_df['consolidated_time_loss_per_driver'].iloc[-1]
-#                     ax.plot([0, consolidated_time_loss_per_driver_df.shape[0]],
-#                             [data, data], linewidth=2, linestyle=':', color=color,
-#                             label=label + ' ' + '(' + str(np.round(data, decimals=2)) + ')')
-#                 else:
-#                     data = result_df['consolidated_time_loss_per_driver']
-#                     ax.plot(data, linewidth=2, linestyle=':', color=color,
-#                             label=label + ' ' + '(' + str(np.round(data.iloc[-1], decimals=2)) + ')')
-#
-#     ax.legend()
-#
-#     ax.set_title('consolidated time loss per driver')
-#     plt.savefig(save_path + "/" + name_base + "-" + 'consolidated_time_loss_per_driver')
-#     plt.close()
 
 
 def consolidate_time_loss(time_loss_each_step, save_path, name_base, algorithm_label,
