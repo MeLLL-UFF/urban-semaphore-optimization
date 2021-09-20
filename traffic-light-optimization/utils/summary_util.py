@@ -15,7 +15,7 @@ from algorithm.frap_pub.definitions import ROOT_DIR as FRAP_ROOT_DIR
 
 font = {"family": "Times New Roman", 'size': 24}
 mlp.rc('font', **font)
-mlp.rcParams['savefig.format'] = 'eps'
+#mlp.rcParams['savefig.format'] = 'eps'
 
 
 def consolidate_reward(reward_each_step, save_path, name_base):
