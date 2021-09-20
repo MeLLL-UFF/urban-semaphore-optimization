@@ -16,7 +16,11 @@ class FrapWithPlanningAgent(FrapAgent, PlanningOnlyAgent):
         self.action_sampling_size = self.dic_agent_conf["ACTION_SAMPLING_SIZE"]
         self.action_sampling_policy = self.dic_agent_conf["ACTION_SAMPLING_POLICY"]
 
-        self.planning_sample_only = self.dic_agent_conf["PLANNING_SAMPLE_ONLY"]
+        self.background_planning = self.dic_agent_conf["BACKGROUND_PLANNING"]
+        self.decision_time_planning = self.dic_agent_conf["DECISION_TIME_PLANNING"]
+
+        if not self.background_planning and not self.decision_time_planning:
+            raise ValueError("Please select background planning, decision-time planning, or both")
 
     def choose_action(self, step, state, *args, **kwargs):
         
@@ -31,7 +35,7 @@ class FrapWithPlanningAgent(FrapAgent, PlanningOnlyAgent):
         if self.mode == 'train':
             action = PlanningOnlyAgent.choose_action(self, step, state, *args, **kwargs)
 
-            if self.planning_sample_only:
+            if not self.decision_time_planning:
                 action = FrapAgent.choose_action(self, step, state, intersection_index=intersection_index)
         elif self.mode == 'test':
             action = FrapAgent.choose_action(self, step, state, intersection_index=intersection_index)
@@ -45,7 +49,6 @@ class FrapWithPlanningAgent(FrapAgent, PlanningOnlyAgent):
         intersection_phases = self.phases[intersection_index]
 
         phase_indices = [self.unique_phases.index(intersection_phase) for intersection_phase in intersection_phases]
-
         action_sampling_policy = self.action_sampling_policy
 
         if action_sampling_policy == 'exploration_exploitation':

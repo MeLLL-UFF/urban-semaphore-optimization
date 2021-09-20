@@ -13,8 +13,9 @@ from matplotlib.lines import Line2D
 from algorithm.frap_pub.definitions import ROOT_DIR as FRAP_ROOT_DIR
 
 
-font = {'size': 24}
+font = {"family": "Times New Roman", 'size': 24}
 mlp.rc('font', **font)
+mlp.rcParams['savefig.format'] = 'eps'
 
 
 def consolidate_reward(reward_each_step, save_path, name_base):
@@ -40,7 +41,7 @@ def consolidate_reward(reward_each_step, save_path, name_base):
 
     ax.plot(reward_df, linewidth=2, color='k')
     ax.set_title('reward' + ' - ' + str(np.round(reward_df.mean()[0], decimals=2)))
-    plt.savefig(save_path + "/" + name_base + "-" + 'reward' + ".png")
+    plt.savefig(save_path + "/" + name_base + "-" + 'reward')
     plt.close()
 
 # deprecated
@@ -157,7 +158,7 @@ def plot_instant_time_loss_per_driver(instant_time_loss_per_driver_df,
 
     ax.legend(loc='lower left', fontsize=20)
 
-    plt.savefig(save_path + "/" + name_base + "-" + 'instant_time_loss_per_driver' + ".png")
+    plt.savefig(save_path + "/" + name_base + "-" + 'instant_time_loss_per_driver')
     plt.close()
 
 
@@ -224,7 +225,7 @@ def plot_consolidated_time_loss_per_driver(consolidated_time_loss_per_driver_df,
 
     ax.legend()
 
-    plt.savefig(save_path + "/" + name_base + "-" + 'consolidated_time_loss_per_driver' + ".png")
+    plt.savefig(save_path + "/" + name_base + "-" + 'consolidated_time_loss_per_driver')
     plt.close()
 
 
@@ -290,7 +291,7 @@ def plot_consolidated_time_loss_per_driver(consolidated_time_loss_per_driver_df,
 #     ax.legend()
 #
 #     ax.set_title('instant time loss per driver')
-#     plt.savefig(save_path + "/" + name_base + "-" + 'instant_time_loss_per_driver' + ".png")
+#     plt.savefig(save_path + "/" + name_base + "-" + 'instant_time_loss_per_driver')
 #     plt.close()
 #
 #
@@ -356,7 +357,7 @@ def plot_consolidated_time_loss_per_driver(consolidated_time_loss_per_driver_df,
 #     ax.legend()
 #
 #     ax.set_title('consolidated time loss per driver')
-#     plt.savefig(save_path + "/" + name_base + "-" + 'consolidated_time_loss_per_driver' + ".png")
+#     plt.savefig(save_path + "/" + name_base + "-" + 'consolidated_time_loss_per_driver')
 #     plt.close()
 
 
@@ -419,7 +420,7 @@ def consolidate_time_loss(time_loss_each_step, save_path, name_base, algorithm_l
         ax.legend()
 
     ax.set_title('time loss' + ' - ' + str(np.round(time_loss_df.mean()[0], decimals=2)))
-    plt.savefig(save_path + "/" + name_base + "-" + 'time_loss' + ".png")
+    plt.savefig(save_path + "/" + name_base + "-" + 'time_loss')
     plt.close()
 
 
@@ -545,7 +546,7 @@ def consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step,
         axs[i][1].grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
 
     plt.savefig(save_path + '/' + name_base + '-' +
-                'occupancy_and_speed_inflow_outflow' + '-' + 'per_edge' + '.png')
+                'occupancy_and_speed_inflow_outflow' + '-' + 'per_edge')
     plt.close()
 
 
@@ -593,7 +594,7 @@ def consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step,
         axs[i][1].grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
 
     plt.savefig(save_path + '/' + name_base + '-' +
-                'occupancy_and_speed_inflow_outflow' + '-' + 'per_movement' + '.png')
+                'occupancy_and_speed_inflow_outflow' + '-' + 'per_movement')
     plt.close()
 
 
@@ -637,7 +638,7 @@ def consolidate_occupancy_and_speed_inflow_outflow(relative_occupancy_each_step,
     axs[1].grid(color='gray', linestyle='dashed', alpha=0.5, which='both')
 
     plt.savefig(save_path + '/' + name_base + '-' +
-                'occupancy_and_speed_inflow_outflow' + '-' + 'all_lanes' + '.png')
+                'occupancy_and_speed_inflow_outflow' + '-' + 'all_lanes')
     plt.close()
 
 
@@ -774,7 +775,7 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
     plt.suptitle('phase and demand distribution (%, in decimal)')
 
     plt.savefig(save_path + '/' + name_base + '-' +
-                'phase_and_demand' + '-' + 'percent' + '-' + 'per_movement' + '.png')
+                'phase_and_demand' + '-' + 'percent' + '-' + 'per_movement')
     plt.close()
 
 
@@ -821,7 +822,7 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
     plt.suptitle('phase and demand distribution (absolute numbers)')
 
     plt.savefig(save_path + '/' + name_base + '-' +
-                'phase_and_demand' + '-' + 'absolute' + '-' + 'per_movement' + '.png')
+                'phase_and_demand' + '-' + 'absolute' + '-' + 'per_movement')
     plt.close()
 
 
@@ -872,5 +873,5 @@ def consolidate_phase_and_demand(absolute_number_of_cars_each_step, traffic_ligh
 
     plt.suptitle('traffic light distribution (%, in decimal)')
 
-    plt.savefig(save_path + '/' + name_base + '-' + 'traffic light distribution' + '-' + 'per_movement' + '.png')
+    plt.savefig(save_path + '/' + name_base + '-' + 'traffic light distribution' + '-' + 'per_movement')
     plt.close()

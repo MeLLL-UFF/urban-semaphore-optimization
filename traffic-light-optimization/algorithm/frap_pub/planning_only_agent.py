@@ -33,9 +33,15 @@ class PlanningOnlyAgent(Agent):
         self.action_sampling_size = self.dic_agent_conf["ACTION_SAMPLING_SIZE"]
         self.planning_iterations = self.dic_agent_conf["PLANNING_ITERATIONS"]
 
+        self.background_planning = self.dic_agent_conf.get("BACKGROUND_PLANNING", False)
+        self.write_mode = False
+
+        if self.background_planning:
+            self.write_mode = True
+
         context = mp.get_context('spawn')
         self.process_pool_executor = ProcessPoolExecutor(
-            max_workers=max(pow(self.action_sampling_size, self.planning_iterations), 16), mp_context=context)
+            max_workers=min(pow(self.action_sampling_size, self.planning_iterations), 8), mp_context=context)
 
         self.tiebreak_policy = self.dic_agent_conf["TIEBREAK_POLICY"]
 
@@ -104,9 +110,12 @@ class PlanningOnlyAgent(Agent):
 
         env = copy.deepcopy(self.env)
 
-        env.path_to_log = env.path_to_log + '__' + 'planning'
-        if not os.path.exists(ROOT_DIR + '/' + env.path_to_log):
-            os.makedirs(ROOT_DIR + '/' + env.path_to_log)
+        if self.write_mode:
+            env.path_to_log = env.path_to_log + '__' + 'planning'
+            if not os.path.exists(ROOT_DIR + '/' + env.path_to_log):
+                os.makedirs(ROOT_DIR + '/' + env.path_to_log)
+        else:
+            env.write_mode = False
 
         envs = [env]
 
@@ -172,28 +181,30 @@ class PlanningOnlyAgent(Agent):
         for save_state_filepath_to_remove in save_state_filepath_list:
             os.remove(save_state_filepath_to_remove)
 
-        best_actions = np.flatnonzero(possible_future_rewards == np.max(possible_future_rewards))
+        best_action_path = np.flatnonzero(possible_future_rewards == np.max(possible_future_rewards))
 
-        if len(best_actions) > 1:
+        if len(best_action_path) > 1:
             if self.tiebreak_policy == 'random':
-                action = self.rng.choice(best_actions)
+                action_path = self.rng.choice(best_action_path)
 
             elif self.tiebreak_policy == 'maintain':
-                if previous_planning_actions and previous_planning_actions[-1] in best_actions:
-                    action = previous_planning_actions[-1]
+                if previous_planning_actions and previous_planning_actions[-1] in best_action_path:
+                    action_path = previous_planning_actions[-1]
                 else:
-                    action = self.rng.choice(best_actions)
+                    action_path = self.rng.choice(best_action_path)
 
             elif self.tiebreak_policy == 'change':
-                if previous_planning_actions and previous_planning_actions[-1] in best_actions:
-                    index = np.argwhere(best_actions == previous_planning_actions[-1])[0]
-                    best_actions = np.delete(best_actions, index)
+                if previous_planning_actions and previous_planning_actions[-1] in best_action_path:
+                    index = np.argwhere(best_action_path == previous_planning_actions[-1])[0]
+                    best_action_path = np.delete(best_action_path, index)
 
-                action = self.rng.choice(best_actions)
+                action_path = self.rng.choice(best_action_path)
             else:
                 raise ValueError('Invalid tiebreak_policy: ' + str(self.tiebreak_policy))
         else:
-            action = best_actions[0]
+            action_path = best_action_path[0]
+
+        action = previous_planning_actions_list[action_path][0]
 
         return action
 

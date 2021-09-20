@@ -169,9 +169,9 @@ DIC_SUMO_AGENT_CONF = {
 
 DIC_PLANNINGONLY_AGENT_CONF = {
     "PICK_ACTION_AND_KEEP_WITH_IT": False,
-    "ACTION_SAMPLING_SIZE": 2,
+    "TIEBREAK_POLICY": 'random',  # 'random', 'maintain', 'change'
     "PLANNING_ITERATIONS": 3,
-    "TIEBREAK_POLICY": 'random'  # 'random', 'maintain', 'change'
+    "ACTION_SAMPLING_SIZE": 2
 }
 
 DIC_FRAPWITHPLANNING_AGENT_CONF = {
@@ -196,11 +196,12 @@ DIC_FRAPWITHPLANNING_AGENT_CONF = {
     "DROPOUT_RATE": 0,
     "MERGE": "multiply",
 
-    "PLANNING_ITERATIONS": 2,
     "TIEBREAK_POLICY": 'random',  # 'random', 'maintain', 'change'
+    "PLANNING_ITERATIONS": 2,
     "ACTION_SAMPLING_SIZE": 2,
     "ACTION_SAMPLING_POLICY": 'random',  # 'best', 'random', 'exploration_exploitation'
-    "PLANNING_SAMPLE_ONLY": True
+    "BACKGROUND_PLANNING": True,
+    "DECISION_TIME_PLANNING": False
 }
 
 DIC_PATH = {

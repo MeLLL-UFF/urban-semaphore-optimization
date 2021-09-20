@@ -39,9 +39,9 @@ class Runner:
         )
 
         self.env = DIC_ENVS[dic_traffic_env_conf["SIMULATOR_TYPE"]](
-                path_to_log = self.path_to_log,
-                path_to_work_directory = self.dic_path["PATH_TO_WORK_DIRECTORY"],
-                dic_traffic_env_conf = self.dic_traffic_env_conf,
+                path_to_log=self.path_to_log,
+                path_to_work_directory=self.dic_path["PATH_TO_WORK_DIRECTORY"],
+                dic_traffic_env_conf=self.dic_traffic_env_conf,
                 dic_path=self.dic_path,
                 external_configurations=self.external_configurations,
                 mode='test')

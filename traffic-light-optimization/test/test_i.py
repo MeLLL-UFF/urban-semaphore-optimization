@@ -13,6 +13,7 @@ sys.path.append('traffic-light-optimization')
 from algorithm.frap_pub import synchronization_util
 
 # we need to import python modules from the $SUMO_HOME/tools directory
+os.environ['LIBSUMO_AS_TRACI'] = '1'
 if 'SUMO_HOME' in os.environ:
     tools = os.path.join(os.environ['SUMO_HOME'], 'tools')
     sys.path.append(tools)
@@ -356,25 +357,16 @@ def _run(_type='regular', experiment=None, _round=None, replay=False):
     
     #experiment_generator = create_experiment_generator(_type=_type)
 
-    scenario = 'acosta'
-    test_i_folder = definitions.ROOT_DIR + config.SCENARIO_PATH + '/experimental/Bologna_small-0.29.0'
-    traffic_level_configuration = tuple(['native'])
-    experiment_name = 'Bologna_small' + '__' + scenario
-    scenario_folder = test_i_folder + '/' + scenario
-    net_file = scenario_folder + '/' + scenario + '_' + 'buslanes' +'.net.xml'
-    #net_file = scenario_folder + '/' + scenario + '_' + 'buslanes' + '__' + 'unregulated' + '.net.xml'
-    sumocfg_file = scenario_folder + '/' + 'run' + '.sumo.cfg'
-
     # scenario = 'multi_intersection'
     # test_i_folder = definitions.ROOT_DIR + config.SCENARIO_PATH + '/experimental'
     # traffic_level_configuration = tuple(['custom_4_street_traffic'])
 
-    # scenario = '0_regular-intersection'
-    # traffic_level_configuration = tuple(['custom_4_street_traffic'])
-    # experiment_name = scenario + '__' + _type + '__' + '_'.join(traffic_level_configuration)
-    # scenario_folder = test_i_folder + '/' + scenario
-    # net_file = scenario_folder + '/' + scenario + '__' + _type + '.net.xml'
-    # sumocfg_file = scenario_folder + '/' + scenario + '__' + _type + '.sumocfg'
+    scenario = '0_regular-intersection'
+    traffic_level_configuration = tuple(['custom_4_street_traffic'])
+    experiment_name = scenario + '__' + _type + '__' + '_'.join(traffic_level_configuration)
+    scenario_folder = test_i_folder + '/' + scenario
+    net_file = scenario_folder + '/' + scenario + '__' + _type + '.net.xml'
+    sumocfg_file = scenario_folder + '/' + scenario + '__' + _type + '.sumocfg'
 
     experiment_generator = [(scenario, traffic_level_configuration, experiment_name, _type, net_file,
                              scenario_folder, sumocfg_file)]
