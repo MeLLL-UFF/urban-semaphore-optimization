@@ -1,16 +1,8 @@
-#print('Enabling attach')
-#import ptvsd
-#ptvsd.enable_attach(address=('0.0.0.0', 5678))
-#print('Waiting for attach')
-#ptvsd.wait_for_attach()
-
 import os
 import sys
 import subprocess
 
 sys.path.append('traffic-light-optimization')
-
-from algorithm.frap_pub import synchronization_util
 
 # we need to import python modules from the $SUMO_HOME/tools directory
 os.environ['LIBSUMO_AS_TRACI'] = '1'
@@ -38,9 +30,6 @@ traffic_level_mapping = {
     'heavy': 0.7
 }
 
-#test_i_folder = definitions.ROOT_DIR + config.SCENARIO_PATH + '/experimental/Bologna_small-0.29.0'
-
-#test_i_folder = definitions.ROOT_DIR + config.SCENARIO_PATH + '/experimental'
 test_i_folder = definitions.ROOT_DIR + config.SCENARIO_PATH + '/test_i'
 
 NUMBER_OF_PROCESSES = 4
@@ -399,76 +388,9 @@ def _run(_type='regular', experiment=None, _round=None, replay=False):
 
 
 def run():
-    #'OFF', STATIC, and FRAP
-    #_run(_type='unregulated')
-    #_run(_type='right_on_red')
     _run(_type='right_on_red')
 
 
 if __name__ == "__main__":
     #_build_experiment_i_routes()
     run()
-
-    # Experiment.summary(
-    #     ['Frap', '0', 'tab:blue', 'acosta_buslanes__native___04_10_02_53_49__82acedfc-9ba3-4e50-acf3-1792b4251d14'],
-    #     plots='summary_only', baseline_comparison=False,
-    #     baseline_experiments=[
-    #         ['Sumo', '0_regular-intersection__right_on_red__custom_4_street_traffic___02_15_09_15_55__89976a1e-3dde-48ef-aaa3-9c44d9267b56', 0, 'r', 'static'],
-    #         ['Sumo', '0_regular-intersection__unregulated__custom_4_street_traffic___02_15_09_56_04__56bfd179-d3dc-461d-a487-1fbb0ae9cfe8', 0, 'g', 'unregulated']
-    #     ])
-
-    '''
-    Experiment.summary(
-        'multi_intersection__unregulated__custom_4_street_traffic___01_29_10_42_55__75339974-6257-4fb7-8379-daf7f8db4ead',
-        memo='Frap', plots='summary_only', baseline_comparison=True,
-        baseline_experiments=[
-            ['Sumo', '0_regular-intersection__right_on_red__custom_4_street_traffic___02_15_09_15_55__89976a1e-3dde-48ef-aaa3-9c44d9267b56', 0, 'r', 'right on red'],
-            ['Sumo', '0_regular-intersection__unregulated__custom_4_street_traffic___02_15_09_56_04__56bfd179-d3dc-461d-a487-1fbb0ae9cfe8', 0, 'g', 'unregulated']
-        ])
-    Experiment.summary(
-        'multi_intersection__unregulated__custom_4_street_traffic___01_29_10_42_55__75339974-6257-4fb7-8379-daf7f8db4ead',
-        memo='Frap', _round=0, plots='records_only', baseline_comparison=True,
-        baseline_experiments=[
-            ['Sumo', '0_regular-intersection__right_on_red__custom_4_street_traffic___02_15_09_15_55__89976a1e-3dde-48ef-aaa3-9c44d9267b56', 0, 'r', 'right on red'],
-            ['Sumo', '0_regular-intersection__unregulated__custom_4_street_traffic___02_15_09_56_04__56bfd179-d3dc-461d-a487-1fbb0ae9cfe8', 0, 'g', 'unregulated']
-        ])
-    '''
-
-    '''
-    Experiment.summary(
-        [['Sumo', 'label_1', 'k', 'joined_buslanes__native___03_27_13_58_30__24dd0839-784d-4b67-96e6-2079634e73fc'],
-         ['Sumo', 'label_2', 'k', 'joined_buslanes__unregulated__native___03_27_15_03_11__de9c74ae-12d8-4167-8eaf-314a75cd67d8']],
-        plots='summary_only', baseline_comparison=True,
-        baseline_experiments=[
-            ['Sumo', '0_regular-intersection__right_on_red__custom_4_street_traffic___02_15_09_15_55__89976a1e-3dde-48ef-aaa3-9c44d9267b56', 0, 'r', 'static'],
-            ['Sumo', '0_regular-intersection__unregulated__custom_4_street_traffic___02_15_09_56_04__56bfd179-d3dc-461d-a487-1fbb0ae9cfe8', 0, 'g', 'unregulated']
-        ])
-    '''
-
-    '''
-    Experiment.summary(
-        'multi_intersection__unregulated__custom_4_street_traffic___01_29_10_42_55__75339974-6257-4fb7-8379-daf7f8db4ead',
-        memo='Frap', plots='summary_only', baseline_comparison=True,
-        baseline_experiments=[
-            ['Sumo', 'multi_intersection__right_on_red__custom_4_street_traffic___02_15_09_00_21__9503f26d-5453-4504-b819-41a52f9b039a', 0, 'r', 'right on red'],
-            ['Sumo', 'multi_intersection__unregulated__custom_4_street_traffic___02_15_09_58_24__7a5c1750-9118-40a5-bb91-183f780eaf43', 0, 'g', 'unregulated']
-        ])
-    Experiment.summary(
-        'multi_intersection__unregulated__custom_4_street_traffic___01_29_10_42_55__75339974-6257-4fb7-8379-daf7f8db4ead',
-        memo='Frap', _round=0, plots='records_only', baseline_comparison=True,
-        baseline_experiments=[
-            ['Sumo', 'multi_intersection__right_on_red__custom_4_street_traffic___02_15_09_00_21__9503f26d-5453-4504-b819-41a52f9b039a', 0, 'r', 'right on red'],
-            ['Sumo', 'multi_intersection__unregulated__custom_4_street_traffic___02_15_09_58_24__7a5c1750-9118-40a5-bb91-183f780eaf43', 0, 'g', 'unregulated']
-        ])
-    '''
-    '''
-    experiment = '0_regular-intersection__right_on_red__custom_4_street_traffic___11_25_21_45_20__5048bb77-0cf8-4472-8b6f-5f78e1cd4989'
-
-    #_round = 'worst_time_loss'
-    _round = 0
-
-    Experiment.visualize_policy_behavior(
-        scenario='0_regular-intersection', _type='right_on_red', traffic_level_configuration='custom_4_street_traffic',
-        memo='Frap', experiment=experiment, _round=_round)
-
-    '''
