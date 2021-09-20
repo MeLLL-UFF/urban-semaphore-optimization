@@ -45,8 +45,8 @@ def consolidate_reward(reward_each_step, save_path, name_base):
     plt.close()
 
 def plot_percentage_time_loss_per_driver(percentage_time_loss_per_driver_df,
-                                      save_path, name_base, algorithm_label, baseline_comparison=False,
-                                      baseline_experiments=None, is_summary=False):
+                                         save_path, name_base, algorithm_label, baseline_comparison=False,
+                                         baseline_experiments=None, is_summary=False):
 
     f, ax = plt.subplots(1, 1, figsize=(20, 9), dpi=600)
 
@@ -112,9 +112,9 @@ def plot_percentage_time_loss_per_driver(percentage_time_loss_per_driver_df,
 
 
 def plot_cumulative_time_loss_per_driver(cumulative_time_loss_per_driver_df,
-                                           save_path, name_base, algorithm_label,
-                                           baseline_comparison=False, baseline_experiments=None,
-                                           is_summary=False):
+                                         save_path, name_base, algorithm_label,
+                                         baseline_comparison=False, baseline_experiments=None,
+                                         is_summary=False):
 
     f, ax = plt.subplots(1, 1, figsize=(20, 9), dpi=600)
 
