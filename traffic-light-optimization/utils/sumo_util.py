@@ -12,8 +12,6 @@ from shapely.geometry import Point, LineString
 
 from utils.bidict import bidict
 from utils import math_util, xml_util
-from city.flow.configurer.flow_configurer import FlowConfigurer
-from city.traffic_light_system.traffic_light.configurer.traffic_light_configurer_factory import traffic_light_configurer_instances
 from definitions import get_network_file_path, get_route_file_path
 
 
